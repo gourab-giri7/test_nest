@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "45645289518",
+    "project_id": "testnest-5366f",
+    "storage_bucket": "testnest-5366f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:45645289518:android:9a0a6ea8bfd63089d127bf",
+        "android_client_info": {
+          "package_name": "com.example.test_nest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMmEyXIxD8hO00GbUQTyFjmPR_uymTbn0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
