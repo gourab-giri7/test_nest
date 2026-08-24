@@ -46,36 +46,84 @@ class FileUploadScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // File Upload Box with Dotted Border styling
-                  Container(
-                    height: 200,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Column(
-                      spacing: 5,
-                      mainAxisAlignment: .center,
-                      children: [
-                        Row(
-                          spacing: 5,
-                          mainAxisAlignment: .center,
-                          children: [
-                            Icon(Icons.upload_file_sharp, color: Colors.blue),
-                            Text(
-                              "Click to upload Q&A excell file",
-                              style: TextStyle(
-                                color: Colors.blue,
-                                fontWeight: FontWeight.bold,
+                  Consumer<FileUploadController>(
+                    builder: (context, controller, child) => GestureDetector(
+                      onTap: () => controller.pickFile(),
+                      child: Container(
+                        height: 200,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: controller.slectedFileName != null
+                            ? Column(
+                                mainAxisAlignment: .center,
+                                children: [
+                                  Row(
+                                    spacing: 5,
+                                    mainAxisAlignment: .center,
+                                    children: [
+                                      Icon(
+                                        Icons.upload_file_sharp,
+                                        color: Colors.blue,
+                                      ),
+                                      Text(
+                                        controller.slectedFileName!,
+                                        style: TextStyle(
+                                          color: Colors.blue,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () =>controller.cancelFile(),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        side: BorderSide(color: Colors.red),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      "Cancel",
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                spacing: 5,
+                                mainAxisAlignment: .center,
+                                children: [
+                                  Row(
+                                    spacing: 5,
+                                    mainAxisAlignment: .center,
+                                    children: [
+                                      Icon(
+                                        Icons.upload_file_sharp,
+                                        color: Colors.blue,
+                                      ),
+                                      Text(
+                                        "Click to upload Q&A excell file",
+                                        style: TextStyle(
+                                          color: Colors.blue,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    "NOTE : File should be the bellow formate",
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          "NOTE : File should be the bellow formate",
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),

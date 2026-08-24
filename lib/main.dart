@@ -60,6 +60,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> initData() async {
     pref = await SharedPreferences.getInstance();
     final controller = context.read<LoginController>();
+    // pref.remove("isLogined");
 
     controller.changeLoginState(
       pref.getBool('isLogined') ?? false,

@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:path_provider/path_provider.dart';
 
 class FileUploadController extends ChangeNotifier {
+  String? slectedFileName;
   static Future<bool> downloadTemplate() async {
     try {
       // Load Excel file from assets
@@ -28,7 +30,7 @@ class FileUploadController extends ChangeNotifier {
       final String? savedPath = await FlutterFileDialog.saveFile(
         params: SaveFileDialogParams(
           sourceFilePath: file.path,
-          fileName: 'Template_sheet.xlsx',
+          fileName: 'Template_sheet_${DateTime.timestamp().hour}${DateTime.timestamp().microsecond}.xlsx',
         ),
       );
 
@@ -48,12 +50,28 @@ class FileUploadController extends ChangeNotifier {
 
   void pickFile() async {
     try {
-         FilePickerResult? result=await FilePicker.platform.pickFiles(
-      type: FileType.any, 
-      allowMultiple: false, 
-    );
+      PlatformFile? file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx'],
+        
+      );
+      if (file != null) {
+        slectedFileName = file.name;
+        log(file.name);
+        // log(file.length().toString());
+      } else {
+        // User canceled the picker
+      }
     } catch (e) {
       log(e.toString());
     }
+    notifyListeners();
   }
+
+  // ---- cancel selected file
+  void cancelFile() {
+    slectedFileName = null;
+    notifyListeners();
+  }
+  
 }
