@@ -1,11 +1,28 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/feature/domain/teacher/data/models/Q&A_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/controller/file_upload_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/reviewPublishExam/review_publish_screen.dart';
 
-class FileUploadScreen extends StatelessWidget {
+class FileUploadScreen extends StatefulWidget {
   const FileUploadScreen({super.key});
+
+  @override
+  State<FileUploadScreen> createState() => _FileUploadScreenState();
+}
+
+class _FileUploadScreenState extends State<FileUploadScreen> {
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      context.read<FileUploadController>().cancelFile();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +65,7 @@ class FileUploadScreen extends StatelessWidget {
                   // File Upload Box with Dotted Border styling
                   Consumer<FileUploadController>(
                     builder: (context, controller, child) => GestureDetector(
-                      onTap: () => controller.pickFile(),
+                      onTap: () => controller.pickFile(context),
                       child: Container(
                         height: 200,
                         width: double.infinity,
@@ -78,7 +95,7 @@ class FileUploadScreen extends StatelessWidget {
                                     ],
                                   ),
                                   ElevatedButton(
-                                    onPressed: () =>controller.cancelFile(),
+                                    onPressed: () => controller.cancelFile(),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(
@@ -167,35 +184,44 @@ class FileUploadScreen extends StatelessWidget {
                   const SizedBox(height: 10),
 
                   // Guidelines Card Section
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFF1F5F9)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'File Guidelines',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
+                  Consumer<FileUploadController>(
+                    builder: (context, controller, child) =>
+                        controller.questions.isNotEmpty
+                        ? Column(children: [...questionsList(context)])
+                        : Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFF1F5F9),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'File Guidelines',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                _buildGuidelineItem(
+                                  'Only .xlsx files are allowed',
+                                ),
+                                _buildGuidelineItem(
+                                  'Sheet formate should be same as the sample sheet',
+                                ),
+                                _buildGuidelineItem(
+                                  'Format: Question, Option A, Option B, Option C, Option D, Answer',
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildGuidelineItem('Only .xlsx files are allowed'),
-                        _buildGuidelineItem(
-                          'Sheet formate should be same as the sample sheet',
-                        ),
-                        _buildGuidelineItem(
-                          'Format: Question, Option A, Option B, Option C, Option D, Answer',
-                        ),
-                      ],
-                    ),
                   ),
                   const SizedBox(height: 32),
 
@@ -268,34 +294,71 @@ class FileUploadScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuestioncard({
-    required String q,
-    required String a,
-    required String b,
-    required String c,
-    required String d,
-    required String ans,
-  }) {
+  List<Widget> questionsList(BuildContext context) {
+    List<Widget> list = [];
+    for (
+      int i = 0;
+      i < context.read<FileUploadController>().questions.length;
+      i++
+    ) {
+      list.add(
+        _buildQuestioncard(
+          data: context.read<FileUploadController>().questions[i],
+        ),
+      );
+    }
+    return list;
+  }
+
+  Widget _buildQuestioncard({required QAModel data}) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey),
       ),
       child: Column(
+        spacing: 8,
         mainAxisAlignment: .start,
         crossAxisAlignment: .start,
         children: [
-          Text("Q. $q", style: TextStyle(fontWeight: FontWeight.bold)),
-          SizedBox(height: 10),
-          Text("A. $a"),
-          Text("B. $b"),
-          Text("C. $c"),
-          Text("D. $d"),
-          Text("Ans. $ans"),
+          Text(
+            "Q. ${data.q}",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          SizedBox(height: 8),
+          option("A", data.a),
+          option("B", data.b),
+          option("C", data.c),
+          option("D", data.d),
+          option("Ans", data.ans),
+          // Text("Ans. ${data.ans}"),
         ],
       ),
     );
   }
+}
+
+Widget option(String number, String option) {
+  return Container(
+    padding: EdgeInsets.symmetric(vertical: 10, horizontal: 5),
+    width: double.maxFinite,
+    decoration: BoxDecoration(
+      color: Colors.grey[300],
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Text.rich(
+      TextSpan(
+        text: "$number: ",
+        style: TextStyle(fontWeight: .bold, fontSize: 15),
+        children: [
+          TextSpan(
+            text: option,
+            style: TextStyle(fontWeight: FontWeight.normal),
+          ),
+        ],
+      ),
+    ),
+  );
 }

@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:test_nest/feature/domain/teacher/data/models/exam_model.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/controller/file_upload_controller.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/reviewPublishExam/controller/publishExamController.dart';
 
 class ReviewPublishScreen extends StatelessWidget {
   const ReviewPublishScreen({super.key});
@@ -53,23 +58,22 @@ class ReviewPublishScreen extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // Key-Value Details List
-                  _buildDetailItem('Exam Name', 'Mathematics Mid Term'),
+                  _buildDetailItem('Exam Name', examDetails.examName),
                   _buildDivider(),
-                  _buildDetailItem('Full Marks', '100'),
+                  _buildDetailItem('Full Marks', examDetails.fullMarks),
                   _buildDivider(),
                   _buildDetailItem(
                     'Date & Time',
-                    '24 May 2025, 10:00 AM - 12:00 PM',
+                    '${DateFormat('dd MMM yyyy').format(examDetails.examStart)}, '
+                        '${DateFormat('hh:mm a').format(examDetails.examStart)} - '
+                        '${DateFormat('hh:mm a').format(examDetails.examEnd)}',
                   ),
                   _buildDivider(),
-                  _buildDetailItem('Exam Key', 'MATH2025'),
+                  _buildDetailItem('Exam Key', examDetails.examKey),
                   _buildDivider(),
-                  _buildDetailItem('Total Questions', '50'),
-                  _buildDivider(),
-                  _buildDetailItem(
-                    'Assigned Students',
-                    'Class 10 - A (25 Students)',
-                  ),
+                  // _buildDetailItem('Total Questions', '50'),
+                  // _buildDivider(),
+                  _buildDetailItem('Assigned Students', examDetails.batch),
                   _buildDivider(),
 
                   // QA File Item with Checkmark Badge
@@ -90,8 +94,11 @@ class ReviewPublishScreen extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'questions_maths_midterm.xlsx',
+                            Text(
+                              context
+                                      .read<FileUploadController>()
+                                      .slectedFileName ??
+                                  "",
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -118,24 +125,28 @@ class ReviewPublishScreen extends StatelessWidget {
                   const SizedBox(height: 32),
 
                   // Action Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                  Consumer<Publishexamcontroller>(
+                    builder: (context, controller, child) => SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2563EB),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
-                      ),
-                      onPressed: () {},
-                      child: const Text(
-                        'Publish Exam',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                        onPressed: () {
+                          controller.publishExam(context);
+                        },
+                        child:controller.isLoad?Center(child: CircularProgressIndicator(color: Colors.white,),): const Text(
+                          'Publish Exam',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),

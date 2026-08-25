@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 
 class ExamModel {
   final String examName;
@@ -8,9 +7,8 @@ class ExamModel {
   final String instruction;
   final String batch;
 
-  final DateTime examDate;
-  final int startTime;
-  final int endTime;
+  final DateTime examStart;
+  final DateTime examEnd;
 
   ExamModel({
     required this.examName,
@@ -18,32 +16,11 @@ class ExamModel {
     required this.examKey,
     required this.instruction,
     required this.batch,
-    required this.examDate,
-    required this.startTime,
-    required this.endTime,
+    required this.examStart,
+    required this.examEnd,
   });
 
-  // TimeOfDay → minutes
-  static int timeToMinutes(TimeOfDay time) {
-    return time.hour * 60 + time.minute;
-  }
-
-  // Minutes → TimeOfDay
-  static TimeOfDay minutesToTime(int minutes) {
-    return TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
-  }
-
   factory ExamModel.fromJson(Map<String, dynamic> json) {
-    final dateValue = json['exam_date'];
-
-    DateTime examDate;
-
-    if (dateValue is Timestamp) {
-      examDate = dateValue.toDate();
-    } else {
-      examDate = DateTime.parse(dateValue.toString());
-    }
-
     return ExamModel(
       examName: json['exam_name']?.toString() ?? '',
       fullMarks: json['full_marks']?.toString() ?? '',
@@ -51,12 +28,21 @@ class ExamModel {
       instruction: json['instruction']?.toString() ?? '',
       batch: json['batch']?.toString() ?? '',
 
-      examDate: examDate,
-
-      startTime: int.tryParse(json['start_time'].toString()) ?? 0,
-
-      endTime: int.tryParse(json['end_time'].toString()) ?? 0,
+      examStart: _timestampToDateTime(json['exam_start']),
+      examEnd: _timestampToDateTime(json['exam_end']),
     );
+  }
+
+  static DateTime _timestampToDateTime(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    return DateTime.parse(value.toString());
   }
 
   Map<String, dynamic> toJson() {
@@ -67,48 +53,23 @@ class ExamModel {
       'instruction': instruction,
       'batch': batch,
 
-      // Firestore Timestamp
-      'exam_date': Timestamp.fromDate(examDate),
-
-      // Minutes from midnight
-      'start_time': startTime,
-      'end_time': endTime,
+      'exam_start': Timestamp.fromDate(examStart),
+      'exam_end': Timestamp.fromDate(examEnd),
     };
-  }
-
-  // Full start DateTime
-  DateTime get examStartDateTime {
-    return DateTime(
-      examDate.year,
-      examDate.month,
-      examDate.day,
-      startTime ~/ 60,
-      startTime % 60,
-    );
-  }
-
-  // Full end DateTime
-  DateTime get examEndDateTime {
-    return DateTime(
-      examDate.year,
-      examDate.month,
-      examDate.day,
-      endTime ~/ 60,
-      endTime % 60,
-    );
   }
 
   String get status {
     final now = DateTime.now();
 
-    if (now.isBefore(examStartDateTime)) {
+    if (now.isBefore(examStart)) {
       return 'Upcoming';
     }
 
-    if (now.isAfter(examEndDateTime)) {
+    if (now.isAfter(examEnd)) {
       return 'Completed';
     }
 
     return 'Active';
   }
 }
+late ExamModel examDetails;

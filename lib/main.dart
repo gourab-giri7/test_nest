@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/dashboard/controller/student_dashboard_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/allStudents/controller/student_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/controller/file_upload_controller.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/reviewPublishExam/controller/publishExamController.dart';
 import 'firebase_options.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/login/controller/login_controller.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/login/login_screen.dart';
@@ -33,6 +34,7 @@ void main() async {
           create: (context) => StudentDashboardController(),
         ),
         ChangeNotifierProvider(create: (context) => FileUploadController()),
+        ChangeNotifierProvider(create: (context) => Publishexamcontroller()),
       ],
       child: const MyApp(),
     ),
@@ -50,12 +52,12 @@ late final SharedPreferences pref;
 LoginController loginController = LoginController();
 
 class _MyAppState extends State<MyApp> {
-  @override
-  void initState() {
-    initData();
-    // TODO: implement initState
-    super.initState();
-  }
+  // @override
+  // void initState() {
+  //   initData();
+  //   // TODO: implement initState
+  //   super.initState();
+  // }
 
   Future<void> initData() async {
     pref = await SharedPreferences.getInstance();
@@ -70,16 +72,18 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    log(loginController.isLogined.toString());
+    // log(loginController.isLogined.toString());
     return Material(
       child: Consumer<LoginController>(
         builder: (context, controller, child) => MaterialApp(
           debugShowCheckedModeBanner: false,
+
           home: controller.isLogined
               ? controller.role == "teacher"
                     ? TeacherDashboardScreen()
                     : StudentDashboardScreen()
               : LoginScreen(),
+          // home: FileUploadScreen(),
         ),
       ),
     );

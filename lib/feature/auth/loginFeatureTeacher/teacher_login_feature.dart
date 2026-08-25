@@ -6,6 +6,7 @@ import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.
 import 'package:test_nest/main.dart';
 
 class TeacherLoginFeature {
+  
   static final firestore = FirebaseFirestore.instance;
   static Future<int> teacherlogin(String id, String password) async {
     try {
