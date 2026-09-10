@@ -63,7 +63,7 @@ class AddStudentController extends ChangeNotifier {
               'id': studentIdController.text.trim(),
               'name': fullNameController.text.trim(),
               'password': passwordController.text.trim(),
-              'teacher_id': teacherData.teacherId.trim(),
+              'teacher_id': teacherData.id.trim(),
               'teacher_name': teacherData.name.trim(),
             });
         String lastStdId = (int.tryParse(teacherData.lastStdId)! + 1)

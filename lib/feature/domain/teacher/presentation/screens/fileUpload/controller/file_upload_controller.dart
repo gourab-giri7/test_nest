@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
-import 'package:test_nest/feature/domain/teacher/data/models/Q&A_model.dart';
+import 'package:test_nest/model/Q&A_model.dart';
 
 class FileUploadController extends ChangeNotifier {
   String? slectedFileName;

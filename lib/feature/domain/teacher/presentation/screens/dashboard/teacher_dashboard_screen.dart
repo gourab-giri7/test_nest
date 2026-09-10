@@ -107,7 +107,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                             ),
                           ),
                           Text(
-                            ' TID: ${teacherData.teacherId}',
+                            ' TID: ${teacherData.id}',
                             style: TextStyle(
                               // fontSize: 14,
                               color: Colors.blueGrey,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/dashboard/controller/student_dashboard_controller.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/examHistory/controller/exam_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/allStudents/controller/student_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/controller/file_upload_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/reviewPublishExam/controller/publishExamController.dart';
@@ -30,9 +31,7 @@ void main() async {
         ChangeNotifierProvider(create: (context) => AddStudentController()),
         ChangeNotifierProvider(create: (context) => CreateExamController()),
         ChangeNotifierProvider(create: (context) => StudentController()),
-        ChangeNotifierProvider(
-          create: (context) => StudentDashboardController(),
-        ),
+        ChangeNotifierProvider(create: (context) => ExamController()),
         ChangeNotifierProvider(create: (context) => FileUploadController()),
         ChangeNotifierProvider(create: (context) => Publishexamcontroller()),
       ],
@@ -52,12 +51,12 @@ late final SharedPreferences pref;
 LoginController loginController = LoginController();
 
 class _MyAppState extends State<MyApp> {
-  // @override
-  // void initState() {
-  //   initData();
-  //   // TODO: implement initState
-  //   super.initState();
-  // }
+  @override
+  void initState() {
+    initData();
+    // TODO: implement initState
+    super.initState();
+  }
 
   Future<void> initData() async {
     pref = await SharedPreferences.getInstance();

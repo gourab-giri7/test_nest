@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
-import 'package:test_nest/feature/domain/teacher/data/models/exam_model.dart';
+import 'package:test_nest/model/exam_details_model.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/dashboard/teacher_dashboard_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/controller/file_upload_controller.dart';
@@ -21,20 +21,24 @@ class Publishexamcontroller extends ChangeNotifier {
           .map((e) => e.toJson())
           .toList();
       isLoad = true;
+      // -- create unique id
+      final uniqueId = generateExamId(
+        teacherData.name,
+        int.parse(teacherData.lastExamId),
+      ).toString();
+      // ------- publish feature
       final collection = firestore
           .collection("user")
-          .doc(teacherData.teacherId)
+          .doc(teacherData.id)
           .collection('exams');
-      collection
-          .doc(
-            generateExamId(
-              teacherData.name,
-              int.parse(teacherData.lastExamId),
-            ).toString(),
-          )
-          .set({"exam_details": examDetails.toJson(), "questions": QAlist});
+
+      collection.doc(uniqueId).set({
+        "exam_details": examDetails.toJson(),
+        "questions": QAlist,
+        "exam_id": uniqueId,
+      });
       // -----------update data in firestore
-      firestore.collection('user').doc(teacherData.teacherId).set({
+      firestore.collection('user').doc(teacherData.id).set({
         "last_exam_id": (int.parse(teacherData.lastExamId) + 1).toString(),
       });
       // ------ for current use data

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
-import 'package:test_nest/feature/domain/teacher/data/models/exam_model.dart';
+import 'package:test_nest/model/exam_details_model.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/file_upload_screen.dart';
 
@@ -47,100 +47,95 @@ class CreateExamController extends ChangeNotifier {
   }
 
   TimeOfDay? _parseTime(String value) {
-  try {
-    final date = DateFormat('h:mm a').parse(value);
+    try {
+      final date = DateFormat('h:mm a').parse(value);
 
-    return TimeOfDay(
-      hour: date.hour,
-      minute: date.minute,
-    );
-  } catch (_) {
-    return null;
+      return TimeOfDay(hour: date.hour, minute: date.minute);
+    } catch (_) {
+      return null;
+    }
   }
-}
 
   // -------------- next
- void next(BuildContext context) {
-  if (!examKey.currentState!.validate()) {
-    return;
-  }
+  void next(BuildContext context) {
+    if (!examKey.currentState!.validate()) {
+      return;
+    }
 
-  // Check date
-  if (pickedDate == null) {
-    customSnackbar(
-      context: context,
-      message: 'Please select exam date.',
-      color: Colors.red,
-      ico: Icons.error,
+    // Check date
+    if (pickedDate == null) {
+      customSnackbar(
+        context: context,
+        message: 'Please select exam date.',
+        color: Colors.red,
+        ico: Icons.error,
+      );
+      return;
+    }
+
+    // Parse start time
+    final TimeOfDay? startTime = _parseTime(startTimeController.text);
+
+    // Parse end time
+    final TimeOfDay? endTime = _parseTime(endTimeController.text);
+
+    if (startTime == null || endTime == null) {
+      customSnackbar(
+        context: context,
+        message: 'Please select valid start and end time.',
+        color: Colors.red,
+        ico: Icons.error,
+      );
+      return;
+    }
+
+    // Create complete exam start DateTime
+    final DateTime examStart = DateTime(
+      pickedDate!.year,
+      pickedDate!.month,
+      pickedDate!.day,
+      startTime.hour,
+      startTime.minute,
     );
-    return;
-  }
 
-  // Parse start time
-  final TimeOfDay? startTime =
-      _parseTime(startTimeController.text);
-
-  // Parse end time
-  final TimeOfDay? endTime =
-      _parseTime(endTimeController.text);
-
-  if (startTime == null || endTime == null) {
-    customSnackbar(
-      context: context,
-      message: 'Please select valid start and end time.',
-      color: Colors.red,
-      ico: Icons.error,
+    // Create complete exam end DateTime
+    final DateTime examEnd = DateTime(
+      pickedDate!.year,
+      pickedDate!.month,
+      pickedDate!.day,
+      endTime.hour,
+      endTime.minute,
     );
-    return;
-  }
 
-  // Create complete exam start DateTime
-  final DateTime examStart = DateTime(
-    pickedDate!.year,
-    pickedDate!.month,
-    pickedDate!.day,
-    startTime.hour,
-    startTime.minute,
-  );
+    // End must be after start
+    if (!examEnd.isAfter(examStart)) {
+      customSnackbar(
+        context: context,
+        message: 'End time must be after start time.',
+        color: Colors.red,
+        ico: Icons.error,
+      );
+      return;
+    }
 
-  // Create complete exam end DateTime
-  final DateTime examEnd = DateTime(
-    pickedDate!.year,
-    pickedDate!.month,
-    pickedDate!.day,
-    endTime.hour,
-    endTime.minute,
-  );
-
-  // End must be after start
-  if (!examEnd.isAfter(examStart)) {
-    customSnackbar(
-      context: context,
-      message: 'End time must be after start time.',
-      color: Colors.red,
-      ico: Icons.error,
+    // Create ExamModel
+    examDetails = ExamDetailsModel(
+      examName: examNameController.text.trim(),
+      fullMarks: fullMarksController.text.trim(),
+      examKey: examKeyController.text.trim(), 
+      instruction: instructionsController.text.trim(),
+      batch: selectedbatch,
+      examStart: examStart,
+      examEnd: examEnd,
+      // examId: teacherData.lastExamId,
     );
-    return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const FileUploadScreen()),
+    );
   }
 
-  // Create ExamModel
-  examDetails = ExamModel(
-    examName: examNameController.text.trim(),
-    fullMarks: fullMarksController.text.trim(),
-    examKey: examKeyController.text.trim(),
-    instruction: instructionsController.text.trim(),
-    batch: selectedbatch,
-    examStart: examStart,
-    examEnd: examEnd,
-  );
-
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const FileUploadScreen(),
-    ),
-  );
-}
   void clearAll() {
     examNameController.clear();
     fullMarksController.clear();

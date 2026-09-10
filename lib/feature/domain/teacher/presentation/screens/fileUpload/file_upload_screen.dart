@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:test_nest/feature/domain/teacher/data/models/Q&A_model.dart';
+import 'package:test_nest/model/Q&A_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/controller/file_upload_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/reviewPublishExam/review_publish_screen.dart';
 
