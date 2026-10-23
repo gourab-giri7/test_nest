@@ -1,0 +1,97 @@
+rules_version = '2';
+
+// ============================================================================
+// Test Nest — Firestore Security Rules
+// ============================================================================
+// Architecture note:
+// - Teachers authenticate via Firebase Authentication (email/password).
+// - Teacher Firestore doc ID === Firebase Auth UID.
+// - Students currently do NOT use Firebase Authentication; they authenticate
+//   with a teacher ID + student ID lookup pattern from the client.
+//   This means student-originated Firestore writes cannot be fully secured by
+//   security rules until student Firebase Auth is implemented.
+//   RECOMMENDED NEXT STEP: Create Firebase Auth accounts for students so that
+//   student submissions can be gated to request.auth.uid == studentId.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Default: deny everything
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Teacher profile
+    // Teacher doc ID must equal the Firebase Auth UID.
+    // -------------------------------------------------------------------------
+    match /user/{teacherId} {
+      // Only the authenticated teacher may read or write their own profile.
+      allow read, write: if request.auth != null
+                         && request.auth.uid == teacherId;
+
+      // -----------------------------------------------------------------------
+      // Students sub-collection
+      // Teacher can manage all their students.
+      // TODO: Once students have Firebase Auth accounts, allow students to read
+      //       their own document: request.auth.uid == resource.data.authUid
+      // -----------------------------------------------------------------------
+      match /students/{studentId} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == teacherId;
+      }
+
+      // -----------------------------------------------------------------------
+      // Exams sub-collection
+      // -----------------------------------------------------------------------
+      match /exams/{examId} {
+        // Teacher can manage their exams.
+        allow read, write: if request.auth != null
+                           && request.auth.uid == teacherId;
+
+        // Questions — teacher read/write only (answer keys must stay hidden from students)
+        match /questions/{questionId} {
+          allow read, write: if request.auth != null
+                             && request.auth.uid == teacherId;
+        }
+
+        // Answer keys — teacher only (never expose to students)
+        match /answerKeys/{questionId} {
+          allow read, write: if request.auth != null
+                             && request.auth.uid == teacherId;
+        }
+
+        // Submissions
+        // - Teacher can read all submissions.
+        // - Currently students write via unauthenticated path (security limitation).
+        //   TODO: When students have Firebase Auth, restrict writes to:
+        //         request.auth.uid == submissionId (student's own doc)
+        //         AND exam result_published check for reads
+        match /submissions/{submissionId} {
+          allow read, write: if request.auth != null
+                             && request.auth.uid == teacherId;
+          // TEMPORARY: Allow client writes for students (remove after student Firebase Auth)
+          // This is a known security gap documented here explicitly.
+          // allow write: if request.auth != null; // uncomment only if students have auth
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // Fee records — teacher and student's own records
+      // students/{studentId}/feeRecords/{billingMonth}
+      // -----------------------------------------------------------------------
+      match /students/{studentId}/feeRecords/{billingMonth} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == teacherId;
+
+        match /payments/{paymentId} {
+          allow read, write: if request.auth != null
+                             && request.auth.uid == teacherId;
+        }
+      }
+    }
+  }
+}

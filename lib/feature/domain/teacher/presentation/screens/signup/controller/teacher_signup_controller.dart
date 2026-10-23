@@ -1,0 +1,185 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/dashboard/teacher_dashboard_screen.dart';
+import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
+
+class TeacherSignupController extends ChangeNotifier {
+  final formKey = GlobalKey<FormState>();
+  final name = TextEditingController();
+  final email = TextEditingController();
+  final mobile = TextEditingController();
+  final instituteName = TextEditingController();
+  final instituteAddress = TextEditingController();
+  final password = TextEditingController();
+  final confirm = TextEditingController();
+
+  bool loading = false;
+  bool obscure = true;
+  bool obscureConfirm = true;
+
+  String? requiredField(String? v) =>
+      v == null || v.trim().isEmpty ? 'This field is required' : null;
+
+  String? emailValidator(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Email is required';
+    if (!v.contains('@') || !v.contains('.')) return 'Enter a valid email';
+    return null;
+  }
+
+  String? passwordValidator(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Password is required';
+    if (v.length < 6) return 'Minimum 6 characters required';
+    return null;
+  }
+
+  String? confirmPasswordValidator(String? v) {
+    if (v != password.text) return 'Passwords do not match';
+    return null;
+  }
+
+  void toggleObscure() {
+    obscure = !obscure;
+    notifyListeners();
+  }
+
+  void toggleObscureConfirm() {
+    obscureConfirm = !obscureConfirm;
+    notifyListeners();
+  }
+
+  Future<void> signup(BuildContext context) async {
+    if (!formKey.currentState!.validate() || loading) return;
+    loading = true;
+    notifyListeners();
+
+    try {
+      final cleanEmail = email.text.trim().toLowerCase();
+      final cleanName = name.text.trim();
+
+      // Create Firebase Auth user
+      UserCredential userCredential;
+      try {
+        userCredential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(
+              email: cleanEmail,
+              password: password.text,
+            );
+      } on FirebaseAuthException catch (authErr) {
+        if (authErr.code == 'email-already-in-use') {
+          // Attempt sign in to see if it was a partial signup failure
+          try {
+            userCredential = await FirebaseAuth.instance
+                .signInWithEmailAndPassword(
+                  email: cleanEmail,
+                  password: password.text,
+                );
+            // Verify if profile already exists
+            final existingDoc = await FirebaseFirestore.instance
+                .collection('user')
+                .doc(userCredential.user!.uid)
+                .get();
+            if (existingDoc.exists && existingDoc.data() != null) {
+              // Account already completely exists
+              rethrow;
+            }
+            // Document was missing from partial failure; proceed to write it!
+          } catch (_) {
+            rethrow;
+          }
+        } else {
+          rethrow;
+        }
+      }
+
+      final uid = userCredential.user!.uid;
+
+      // Create or update Firestore teacher doc at user/{uid}
+      await FirebaseFirestore.instance.collection('user').doc(uid).set({
+        'id': uid,
+        'teacher_id': uid,
+        'name': cleanName,
+        'email': cleanEmail,
+        'mobile': mobile.text.trim(),
+        'instituteName': instituteName.text.trim(),
+        'instituteAddress': instituteAddress.text.trim(),
+        'role': 'teacher',
+        'onboardingStatus': 'completed',
+        'last_std_id': '0',
+        'last_exam_id': '0',
+        'batch': <String>[],
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // Set teacherData in memory
+      teacherData = TeacherData(
+        id: uid,
+        teacherId: uid,
+        name: cleanName,
+        email: cleanEmail,
+        lastStdId: '0',
+        lastExamId: '0',
+        batch: [],
+      );
+      await TeacherData.updateTeacherLocalData();
+
+      if (context.mounted) {
+        customSnackbar(
+          context: context,
+          message: 'Account created successfully! Welcome, $cleanName.',
+          color: Colors.green,
+          ico: Icons.check_circle,
+        );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const TeacherDashboardScreen()),
+          (route) => false,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!context.mounted) return;
+      String message;
+      if (e.code == 'email-already-in-use') {
+        message =
+            'An account with this email already exists. Please log in instead.';
+      } else if (e.code == 'weak-password') {
+        message = 'Password is too weak. Use at least 6 characters.';
+      } else if (e.code == 'invalid-email') {
+        message = 'The email address is not valid.';
+      } else {
+        message = 'Registration failed: ${e.message ?? e.code}';
+      }
+      customSnackbar(
+        context: context,
+        message: message,
+        color: Colors.red,
+        ico: Icons.error,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        customSnackbar(
+          context: context,
+          message: 'Registration failed. Please try again.',
+          color: Colors.red,
+          ico: Icons.error,
+        );
+      }
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    name.dispose();
+    email.dispose();
+    mobile.dispose();
+    instituteName.dispose();
+    instituteAddress.dispose();
+    password.dispose();
+    confirm.dispose();
+    super.dispose();
+  }
+}

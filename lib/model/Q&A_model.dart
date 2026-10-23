@@ -1,4 +1,5 @@
 class QAModel {
+  String id;
   String q;
   String a;
   String b;
@@ -7,6 +8,7 @@ class QAModel {
   String ans;
 
   QAModel({
+    this.id = '',
     required this.q,
     required this.a,
     required this.b,
@@ -17,6 +19,7 @@ class QAModel {
 
   factory QAModel.fromJson(Map<String, dynamic> json) {
     return QAModel(
+      id: (json['id'] ?? json['question_id'] ?? '').toString(),
       q: json['q']?.toString() ?? '',
       a: json['a']?.toString() ?? '',
       b: json['b']?.toString() ?? '',
@@ -28,6 +31,7 @@ class QAModel {
 
   Map<String, dynamic> toJson() {
     return {
+      if (id.isNotEmpty) 'id': id,
       'q': q,
       'a': a,
       'b': b,

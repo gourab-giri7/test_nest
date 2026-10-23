@@ -10,6 +10,7 @@ class ExamDetailsModel {
 
   final DateTime examStart;
   final DateTime examEnd;
+  final List<String> assignedStudentIds;
 
   ExamDetailsModel({
     // required this.examId,
@@ -20,6 +21,7 @@ class ExamDetailsModel {
     required this.batch,
     required this.examStart,
     required this.examEnd,
+    this.assignedStudentIds = const [],
   });
 
   factory ExamDetailsModel.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,9 @@ class ExamDetailsModel {
       batch: details['batch']?.toString() ?? '',
       examStart: _timestampToDateTime(details['exam_start']),
       examEnd: _timestampToDateTime(details['exam_end']),
+      assignedStudentIds: List<String>.from(
+        json['assigned_student_ids'] ?? const [],
+      ),
     );
   }
 
@@ -41,26 +46,28 @@ class ExamDetailsModel {
     if (value is Timestamp) {
       return value.toDate();
     }
-
     if (value is DateTime) {
       return value;
     }
-
-    throw FormatException('Invalid timestamp value: $value');
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    if (value is String) {
+      return DateTime.tryParse(value) ?? DateTime.now();
+    }
+    return DateTime.now();
   }
 
   Map<String, dynamic> toJson() {
     return {
-      // 'exam_id': examId,
-      'exam_details': {
-        'exam_name': examName,
-        'full_marks': fullMarks,
-        'exam_key': examKey,
-        'instruction': instruction,
-        'batch': batch,
-        'exam_start': Timestamp.fromDate(examStart),
-        'exam_end': Timestamp.fromDate(examEnd),
-      },
+      'exam_name': examName,
+      'full_marks': fullMarks,
+      'exam_key': examKey,
+      'instruction': instruction,
+      'batch': batch,
+      'exam_start': Timestamp.fromDate(examStart),
+      'exam_end': Timestamp.fromDate(examEnd),
+      'assigned_student_ids': assignedStudentIds,
     };
   }
 
@@ -79,4 +86,4 @@ class ExamDetailsModel {
   }
 }
 
-late ExamDetailsModel examDetails;
+ExamDetailsModel? examDetails;

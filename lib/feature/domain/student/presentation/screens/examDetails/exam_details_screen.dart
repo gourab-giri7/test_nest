@@ -1,185 +1,306 @@
+import 'dart:developer';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:test_nest/core/utils/theme/theme.dart';
+import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
+import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/examResult/exam_result_review_screen.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/takeExam/take_exam_screen.dart';
+import 'package:test_nest/model/exam_model.dart';
 
 class ExamDetailsScreen extends StatelessWidget {
-  const ExamDetailsScreen({super.key});
+  final ExamModel exam;
+  const ExamDetailsScreen({super.key, required this.exam});
+  String get teacherId => studentData?.teacherId.trim() ?? '';
+  Stream<DocumentSnapshot<Map<String, dynamic>>> get submissionStream {
+    final s = studentData;
+    if (s == null || teacherId.isEmpty || s.id.trim().isEmpty)
+      return const Stream.empty();
+    return FirebaseFirestore.instance
+        .collection('user')
+        .doc(teacherId)
+        .collection('exams')
+        .doc(exam.examId)
+        .collection('submissions')
+        .doc(s.id.trim())
+        .snapshots();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
-            child: Container(
-              margin: const EdgeInsets.all(16.0),
-              padding: const EdgeInsets.all(24.0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        title: const Text(
+          'Exam Details',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Card(
+                elevation: 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        exam.examName,
+                        style: const TextStyle(
+                          fontSize: 21,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${exam.examId} • ${exam.batch.isEmpty ? 'All Batches' : exam.batch}',
+                      ),
+                      const SizedBox(height: 16),
+                      _row('Date', exam.examDate),
+                      _row('Time', '${exam.startTime} - ${exam.endTime}'),
+                      _row('Full Marks', exam.fullMarks),
+                      _row('Questions', '${exam.questionCount}'),
+                    ],
                   ),
-                ],
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top App Bar
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () {},
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          color: const Color(0xFF1E293B),
-                        ),
-                        const SizedBox(width: 16),
-                        const Text(
-                          'Exam Details',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-
-                    // Exam Main Title
-                    const Text(
-                      'Mathematics Mid Term',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Key-Value Badges List
-                    _buildInfoRow('Full Marks', '100'),
-                    const SizedBox(height: 16),
-                    _buildInfoRow('Date & Time', '24 May 2025,\n10:00 AM'),
-                    const SizedBox(height: 16),
-                    _buildInfoRow('Duration', '2 Hours'),
-                    const SizedBox(height: 16),
-                    _buildInfoRow('Exam Key', 'MATH2025'),
-                    const SizedBox(height: 32),
-
-                    // Instructions Section
-                    const Text(
-                      'Instructions',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    _buildBulletPoint('Ensure stable internet connection'),
-                    const SizedBox(height: 10),
-                    _buildBulletPoint('Do not refresh or close the app'),
-                    const SizedBox(height: 10),
-                    _buildBulletPoint("Once submitted, you can't retake"),
-                    const SizedBox(height: 40),
-
-                    // Start Exam Action Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6366F1),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        onPressed: () {},
-                        child: const Text(
-                          'Start Exam',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
-            ),
+              const SizedBox(height: 14),
+              Card(
+                elevation: 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Instructions',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        exam.instruction.trim().isEmpty
+                            ? 'Follow the instructions provided by your teacher.'
+                            : exam.instruction,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: submissionStream,
+                builder: (context, snap) {
+                  if (snap.hasError) {
+                    log('Submission stream error: ${snap.error}');
+                    return const Text('Unable to check submission.');
+                  }
+                  if (snap.connectionState == ConnectionState.waiting)
+                    return const Center(child: CircularProgressIndicator());
+                  final submitted = snap.data?.exists ?? false;
+                  final data = snap.data?.data();
+
+                  // For exams using assigned_student_ids, assignment is
+                  // mandatory. This prevents a student from starting an exam
+                  // through an old/stale route even if the history screen
+                  // already filtered it out.
+                  final studentId = studentData?.id.trim() ?? '';
+                  final isAssigned =
+                      exam.assignedStudentIds.isNotEmpty &&
+                      exam.assignedStudentIds.any(
+                        (id) => id.trim() == studentId,
+                      );
+
+                  if (submitted) return _submitted(context, data ?? {});
+
+                  if (exam.status == 'Active' && isAssigned)
+                    return SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: () => _start(context),
+                        child: const Text(
+                          'Start Exam',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    );
+
+                  if (exam.status == 'Active' && !isAssigned)
+                    return const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          'You are not assigned to this exam.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    );
+                  return SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: null,
+                      child: Text(
+                        exam.status == 'Upcoming'
+                            ? 'Exam has not started'
+                            : 'Exam Ended',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey[600],
-          ),
+  void _start(BuildContext context) {
+    final studentId = studentData?.id.trim() ?? '';
+    final isAssigned =
+        exam.assignedStudentIds.isNotEmpty &&
+        exam.assignedStudentIds.any((id) => id.trim() == studentId);
+
+    if (!isAssigned) {
+      customSnackbar(
+        context: context,
+        message: 'You are not assigned to this exam.',
+        color: Colors.red,
+        ico: Icons.block,
+      );
+      return;
+    }
+
+    if (exam.status != 'Active' ||
+        (exam.examEnd != null && DateTime.now().isAfter(exam.examEnd!))) {
+      customSnackbar(
+        context: context,
+        message: 'This exam has ended and is no longer active.',
+        color: Colors.red,
+        ico: Icons.timer_off,
+      );
+      return;
+    }
+
+    if (exam.examKey.isEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => TakeExamScreen(exam: exam)),
+      );
+      return;
+    }
+    final c = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Enter Exam Key'),
+        content: TextField(
+          controller: c,
+          autocorrect: false,
+          enableSuggestions: false,
+          textCapitalization: TextCapitalization.none,
+          decoration: const InputDecoration(hintText: 'Enter exact exam key'),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(10),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d),
+            child: const Text('Cancel'),
           ),
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF0F172A),
-            ),
+          ElevatedButton(
+            onPressed: () {
+              // Character-exact comparison without trim() or case-conversion.
+              // Trailing space or case difference will be rejected.
+              if (c.text != exam.examKey) {
+                customSnackbar(
+                  context: d,
+                  message: 'Invalid exam key.',
+                  color: Colors.red,
+                  ico: Icons.error,
+                );
+                return;
+              }
+              Navigator.pop(d);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => TakeExamScreen(exam: exam)),
+              );
+            },
+            child: const Text('Start'),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildBulletPoint(String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          margin: const EdgeInsets.only(top: 6, right: 10),
-          width: 5,
-          height: 5,
-          decoration: const BoxDecoration(
-            color: Color(0xFF475569),
-            shape: BoxShape.circle,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.4,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF475569),
+  Widget _submitted(BuildContext context, Map<String, dynamic> data) => Card(
+    color: AppColors.successSoft,
+    elevation: 0,
+    child: Padding(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 42),
+          const SizedBox(height: 8),
+          const Text(
+            'Exam Submitted',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.green,
+              fontSize: 17,
             ),
+          ),
+          const SizedBox(height: 8),
+          if (exam.resultPublished)
+            Text('Score: ${data['score'] ?? '—'} / ${exam.fullMarks}')
+          else
+            const Text('Result is not published yet.'),
+          const SizedBox(height: 14),
+          if (exam.resultPublished)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.fact_check),
+                label: const Text('View Result & Answer Review'),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ExamResultReviewScreen(exam: exam, submission: data),
+                  ),
+                ),
+              ),
+            )
+          else
+            const Text(
+              'Result will be visible after your teacher publishes it.',
+              style: TextStyle(color: Colors.blueGrey),
+            ),
+        ],
+      ),
+    ),
+  );
+  Widget _row(String l, String v) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(l, style: const TextStyle(color: Colors.blueGrey)),
+        Flexible(
+          child: Text(
+            v,
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
 }

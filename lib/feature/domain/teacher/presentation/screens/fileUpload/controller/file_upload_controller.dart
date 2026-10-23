@@ -1,7 +1,6 @@
 import 'dart:developer';
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -9,33 +8,34 @@ import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/manualQuestions/controller/question_controller.dart';
 import 'package:test_nest/model/Q&A_model.dart';
 
 class FileUploadController extends ChangeNotifier {
   String? slectedFileName;
   List<QAModel> questions = [];
+
+  // ============================================================
+  // DOWNLOAD EXCEL TEMPLATE
+  // ============================================================
+
   static Future<bool> downloadTemplate() async {
     try {
-      // Load Excel file from assets
       const assetPath = 'assets/Sample questions sheet.xlsx';
 
       final ByteData data = await rootBundle.load(assetPath);
 
-      // Get temporary directory
       final Directory tempDir = await getTemporaryDirectory();
 
-      // Create temporary file
       final File file = File('${tempDir.path}/Template_sheet.xlsx');
 
-      // Write asset bytes
       await file.writeAsBytes(data.buffer.asUint8List(), flush: true);
 
-      // Open native save dialog
       final String? savedPath = await FlutterFileDialog.saveFile(
         params: SaveFileDialogParams(
           sourceFilePath: file.path,
           fileName:
-              'Template_sheet_${DateTime.timestamp().hour}${DateTime.timestamp().microsecond}.xlsx',
+              'Template_sheet_${DateTime.now().millisecondsSinceEpoch}.xlsx',
         ),
       );
 
@@ -46,93 +46,159 @@ class FileUploadController extends ChangeNotifier {
 
       log('User cancelled saving');
       return false;
-    } catch (e) {
-      log('Download error', error: e);
+    } catch (e, stackTrace) {
+      log('Download error', error: e, stackTrace: stackTrace);
 
       return false;
     }
   }
 
-  Future<void> pickFile(BuildContext context) async {
+  // ============================================================
+  // PICK EXCEL FILE
+  // ============================================================
+
+  Future<void> pickFile(BuildContext context, [QuestionController? qc]) async {
     try {
-      final result = await FilePicker.pickFiles(
+      // ----------------------------------------------------------
+      // FILE PICKER 12.x API
+      // ----------------------------------------------------------
+
+      final List<PlatformFile> files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx'],
-        withData: true,
       );
 
-      if (result == null) return;
+      if (files.isEmpty) {
+        return;
+      }
 
-      final PlatformFile file = result.first;
+      final PlatformFile file = files.first;
 
-      slectedFileName = file.name;
+      log('Selected file: ${file.name}');
+
+      // ----------------------------------------------------------
+      // READ FILE
+      // ----------------------------------------------------------
 
       final bytes = await file.readAsBytes();
 
-      // if (bytes == null) {
-      //   customSnackbar(
-      //     context: context,
-      //     message: 'Unable to read the selected file.',
-      //     color: Colors.red,
-      //     ico: Icons.error,
-      //   );
-      //   return;
-      // }
+      if (bytes.isEmpty) {
+        if (!context.mounted) return;
 
-      final excel = Excel.decodeBytes(bytes);
+        customSnackbar(
+          context: context,
+          message: 'Unable to read the selected Excel file.',
+          color: Colors.red,
+          ico: Icons.error,
+        );
+
+        return;
+      }
+
+      log('Excel file size: ${bytes.length} bytes');
+
+      // ----------------------------------------------------------
+      // DECODE EXCEL
+      // ----------------------------------------------------------
+
+      final Excel excel = Excel.decodeBytes(bytes);
 
       if (excel.tables.isEmpty) {
+        if (!context.mounted) return;
+
         customSnackbar(
           context: context,
           message: 'Excel file does not contain any sheet.',
           color: Colors.red,
           ico: Icons.error,
         );
+
         return;
       }
 
-      final sheetName = excel.tables.keys.first;
-      final sheet = excel.tables[sheetName];
+      // ----------------------------------------------------------
+      // GET FIRST SHEET
+      // ----------------------------------------------------------
+
+      final String sheetName = excel.tables.keys.first;
+
+      final Sheet? sheet = excel.tables[sheetName];
 
       if (sheet == null) {
+        if (!context.mounted) return;
+
         customSnackbar(
           context: context,
           message: 'Unable to read the Excel sheet.',
           color: Colors.red,
           ico: Icons.error,
         );
+
         return;
       }
 
-      // ---------------- HEADER CHECK ----------------
+      log('Sheet name: $sheetName');
+      log('Rows: ${sheet.maxRows}');
+      log('Columns: ${sheet.maxColumns}');
 
-      final questionHeader = _getCell(sheet, row: 1, column: 6);
+      // ==========================================================
+      // HEADER CHECK
+      // ==========================================================
 
-      final optionHeader = _getCell(sheet, row: 1, column: 7);
+      // G2
+      final String questionHeader = _getCell(sheet, row: 1, column: 6);
 
-      final answerHeader = _getCell(sheet, row: 1, column: 11);
+      // H2
+      final String optionHeader = _getCell(sheet, row: 1, column: 7);
+
+      // L2
+      final String answerHeader = _getCell(sheet, row: 1, column: 11);
+
+      log('Question Header = "$questionHeader"');
+      log('Option Header   = "$optionHeader"');
+      log('Answer Header   = "$answerHeader"');
+
+      // ----------------------------------------------------------
+      // QUESTIONS HEADER
+      // ----------------------------------------------------------
 
       if (!_isSame(questionHeader, 'Questions')) {
+        if (!context.mounted) return;
+
         customSnackbar(
           context: context,
           message: 'Invalid template: "Questions" header is missing.',
           color: Colors.red,
           ico: Icons.error,
         );
+
         return;
       }
 
+      // ----------------------------------------------------------
+      // OPTIONS HEADER
+      // ----------------------------------------------------------
+
       if (!_isSame(optionHeader, 'Options')) {
+        if (!context.mounted) return;
+
         customSnackbar(
           context: context,
           message: 'Invalid template: "Options" header is missing.',
           color: Colors.red,
           ico: Icons.error,
         );
+
         return;
       }
 
+      // ----------------------------------------------------------
+      // ANSWER HEADER
+      // ----------------------------------------------------------
+
       if (!_isSame(answerHeader, 'Right option (A,B,C,D)')) {
+        if (!context.mounted) return;
+
         customSnackbar(
           context: context,
           message:
@@ -140,74 +206,95 @@ class FileUploadController extends ChangeNotifier {
           color: Colors.red,
           ico: Icons.error,
         );
+
         return;
       }
 
-      // ---------------- A B C D CHECK ----------------
+      // ==========================================================
+      // A B C D CHECK
+      // ==========================================================
 
-      final optionA = _getCell(sheet, row: 2, column: 7);
+      // H3
+      final String optionA = _getCell(sheet, row: 2, column: 7);
 
-      final optionB = _getCell(sheet, row: 2, column: 8);
+      // I3
+      final String optionB = _getCell(sheet, row: 2, column: 8);
 
-      final optionC = _getCell(sheet, row: 2, column: 9);
+      // J3
+      final String optionC = _getCell(sheet, row: 2, column: 9);
 
-      final optionD = _getCell(sheet, row: 2, column: 10);
+      // K3
+      final String optionD = _getCell(sheet, row: 2, column: 10);
+
+      log('Option A = "$optionA"');
+      log('Option B = "$optionB"');
+      log('Option C = "$optionC"');
+      log('Option D = "$optionD"');
 
       if (!_isSame(optionA, 'A') ||
           !_isSame(optionB, 'B') ||
           !_isSame(optionC, 'C') ||
           !_isSame(optionD, 'D')) {
+        if (!context.mounted) return;
+
         customSnackbar(
           context: context,
           message: 'Invalid template: Options must be A, B, C and D.',
           color: Colors.red,
           ico: Icons.error,
         );
+
         return;
       }
 
-      // ---------------- EXTRACT QUESTIONS ----------------
+      // ==========================================================
+      // EXTRACT QUESTIONS
+      // ==========================================================
 
       final List<QAModel> tempQuestions = [];
 
+      // Excel row 4 = Dart row index 3
       for (int row = 3; row < sheet.maxRows; row++) {
-        final question = _getCell(
-          sheet,
-          row: row,
-          column: 6, // G
-        );
+        // --------------------------------------------------------
+        // QUESTION - G
+        // --------------------------------------------------------
 
-        final a = _getCell(
-          sheet,
-          row: row,
-          column: 7, // H
-        );
+        final String question = _getCell(sheet, row: row, column: 6);
 
-        final b = _getCell(
-          sheet,
-          row: row,
-          column: 8, // I
-        );
+        // --------------------------------------------------------
+        // OPTION A - H
+        // --------------------------------------------------------
 
-        final c = _getCell(
-          sheet,
-          row: row,
-          column: 9, // J
-        );
+        final String a = _getCell(sheet, row: row, column: 7);
 
-        final d = _getCell(
-          sheet,
-          row: row,
-          column: 10, // K
-        );
+        // --------------------------------------------------------
+        // OPTION B - I
+        // --------------------------------------------------------
 
-        final ans = _getCell(
-          sheet,
-          row: row,
-          column: 11, // L
-        );
+        final String b = _getCell(sheet, row: row, column: 8);
 
-        // Ignore completely empty rows
+        // --------------------------------------------------------
+        // OPTION C - J
+        // --------------------------------------------------------
+
+        final String c = _getCell(sheet, row: row, column: 9);
+
+        // --------------------------------------------------------
+        // OPTION D - K
+        // --------------------------------------------------------
+
+        final String d = _getCell(sheet, row: row, column: 10);
+
+        // --------------------------------------------------------
+        // ANSWER - L
+        // --------------------------------------------------------
+
+        final String ans = _getCell(sheet, row: row, column: 11);
+
+        // --------------------------------------------------------
+        // IGNORE COMPLETELY EMPTY ROWS
+        // --------------------------------------------------------
+
         if (question.isEmpty &&
             a.isEmpty &&
             b.isEmpty &&
@@ -217,81 +304,138 @@ class FileUploadController extends ChangeNotifier {
           continue;
         }
 
-        // ---------------- QUESTION ----------------
+        final int excelRow = row + 1;
+
+        log(
+          'Row $excelRow => '
+          'Q="$question", '
+          'A="$a", '
+          'B="$b", '
+          'C="$c", '
+          'D="$d", '
+          'Ans="$ans"',
+        );
+
+        // ========================================================
+        // QUESTION VALIDATION
+        // ========================================================
 
         if (question.isEmpty) {
+          if (!context.mounted) return;
+
           customSnackbar(
             context: context,
-            message: 'Question is empty at row ${row + 1}.',
+            message: 'Question is empty at row $excelRow.',
             color: Colors.red,
             ico: Icons.error,
           );
+
           return;
         }
 
-        // ---------------- OPTIONS ----------------
+        // ========================================================
+        // OPTION VALIDATION
+        // ========================================================
 
         if (a.isEmpty || b.isEmpty || c.isEmpty || d.isEmpty) {
+          if (!context.mounted) return;
+
           customSnackbar(
             context: context,
-            message: 'All four options are required at row ${row + 1}.',
+            message: 'All four options are required at row $excelRow.',
             color: Colors.red,
             ico: Icons.error,
           );
+
           return;
         }
 
-        // ---------------- ANSWER ----------------
+        // ========================================================
+        // ANSWER VALIDATION
+        // ========================================================
 
-        final correctAnswer = ans.trim().toUpperCase();
+        final String correctAnswer = ans.trim().toUpperCase();
 
         if (!['A', 'B', 'C', 'D'].contains(correctAnswer)) {
+          if (!context.mounted) return;
+
           customSnackbar(
             context: context,
-            message: 'Invalid answer at row ${row + 1}. Use A, B, C or D.',
+            message:
+                'Invalid answer at row $excelRow. '
+                'Use A, B, C or D.',
             color: Colors.red,
             ico: Icons.error,
           );
+
           return;
         }
 
-        // ---------------- CREATE MODEL ----------------
+        // ========================================================
+        // CREATE Q&A MODEL
+        // ========================================================
 
         tempQuestions.add(
           QAModel(q: question, a: a, b: b, c: c, d: d, ans: correctAnswer),
         );
       }
 
-      // ---------------- NO QUESTIONS ----------------
+      // ==========================================================
+      // NO QUESTIONS
+      // ==========================================================
 
       if (tempQuestions.isEmpty) {
+        if (!context.mounted) return;
+
         customSnackbar(
           context: context,
-          message: 'No questions found in the Excel file.',
+          message: 'No valid questions found in the Excel file.',
           color: Colors.red,
           ico: Icons.error,
         );
+
         return;
       }
 
-      // ---------------- SAVE QUESTIONS ----------------
+      // ==========================================================
+      // SAVE QUESTIONS
+      // ==========================================================
 
+      slectedFileName = file.name;
       questions = tempQuestions;
+      qc?.setFromExcel(tempQuestions, file.name);
 
-      log('Excel format is valid');
+      log('==========================================');
+      log('Excel format is VALID');
+      log('File: ${file.name}');
       log('Total Questions: ${questions.length}');
+      log('==========================================');
 
-      for (final question in questions) {
+      for (int i = 0; i < questions.length; i++) {
+        final QAModel question = questions[i];
+
         log('''
-Question: ${question.q}
+Question ${i + 1}: ${question.q}
 A: ${question.a}
 B: ${question.b}
 C: ${question.c}
 D: ${question.d}
 Answer: ${question.ans}
-----------------------------
+------------------------------------------
 ''');
       }
+
+      // ==========================================================
+      // PROVIDER UPDATE
+      // ==========================================================
+
+      notifyListeners();
+
+      // ==========================================================
+      // SUCCESS
+      // ==========================================================
+
+      if (!context.mounted) return;
 
       customSnackbar(
         context: context,
@@ -299,10 +443,10 @@ Answer: ${question.ans}
         color: Colors.green,
         ico: Icons.check_circle,
       );
-
-      notifyListeners();
     } catch (e, stackTrace) {
       log('Excel error', error: e, stackTrace: stackTrace);
+
+      if (!context.mounted) return;
 
       customSnackbar(
         context: context,
@@ -313,8 +457,15 @@ Answer: ${question.ans}
     }
   }
 
+  // ============================================================
+  // GET CELL VALUE
+  // ============================================================
+
   String _getCell(Sheet sheet, {required int row, required int column}) {
-    if (row >= sheet.maxRows) {
+    if (row < 0 ||
+        column < 0 ||
+        row >= sheet.maxRows ||
+        column >= sheet.maxColumns) {
       return '';
     }
 
@@ -322,21 +473,100 @@ Answer: ${question.ans}
       CellIndex.indexByColumnRow(columnIndex: column, rowIndex: row),
     );
 
-    return cell.value?.toString().trim() ?? '';
+    final CellValue? value = cell.value;
+
+    if (value == null) {
+      return '';
+    }
+
+    // ----------------------------------------------------------
+    // TEXT CELL
+    // ----------------------------------------------------------
+
+    if (value is TextCellValue) {
+      return value.value.toString().trim();
+    }
+
+    // ----------------------------------------------------------
+    // INTEGER CELL
+    // ----------------------------------------------------------
+
+    if (value is IntCellValue) {
+      return value.value.toString().trim();
+    }
+
+    // ----------------------------------------------------------
+    // DOUBLE CELL
+    // ----------------------------------------------------------
+
+    if (value is DoubleCellValue) {
+      return value.value.toString().trim();
+    }
+
+    // ----------------------------------------------------------
+    // BOOLEAN CELL
+    // ----------------------------------------------------------
+
+    if (value is BoolCellValue) {
+      return value.value.toString().trim();
+    }
+
+    // ----------------------------------------------------------
+    // FORMULA CELL
+    // ----------------------------------------------------------
+
+    if (value is FormulaCellValue) {
+      return value.formula.toString().trim();
+    }
+
+    // ----------------------------------------------------------
+    // DATE/TIME CELL
+    // ----------------------------------------------------------
+
+    if (value is DateTimeCellValue) {
+      return value.asDateTimeLocal().toString().trim();
+    }
+
+    // ----------------------------------------------------------
+    // TIME CELL
+    // ----------------------------------------------------------
+
+    if (value is TimeCellValue) {
+      return value.asDuration().toString().trim();
+    }
+
+    // ----------------------------------------------------------
+    // FALLBACK
+    // ----------------------------------------------------------
+
+    return value.toString().trim();
   }
+
+  // ============================================================
+  // COMPARE CELL TEXT
+  // ============================================================
 
   bool _isSame(String value, String expected) {
     String normalize(String text) {
-      return text.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+      return text
+          .replaceAll('\uFEFF', '')
+          .replaceAll('\u00A0', ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim()
+          .toLowerCase();
     }
 
     return normalize(value) == normalize(expected);
   }
 
-  // ---- cancel selected file
+  // ============================================================
+  // CANCEL SELECTED FILE
+  // ============================================================
+
   void cancelFile() {
     slectedFileName = null;
     questions = [];
+
     notifyListeners();
   }
 }

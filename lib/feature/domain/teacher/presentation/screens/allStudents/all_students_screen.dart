@@ -1,12 +1,12 @@
-import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/feature/domain/teacher/data/datasources/get_student_data.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart';
-import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/addStudents/add_students_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/allStudents/controller/student_controller.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/studentDetails/student_details_screen.dart';
 
 class AllStudentsScreen extends StatefulWidget {
   const AllStudentsScreen({super.key});
@@ -16,31 +16,29 @@ class AllStudentsScreen extends StatefulWidget {
 }
 
 class _AllStudentsScreenState extends State<AllStudentsScreen> {
-  // final TextEditingController _searchController = TextEditingController();
-  List<DropdownMenuItem<String>> drowpdownitems = [];
   @override
   void initState() {
-    drowpdownitems = teacherData.batch.map((batch) {
-      return DropdownMenuItem(value: batch, child: Text(batch));
-    }).toList();
-    context.read<StudentController>().dropDownvalue = "all";
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<StudentController>().reset();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.blueGrey[50],
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         surfaceTintColor: Colors.transparent,
-        backgroundColor: Colors.blueGrey[50],
+        backgroundColor: AppColors.background,
         centerTitle: true,
         title: const Text(
-          'All Student',
+          'All Students',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF0F172A),
+            color: AppColors.text,
           ),
         ),
       ),
@@ -52,171 +50,180 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: GetStudentData.getAllStudent(),
               builder: (context, asyncSnapshot) {
-                // ----- is wating
                 if (asyncSnapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                    child: CircularProgressIndicator(color: Colors.black),
+                  return const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
                   );
                 }
 
-                // -------- is no data
                 if (asyncSnapshot.hasError) {
-                  return Center(
+                  return const Center(
                     child: Text(
-                      "we are faceing some technicall issue please try agan later",
+                      "We are facing technical issues. Please try again later.",
+                      style: TextStyle(color: Colors.blueGrey),
                     ),
                   );
                 }
-                context.read<StudentController>().studentsData =
-                    asyncSnapshot.data!.docs;
-                context.read<StudentController>().mainData =
-                    asyncSnapshot.data!.docs;
+
+                final docs = asyncSnapshot.data?.docs ?? [];
+
                 return Consumer<StudentController>(
-                  builder: (context, controller, child) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Search Field
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              // controller: _searchController,
-                              onChanged: controller.search,
-                              decoration: InputDecoration(
-                                hintText: 'Search Students',
-                                hintStyle: TextStyle(
-                                  color: Colors.grey[400],
-                                  fontSize: 14,
-                                ),
-                                prefixIcon: Icon(
-                                  Icons.search,
-                                  color: Colors.grey[400],
-                                  size: 22,
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                filled: true,
-                                fillColor: const Color(0xFFFAFCFF),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFE2E8F0),
+                  builder: (context, controller, child) {
+                    final batchItems = controller.getBatchItems(docs);
+                    final studentsList = controller.filterDocs(docs);
+                    final effectiveBatch =
+                        (controller.dropDownvalue == 'all' ||
+                            batchItems.contains(controller.dropDownvalue))
+                        ? controller.dropDownvalue
+                        : 'all';
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Search Field & Batch Filter
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                onChanged: controller.search,
+                                decoration: InputDecoration(
+                                  hintText: 'Search Students',
+                                  hintStyle: TextStyle(
+                                    color: Colors.grey[400],
+                                    fontSize: 14,
                                   ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFE2E8F0),
+                                  prefixIcon: Icon(
+                                    Icons.search,
+                                    color: Colors.grey[400],
+                                    size: 22,
                                   ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFF2563EB),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  filled: true,
+                                  fillColor: const Color(0xFFFAFCFF),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.border,
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.border,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.primary,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: SizedBox(
-                              height: 50,
-                              width: 50,
-                              child: DropdownButton(
-                                value: controller.dropDownvalue,
-                                items: [
-                                  DropdownMenuItem(
-                                    value: "all",
-                                    child: Text("all"),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: SizedBox(
+                                height: 50,
+                                child: DropdownButton<String>(
+                                  isExpanded: true,
+                                  value: effectiveBatch,
+                                  items: [
+                                    const DropdownMenuItem<String>(
+                                      value: 'all',
+                                      child: Text('All Batches'),
+                                    ),
+                                    ...batchItems.map(
+                                      (batch) => DropdownMenuItem<String>(
+                                        value: batch,
+                                        child: Text(batch),
+                                      ),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      controller.filter(value);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Scrollable Student Cards
+                        Expanded(
+                          child: studentsList.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    "No students found",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blueGrey,
+                                    ),
                                   ),
-                                  ...drowpdownitems,
-                                ],
-                                onChanged: (value) {
-                                  controller.filter(value!);
-                                },
+                                )
+                              : ListView.separated(
+                                  physics: const BouncingScrollPhysics(),
+                                  itemCount: studentsList.length,
+                                  separatorBuilder: (context, index) =>
+                                      const SizedBox(height: 12),
+                                  itemBuilder: (context, index) {
+                                    final doc = studentsList[index];
+                                    final student = StudentModel.fromJson(
+                                      doc.data(),
+                                      docId: doc.id,
+                                    );
+                                    return _buildStudentCard(context, student);
+                                  },
+                                ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Add Student Action Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Scrollable Student Cards
-                      Expanded(
-                        child:
-                            // -------- is no data
-                            (!asyncSnapshot.hasData ||
-                                asyncSnapshot.data!.docs.isEmpty)
-                            ? Center(child: Text("No Student found"))
-                            :
-                              //  _filteredStudents.isEmpty
-                              //     ? Center(
-                              //         child: Text(
-                              //           'No students found',
-                              //           style: TextStyle(color: Colors.grey[500]),
-                              //         ),
-                              //       )
-                              //     :
-                              ListView.separated(
-                                physics: const BouncingScrollPhysics(),
-                                itemCount: controller.studentsData.length,
-                                separatorBuilder: (context, index) =>
-                                    const SizedBox(height: 12),
-                                itemBuilder: (context, index) {
-                                  // log(
-                                  //   controller.studentsData.length.toString(),
-                                  // );
-                                  final data = controller.studentsData[index]
-                                      .data();
-                                  // log(data.toString());
-                                  final student = StudentModel.fromJson(data);
-                                  return _buildStudentCard(student);
-                                },
-                              ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Add Student Action Button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => AddStudentScreen(),
-                              ),
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.add,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          label: const Text(
-                            'Add Student',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                            onPressed: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const AddStudentScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.add,
                               color: Colors.white,
+                              size: 20,
+                            ),
+                            label: const Text(
+                              'Add Student',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    );
+                  },
                 );
               },
             ),
@@ -226,68 +233,93 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
     );
   }
 
-  Widget _buildStudentCard(StudentModel student) {
+  Widget _buildStudentCard(BuildContext context, StudentModel student) {
     return Container(
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFF1F5F9)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.01),
+            color: Colors.black.withOpacity(0.015),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          // Avatar Circular Image / Placeholder
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: const Color(0xFFFEF3C7),
-            child: Icon(Icons.person, color: Colors.amber[800], size: 28),
-          ),
-          const SizedBox(width: 16),
-
-          // Student Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StudentDetailsScreen(student: student),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
               children: [
-                Text(
-                  student.name,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                // Avatar Circular Image / Placeholder
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: const Color(0xFFEFF6FF),
+                  child: const Icon(
+                    Icons.person,
+                    color: Color(0xFF2563EB),
+                    size: 26,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  "ID: ${student.id}",
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.blueGrey,
+                const SizedBox(width: 14),
+
+                // Student Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        student.name,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.text,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        "ID: ${student.id}",
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.blueGrey,
+                        ),
+                      ),
+                      Text(
+                        "Batch: ${student.batch}",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  "Batch: ${student.batch}",
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey[500],
-                  ),
+
+                // Arrow Icon
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Color(0xFF94A3B8),
+                  size: 16,
                 ),
               ],
             ),
           ),
-
-          // Arrow Icon
-          Icon(Icons.chevron_right, color: Colors.grey[400], size: 22),
-        ],
+        ),
       ),
     );
   }
