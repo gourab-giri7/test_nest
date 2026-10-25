@@ -1,7 +1,9 @@
 import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:test_nest/core/services/batch_and_join_code_service.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/studentDetails/model/student_exam_submission_summary.dart';
@@ -19,6 +21,7 @@ class StudentDetailsController extends ChangeNotifier {
 
   bool _isUpdating = false;
   bool _isDeleting = false;
+  bool _isSendingReset = false;
 
   StudentDetailsController({required StudentModel student, String? teacherId})
     : _student = student,
@@ -35,10 +38,69 @@ class StudentDetailsController extends ChangeNotifier {
   List<StudentExamSubmissionSummary> get examHistory => _examHistory;
   bool get isUpdating => _isUpdating;
   bool get isDeleting => _isDeleting;
+  bool get isSendingReset => _isSendingReset;
 
   void togglePasswordVisibility() {
     _isPasswordVisible = !_isPasswordVisible;
     notifyListeners();
+  }
+
+  Future<void> refreshStudentData() async {
+    if (_teacherId.isEmpty) return;
+    try {
+      final docId = (_student.docId != null && _student.docId!.isNotEmpty)
+          ? _student.docId!
+          : _student.id.trim();
+      final snap = await FirebaseFirestore.instance
+          .collection('user')
+          .doc(_teacherId)
+          .collection('students')
+          .doc(docId)
+          .get();
+      if (snap.exists && snap.data() != null) {
+        _student = StudentModel.fromJson(snap.data()!, docId: snap.id);
+        notifyListeners();
+      }
+    } catch (e) {
+      log('Error refreshing student data: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> sendPasswordResetEmail() async {
+    final email = _student.email.trim();
+    if (email.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No registered email address found for this student.',
+      };
+    }
+
+    _isSendingReset = true;
+    notifyListeners();
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      _isSendingReset = false;
+      notifyListeners();
+      return {
+        'success': true,
+        'message': 'Password reset link sent to $email.',
+      };
+    } on FirebaseAuthException catch (e) {
+      _isSendingReset = false;
+      notifyListeners();
+      return {
+        'success': false,
+        'message': e.message ?? 'Failed to send password reset email.',
+      };
+    } catch (e) {
+      _isSendingReset = false;
+      notifyListeners();
+      return {
+        'success': false,
+        'message': 'Failed to send password reset email: $e',
+      };
+    }
   }
 
   Future<void> loadExamHistory({bool forceRefresh = false}) async {
@@ -296,19 +358,18 @@ class StudentDetailsController extends ChangeNotifier {
           ? _student.docId!
           : _student.id.trim();
 
-      final firestore = FirebaseFirestore.instance;
-      await firestore
-          .collection('user')
-          .doc(_teacherId)
-          .collection('students')
-          .doc(docId)
-          .delete();
+      await BatchAndJoinCodeService.removeStudentFromBatch(
+        teacherId: _teacherId,
+        studentDocId: docId,
+        studentAuthUid: _student.authUid,
+        batchId: _student.batchId,
+      );
 
       _isDeleting = false;
       notifyListeners();
       return true;
     } catch (e) {
-      log('Error deleting student: $e');
+      log('Error deleting/removing student: $e');
       _isDeleting = false;
       notifyListeners();
       return false;

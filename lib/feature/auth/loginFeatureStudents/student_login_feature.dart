@@ -58,31 +58,133 @@ class StudentLoginFeature {
       final userName =
           userDoc.data()?['name'] ?? auth.currentUser?.displayName ?? 'Student';
 
-      // 2. Check if student has an approved teacher relationship in user/{teacherId}/students
+      // 2. Check for all approved teacher relationships in user/{teacherId}/students
+      final allEnrollments = <StudentEnrollment>[];
+      String primaryId = '';
+      String primaryTeacherId = '';
+      String primaryTeacherName = '';
+      String primaryBatch = '';
+
+      // Check users/{uid}/enrollments first if already populated
+      try {
+        final userEnrollmentsSnap = await firestore
+            .collection('users')
+            .doc(uid)
+            .collection('enrollments')
+            .get();
+
+        for (final eDoc in userEnrollmentsSnap.docs) {
+          try {
+            allEnrollments.add(StudentEnrollment.fromJson(eDoc.data()));
+          } catch (_) {}
+        }
+      } catch (_) {}
+
+      // Scan teachers' subcollections to find all enrollments (handles existing legacy accounts)
       final teachers = await firestore.collection('user').get();
       for (final tDoc in teachers.docs) {
         final stdQuery = await tDoc.reference
             .collection('students')
             .where('auth_uid', isEqualTo: uid)
-            .limit(1)
             .get();
-        if (stdQuery.docs.isNotEmpty) {
-          final sData = stdQuery.docs.first.data();
-          studentData = StudentData(
-            id: sData['id']?.toString() ?? stdQuery.docs.first.id,
-            name: sData['name']?.toString() ?? userName,
-            teacherId: tDoc.id,
-            batch: sData['batch']?.toString() ?? '',
-            teacherName: tDoc.data()['name']?.toString() ?? '',
+        for (final sDoc in stdQuery.docs) {
+          final sData = sDoc.data();
+          final status = (sData['status'] ?? 'active').toString().toLowerCase();
+
+          // If the student was removed by this teacher, do not mark as active
+          if (status == 'removed' || status == 'removed_by_teacher') {
+            continue;
+          }
+
+          final enrolledTeacherId = tDoc.id;
+          final enrolledTeacherName = (tDoc.data()['name'] ?? '')
+              .toString()
+              .trim();
+          final enrolledBatchId = (sData['batch_id'] ?? '').toString().trim();
+          final enrolledBatchName = (sData['batch'] ?? '').toString().trim();
+          final enrolledStudentId = (sData['id'] ?? sDoc.id).toString().trim();
+
+          DateTime? enrolledDate;
+          final rawDate = sData['enrolled_at'] ?? sData['created_at'];
+          if (rawDate is Timestamp) {
+            enrolledDate = rawDate.toDate();
+          } else if (rawDate is String) {
+            enrolledDate = DateTime.tryParse(rawDate);
+          }
+
+          final alreadyPresent = allEnrollments.any(
+            (e) =>
+                e.teacherId == enrolledTeacherId &&
+                (e.batchId.isNotEmpty && enrolledBatchId.isNotEmpty
+                    ? e.batchId == enrolledBatchId
+                    : e.batchName.toLowerCase() ==
+                          enrolledBatchName.toLowerCase()),
           );
-          await StudentData.updateStudentLocalData();
-          return {
-            'status': 200,
-            'state': 'approved',
-            'studentData': studentData,
-          };
+
+          if (!alreadyPresent) {
+            allEnrollments.add(
+              StudentEnrollment(
+                teacherId: enrolledTeacherId,
+                teacherName: enrolledTeacherName,
+                batchId: enrolledBatchId,
+                batchName: enrolledBatchName,
+                studentId: enrolledStudentId,
+                status: 'active',
+                enrolledAt: enrolledDate,
+              ),
+            );
+          }
+
+          if (primaryId.isEmpty) primaryId = enrolledStudentId;
+          if (primaryTeacherId.isEmpty) {
+            primaryTeacherId = enrolledTeacherId;
+            primaryTeacherName = enrolledTeacherName;
+            primaryBatch = enrolledBatchName;
+          }
         }
       }
+
+      final activeEnrollments = allEnrollments
+          .where((e) => e.isActive)
+          .toList(growable: false);
+
+      if (activeEnrollments.isNotEmpty) {
+        final first = activeEnrollments.first;
+        studentData = StudentData(
+          id: primaryId.isNotEmpty ? primaryId : first.studentId,
+          name: userName,
+          teacherId: primaryTeacherId.isNotEmpty
+              ? primaryTeacherId
+              : first.teacherId,
+          batch: primaryBatch.isNotEmpty ? primaryBatch : first.batchName,
+          teacherName: primaryTeacherName.isNotEmpty
+              ? primaryTeacherName
+              : first.teacherName,
+          enrollments: activeEnrollments,
+        );
+        await StudentData.updateStudentLocalData();
+
+        // Also sync enrollments to users/{uid} for fast access
+        try {
+          await firestore.collection('users').doc(uid).set({
+            'teacher_ids': activeEnrollments
+                .map((e) => e.teacherId)
+                .toSet()
+                .toList(),
+            'batch_ids': activeEnrollments
+                .map((e) => e.batchId)
+                .where((b) => b.isNotEmpty)
+                .toSet()
+                .toList(),
+            'enrollments': activeEnrollments.map((e) => e.toJson()).toList(),
+          }, SetOptions(merge: true));
+        } catch (_) {}
+
+        return {'status': 200, 'state': 'approved', 'studentData': studentData};
+      }
+
+      // No active enrollments found; clear any local student state
+      studentData = null;
 
       // 3. Check for any pending join requests
       final reqSnap = await firestore
@@ -103,16 +205,10 @@ class StudentLoginFeature {
       }
 
       // 4. No relationship and no pending request -> needs to enter joining code
-      return {
-        'status': 200,
-        'state': 'needs_join',
-      };
+      return {'status': 200, 'state': 'needs_join'};
     } catch (e) {
       log('Error resolving student state: $e');
-      return {
-        'status': 200,
-        'state': 'needs_join',
-      };
+      return {'status': 200, 'state': 'needs_join'};
     }
   }
 
@@ -194,6 +290,11 @@ class StudentLoginFeature {
 
       for (final doc in studentsSnapshot.docs) {
         final data = doc.data();
+        final status = (data["status"] ?? "active").toString().toLowerCase();
+        if (status == "removed" || status == "removed_by_teacher") {
+          continue; // Cannot log into a batch from which the student was removed
+        }
+
         final sid = (data["id"] ?? data["student_id"] ?? doc.id)
             .toString()
             .trim();

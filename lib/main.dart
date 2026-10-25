@@ -13,8 +13,6 @@ import 'package:test_nest/firebase_options.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 
 import 'package:test_nest/feature/domain/common/presentation/screen/login/controller/login_controller.dart';
-import 'package:test_nest/feature/domain/common/presentation/screen/login/login_screen.dart';
-import 'package:test_nest/feature/domain/common/presentation/screen/splash/splash_screen.dart';
 
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/examHistory/controller/exam_controller.dart';
@@ -29,7 +27,6 @@ import 'package:test_nest/feature/domain/teacher/presentation/screens/reviewPubl
 
 import 'package:get/get.dart';
 import 'package:test_nest/routes/app_pages.dart';
-import 'package:test_nest/routes/app_routes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -146,7 +146,8 @@ class LoginController extends ChangeNotifier {
           if (!context.mounted) return;
 
           if (result == 200) {
-            final resolvedTeacherId = (studentData?.teacherId.isNotEmpty == true)
+            final resolvedTeacherId =
+                (studentData?.teacherId.isNotEmpty == true)
                 ? studentData!.teacherId
                 : teacherid;
             await saveStudentSession(resolvedTeacherId, userId);

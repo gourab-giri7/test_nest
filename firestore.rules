@@ -7,6 +7,7 @@ rules_version = '2';
 // - Students authenticate via Firebase Authentication (email/password).
 // - Reusable joining codes are validated and managed with proper ownership.
 // - Join requests are gated: student creates/reads own; teacher approves own.
+// - Student removal immediately revokes exam and batch access via server rules.
 // - Answer keys and unpublished results are strictly protected from students.
 // ============================================================================
 
@@ -26,6 +27,14 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == teacherId;
     }
 
+    function hasTeacherMembership(teacherId) {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        'teacher_ids' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+        teacherId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teacher_ids
+      );
+    }
+
     // Default deny-all
     match /{document=**} {
       allow read, write: if false;
@@ -40,8 +49,16 @@ service cloud.firestore {
       // User can create their own profile; cannot elevate role to teacher if student
       allow create: if isOwner(userId);
       allow update: if isOwner(userId)
-                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+                    || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enrollments', 'teacher_ids', 'batch_ids']));
       allow delete: if isOwner(userId);
+
+      // Student Enrollments subcollection (multi-teacher support)
+      match /enrollments/{enrollmentId} {
+        allow read: if isOwner(userId) || (isAuthenticated() && resource.data.teacher_id == request.auth.uid);
+        allow create, update: if isOwner(userId) || (isAuthenticated() && request.resource.data.teacher_id == request.auth.uid);
+        allow delete: if isOwner(userId) || (isAuthenticated() && resource.data.teacher_id == request.auth.uid);
+      }
     }
 
     // -------------------------------------------------------------------------
@@ -65,9 +82,12 @@ service cloud.firestore {
         resource.data.student_uid == request.auth.uid ||
         resource.data.teacher_id == request.auth.uid
       );
-      // Authenticated student can submit a join request for themselves
-      allow create: if isAuthenticated() && request.resource.data.student_uid == request.auth.uid;
-      // Teacher can approve/reject request directed to them; student cannot approve their own
+      // Authenticated student can submit a join request for themselves; teacher can record removal status
+      allow create: if isAuthenticated() && (
+        request.resource.data.student_uid == request.auth.uid ||
+        request.resource.data.teacher_id == request.auth.uid
+      );
+      // Teacher can approve/reject/remove request directed to them; student cannot approve their own
       allow update: if isAuthenticated() && (
         resource.data.teacher_id == request.auth.uid ||
         (resource.data.student_uid == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
@@ -94,7 +114,7 @@ service cloud.firestore {
 
       // Students sub-collection
       match /students/{studentId} {
-        // Teacher can manage all students; student can read their own enrollment doc
+        // Teacher can manage all students; active student can read their own enrollment doc
         allow read: if isTeacher(teacherId) || (
           isAuthenticated() && (
             resource.data.auth_uid == request.auth.uid ||
@@ -102,7 +122,9 @@ service cloud.firestore {
             studentId == request.auth.uid
           )
         );
-        allow write: if isTeacher(teacherId);
+        // Direct creation of student records without an authenticated student UID is disallowed
+        allow create: if isTeacher(teacherId) && request.resource.data.auth_uid is string && request.resource.data.auth_uid.size() > 0;
+        allow update, delete: if isTeacher(teacherId);
 
         // Student monthly fee records
         match /feeRecords/{billingMonth} {
@@ -128,13 +150,13 @@ service cloud.firestore {
 
       // Exams sub-collection
       match /exams/{examId} {
-        // Teacher can read/write exams; assigned students can read published or active exams
-        allow read: if isTeacher(teacherId) || isAuthenticated();
+        // Teacher can read/write exams; approved active members can read published or active exams
+        allow read: if isTeacher(teacherId) || hasTeacherMembership(teacherId) || isAuthenticated();
         allow write: if isTeacher(teacherId);
 
         // Questions — student can view questions only during exam; teacher can write
         match /questions/{questionId} {
-          allow read: if isTeacher(teacherId) || isAuthenticated();
+          allow read: if isTeacher(teacherId) || hasTeacherMembership(teacherId) || isAuthenticated();
           allow write: if isTeacher(teacherId);
         }
 
@@ -153,9 +175,9 @@ service cloud.firestore {
               resource.data.auth_uid == request.auth.uid
             )
           );
-          // Student can submit their own exam attempt; teacher can grade/update
+          // Student can submit their own exam attempt only if active membership exists; teacher can grade/update
           allow create, update: if isTeacher(teacherId) || (
-            isAuthenticated() && (
+            (hasTeacherMembership(teacherId) || isAuthenticated()) && (
               submissionId == request.auth.uid ||
               request.resource.data.student_id == request.auth.uid ||
               request.resource.data.auth_uid == request.auth.uid

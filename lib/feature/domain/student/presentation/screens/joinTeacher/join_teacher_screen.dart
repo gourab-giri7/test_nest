@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:test_nest/core/services/batch_and_join_code_service.dart';
@@ -86,7 +88,13 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
         ico: Icons.check_circle_outline,
       );
 
-      Get.offNamed(AppRoutes.studentRequestSent, arguments: {'batchName': request.batchName, 'teacherName': request.teacherName});
+      Get.offNamed(
+        AppRoutes.studentRequestSent,
+        arguments: {
+          'batchName': request.batchName,
+          'teacherName': request.teacherName,
+        },
+      );
     } catch (e) {
       if (!mounted) return;
       customSnackbar(
@@ -141,13 +149,35 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Join Your Coaching Batch',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (studentData?.hasActiveEnrollment == true) ...[
+                            IconButton(
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.white.withOpacity(0.16),
+                                foregroundColor: Colors.white,
+                              ),
+                              icon: const Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                size: 16,
+                              ),
+                              tooltip: 'Back to Dashboard',
+                              onPressed: () => Get.back(),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Text(
+                            (studentData?.hasActiveEnrollment == true)
+                                ? 'Join Another Batch'
+                                : 'Join Your Coaching Batch',
+                            style: const TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                       IconButton(
                         style: IconButton.styleFrom(
@@ -252,12 +282,14 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
                                         backgroundColor: AppColors.secondary,
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
                                         ),
                                       ),
-                                      onPressed:
-                                          _isLoading ? null : _submitCode,
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _submitCode,
                                       icon: _isLoading
                                           ? const SizedBox.shrink()
                                           : const Icon(
@@ -273,9 +305,12 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
                                                 color: Colors.white,
                                               ),
                                             )
-                                          : const Text(
-                                              'Request Batch Access',
-                                              style: TextStyle(
+                                          : Text(
+                                              (studentData?.hasActiveEnrollment ==
+                                                      true)
+                                                  ? 'Submit Request to Join'
+                                                  : 'Request Batch Access',
+                                              style: const TextStyle(
                                                 fontSize: 15.5,
                                                 fontWeight: FontWeight.w800,
                                               ),
@@ -357,14 +392,33 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
                                         .toLowerCase();
 
                                     Color statusColor = AppColors.warning;
-                                    String statusText = 'Pending Approval';
+                                    String statusText = 'Pending';
                                     if (status == 'approved') {
                                       statusColor = AppColors.success;
                                       statusText = 'Approved';
                                     } else if (status == 'rejected') {
                                       statusColor = AppColors.danger;
                                       statusText = 'Rejected';
+                                    } else if (status == 'removed' ||
+                                        status == 'removed_by_teacher') {
+                                      statusColor = const Color(0xFF7C3AED);
+                                      statusText = 'Removed by Teacher';
                                     }
+
+                                    DateTime? reqDate;
+                                    final rawDate =
+                                        data['requested_at'] ??
+                                        data['created_at'];
+                                    if (rawDate is Timestamp) {
+                                      reqDate = rawDate.toDate();
+                                    } else if (rawDate is String) {
+                                      reqDate = DateTime.tryParse(rawDate);
+                                    }
+                                    final dateStr = reqDate != null
+                                        ? DateFormat(
+                                            'dd MMM yyyy, hh:mm a',
+                                          ).format(reqDate)
+                                        : 'Recently';
 
                                     return Container(
                                       padding: const EdgeInsets.all(16),
@@ -411,8 +465,15 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
                                                   'Educator: $teacherName',
                                                   style: const TextStyle(
                                                     fontSize: 12,
-                                                    color:
-                                                        AppColors.textSecondary,
+                                                    color: AppColors.textSecondary,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  'Requested: $dateStr',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors.textSecondary.withOpacity(0.8),
                                                   ),
                                                 ),
                                               ],

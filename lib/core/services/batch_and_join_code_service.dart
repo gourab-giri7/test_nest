@@ -252,6 +252,25 @@ class BatchAndJoinCodeService {
       }
     }
 
+    // Also verify directly against teacher's student collection to prevent duplicate enrollments
+    final existingStudentSnap = await _db
+        .collection('user')
+        .doc(codeModel.teacherId)
+        .collection('students')
+        .where('auth_uid', isEqualTo: studentUid)
+        .get();
+    for (final doc in existingStudentSnap.docs) {
+      final bId = (doc.data()['batch_id'] ?? '').toString();
+      final bName = (doc.data()['batch'] ?? '').toString();
+      if (bId == codeModel.batchId ||
+          (bName.isNotEmpty &&
+              bName.toLowerCase() == codeModel.batchName.toLowerCase())) {
+        throw StateError(
+          'You are already enrolled in "${codeModel.batchName}" with ${codeModel.teacherName}.',
+        );
+      }
+    }
+
     final reqRef = _db.collection('joinRequests').doc();
     final reqId = reqRef.id;
 
@@ -375,6 +394,43 @@ class BatchAndJoinCodeService {
         'student_count': FieldValue.increment(1),
         'pending_request_count': FieldValue.increment(-1),
       });
+
+      // Maintain multi-teacher enrollments on the student's root account in users/{studentUid}
+      final studentUserRef = _db.collection('users').doc(request.studentUid);
+      final enrollmentDocRef = studentUserRef
+          .collection('enrollments')
+          .doc('${request.teacherId}_${request.batchId}');
+
+      tx.set(enrollmentDocRef, {
+        'id': '${request.teacherId}_${request.batchId}',
+        'teacher_id': request.teacherId,
+        'teacher_name': request.teacherName,
+        'batch_id': request.batchId,
+        'batch_name': request.batchName,
+        'student_id': studentId,
+        'status': 'active',
+        'enrolled_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      tx.set(studentUserRef, {
+        'teacher_ids': FieldValue.arrayUnion([request.teacherId]),
+        'batch_ids': FieldValue.arrayUnion([request.batchId]),
+        'enrollments': FieldValue.arrayUnion([
+          {
+            'teacher_id': request.teacherId,
+            'teacher_name': request.teacherName,
+            'batch_id': request.batchId,
+            'batch_name': request.batchName,
+            'student_id': studentId,
+            'status': 'active',
+          },
+        ]),
+        // Backward-compatible fallback fields for legacy readers
+        'teacher_id': request.teacherId,
+        'teacher_name': request.teacherName,
+        'batch': request.batchName,
+        'batch_id': request.batchId,
+      }, SetOptions(merge: true));
     });
 
     // If batch has monthly fee configured and fee tracking is enabled, initialize first month fee record
@@ -412,6 +468,107 @@ class BatchAndJoinCodeService {
       'resolved_at': FieldValue.serverTimestamp(),
     });
     batch.update(batchRef, {'pending_request_count': FieldValue.increment(-1)});
+    await batch.commit();
+  }
+
+  /// Removes a student from a teacher's batch.
+  /// - Marks student record in user/{teacherId}/students/{studentDocId} as removed
+  /// - Marks enrollment record in users/{studentAuthUid}/enrollments as removed
+  /// - Updates or inserts joinRequests record with status 'removed_by_teacher'
+  /// - Decrements batch student_count
+  /// - Revokes access immediately without deleting student's account or affecting other teachers
+  static Future<void> removeStudentFromBatch({
+    required String teacherId,
+    required String studentDocId,
+    String? studentAuthUid,
+    String? batchId,
+  }) async {
+    final firestore = _db;
+    final teacherRef = firestore.collection('user').doc(teacherId);
+    final studentRef = teacherRef.collection('students').doc(studentDocId);
+
+    // 1. Fetch student doc to retrieve auth_uid, batch_id, batch name if not passed
+    final studentSnap = await studentRef.get();
+    final studentData = studentSnap.data() ?? {};
+    final resolvedAuthUid =
+        (studentAuthUid != null && studentAuthUid.isNotEmpty
+                ? studentAuthUid
+                : (studentData['auth_uid'] ?? studentData['authUid']))
+            ?.toString()
+            .trim();
+    final resolvedBatchId =
+        (batchId != null && batchId.isNotEmpty
+                ? batchId
+                : (studentData['batch_id'] ?? studentData['batchId']))
+            ?.toString()
+            .trim();
+    final batchName = (studentData['batch'] ?? studentData['batch_name'] ?? '')
+        .toString()
+        .trim();
+    final studentName = (studentData['name'] ?? 'Student').toString().trim();
+
+    final batch = firestore.batch();
+
+    // 2. Mark student record as removed in teacher's subcollection
+    batch.update(studentRef, {
+      'status': 'removed',
+      'removed_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+
+    // 3. Decrement batch student_count if batchId is valid
+    if (resolvedBatchId != null && resolvedBatchId.isNotEmpty) {
+      final batchRef = teacherRef.collection('batches').doc(resolvedBatchId);
+      batch.update(batchRef, {'student_count': FieldValue.increment(-1)});
+    }
+
+    // 4. Update the student's root account enrollments if auth_uid is known
+    if (resolvedAuthUid != null && resolvedAuthUid.isNotEmpty) {
+      final studentUserRef = firestore.collection('users').doc(resolvedAuthUid);
+
+      if (resolvedBatchId != null && resolvedBatchId.isNotEmpty) {
+        final enrollmentRef = studentUserRef
+            .collection('enrollments')
+            .doc('${teacherId}_$resolvedBatchId');
+        batch.set(enrollmentRef, {
+          'status': 'removed',
+          'removed_at': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+
+      // 5. Update matching joinRequest to 'removed_by_teacher'
+      final reqQuery = await firestore
+          .collection('joinRequests')
+          .where('student_uid', isEqualTo: resolvedAuthUid)
+          .where('teacher_id', isEqualTo: teacherId)
+          .get();
+
+      if (reqQuery.docs.isNotEmpty) {
+        for (final doc in reqQuery.docs) {
+          batch.update(doc.reference, {
+            'status': 'removed_by_teacher',
+            'removed_at': FieldValue.serverTimestamp(),
+          });
+        }
+      } else {
+        // Create an explicit joinRequest entry so recent requests screen reflects removal
+        final newReqRef = firestore.collection('joinRequests').doc();
+        batch.set(newReqRef, {
+          'id': newReqRef.id,
+          'student_uid': resolvedAuthUid,
+          'student_name': studentName,
+          'teacher_id': teacherId,
+          'teacher_name': (studentData['teacher_name'] ?? 'Teacher').toString(),
+          'batch_id': resolvedBatchId ?? '',
+          'batch_name': batchName,
+          'status': 'removed_by_teacher',
+          'requested_at':
+              studentData['created_at'] ?? FieldValue.serverTimestamp(),
+          'removed_at': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
     await batch.commit();
   }
 

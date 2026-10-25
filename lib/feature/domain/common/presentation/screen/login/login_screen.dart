@@ -66,8 +66,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: IconButton(
                                 onPressed: () => Get.back(),
                                 style: IconButton.styleFrom(
-                                  backgroundColor:
-                                      Colors.white.withOpacity(0.16),
+                                  backgroundColor: Colors.white.withOpacity(
+                                    0.16,
+                                  ),
                                   foregroundColor: Colors.white,
                                 ),
                                 icon: const Icon(
@@ -176,28 +177,27 @@ class _LoginScreenState extends State<LoginScreen> {
                                               decoration: BoxDecoration(
                                                 color:
                                                     !controller.isStudentLogin
-                                                        ? AppColors.primary
-                                                        : Colors.transparent,
+                                                    ? AppColors.primary
+                                                    : Colors.transparent,
                                                 borderRadius:
                                                     BorderRadius.circular(14),
                                                 boxShadow:
                                                     !controller.isStudentLogin
-                                                        ? [
-                                                            BoxShadow(
-                                                              color: AppColors
-                                                                  .primary
-                                                                  .withOpacity(
-                                                                    0.25,
-                                                                  ),
-                                                              blurRadius: 8,
-                                                              offset:
-                                                                  const Offset(
-                                                                    0,
-                                                                    3,
-                                                                  ),
-                                                            ),
-                                                          ]
-                                                        : null,
+                                                    ? [
+                                                        BoxShadow(
+                                                          color: AppColors
+                                                              .primary
+                                                              .withOpacity(
+                                                                0.25,
+                                                              ),
+                                                          blurRadius: 8,
+                                                          offset: const Offset(
+                                                            0,
+                                                            3,
+                                                          ),
+                                                        ),
+                                                      ]
+                                                    : null,
                                               ),
                                               alignment: Alignment.center,
                                               child: Row(
@@ -208,21 +208,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                                     Icons
                                                         .cast_for_education_rounded,
                                                     size: 17,
-                                                    color: !controller
+                                                    color:
+                                                        !controller
                                                             .isStudentLogin
                                                         ? Colors.white
                                                         : AppColors
-                                                            .textSecondary,
+                                                              .textSecondary,
                                                   ),
                                                   const SizedBox(width: 7),
                                                   Text(
                                                     'Teacher',
                                                     style: TextStyle(
-                                                      color: !controller
+                                                      color:
+                                                          !controller
                                                               .isStudentLogin
                                                           ? Colors.white
                                                           : AppColors
-                                                              .textSecondary,
+                                                                .textSecondary,
                                                       fontWeight:
                                                           FontWeight.w700,
                                                       fontSize: 14,
@@ -251,8 +253,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                                     : Colors.transparent,
                                                 borderRadius:
                                                     BorderRadius.circular(14),
-                                                boxShadow: controller
-                                                        .isStudentLogin
+                                                boxShadow:
+                                                    controller.isStudentLogin
                                                     ? [
                                                         BoxShadow(
                                                           color: AppColors
@@ -277,21 +279,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                                   Icon(
                                                     Icons.school_rounded,
                                                     size: 17,
-                                                    color: controller
+                                                    color:
+                                                        controller
                                                             .isStudentLogin
                                                         ? Colors.white
                                                         : AppColors
-                                                            .textSecondary,
+                                                              .textSecondary,
                                                   ),
                                                   const SizedBox(width: 7),
                                                   Text(
                                                     'Student',
                                                     style: TextStyle(
-                                                      color: controller
+                                                      color:
+                                                          controller
                                                               .isStudentLogin
                                                           ? Colors.white
                                                           : AppColors
-                                                              .textSecondary,
+                                                                .textSecondary,
                                                       fontWeight:
                                                           FontWeight.w700,
                                                       fontSize: 14,
@@ -454,8 +458,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: activeAccent,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
                                         ),
                                         elevation: 0,
                                       ),
@@ -521,9 +526,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                       GestureDetector(
                                         onTap: () {
                                           if (controller.isStudentLogin) {
-                                            Get.toNamed(AppRoutes.studentSignup);
+                                            Get.toNamed(
+                                              AppRoutes.studentSignup,
+                                            );
                                           } else {
-                                            Get.toNamed(AppRoutes.teacherSignup);
+                                            Get.toNamed(
+                                              AppRoutes.teacherSignup,
+                                            );
                                           }
                                         },
                                         child: Text(

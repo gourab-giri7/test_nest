@@ -153,7 +153,7 @@ void main() {
 
         // Bottom section action buttons are laid out cleanly
         expect(find.text('Previous'), findsOneWidget);
-        expect(find.text('Review'), findsOneWidget);
+        expect(find.text('Flag'), findsOneWidget);
         expect(find.text('Next'), findsOneWidget);
 
         // Tap Next button to advance to question 2

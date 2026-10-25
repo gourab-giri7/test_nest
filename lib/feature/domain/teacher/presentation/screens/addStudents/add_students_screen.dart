@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/addStudents/controller/add_student_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/widgets/batch_dialog.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class AddStudentScreen extends StatefulWidget {
   const AddStudentScreen({super.key});
@@ -40,7 +41,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
           onPressed: () => Get.back(),
         ),
         title: const Text(
-          'Enroll New Student',
+          'Student Enrollment',
           style: TextStyle(
             fontSize: 19,
             fontWeight: FontWeight.w900,
@@ -54,161 +55,132 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Consumer<AddStudentController>(
-              builder: (context, controller, child) => Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(26),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: AppShadows.card,
-                ),
-                child: Form(
-                  key: controller.studentkey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Modern Avatar Header
-                      Container(
-                        width: 82,
-                        height: 82,
-                        decoration: BoxDecoration(
-                          color: AppColors.primarySoft,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: AppColors.primary.withOpacity(0.2),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.person_add_alt_1_rounded,
-                          size: 38,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'Student Enrollment Form',
-                        style: TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.text,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Assign a student ID, batch, and optional monthly fee',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Student Name
-                      _buildLabel('Student Full Name *'),
-                      _buildTextField(
-                        controller: controller.fullNameController,
-                        hint: 'Enter student full name',
-                        prefixIcon: Icons.person_outline_rounded,
-                        validator: controller.validator,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Student ID (Read-only generated ID)
-                      _buildLabel('Auto-Generated Student ID'),
-                      _buildTextField(
-                        controller: controller.studentIdController,
-                        hint: 'Student ID',
-                        prefixIcon: Icons.badge_outlined,
-                        enabled: false,
-                        validator: controller.validator,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Batch Dropdown
-                      _buildLabel('Assign Batch *'),
-                      GestureDetector(
-                        onTap: () {
-                          batchDialog(context);
-                        },
-                        child: _buildTextField(
-                          controller: controller.batchController,
-                          hint: 'Tap to choose or add a batch',
-                          prefixIcon: Icons.groups_outlined,
-                          enabled: false,
-                          suffix: true,
-                          validator: controller.validator,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Monthly Tuition Fee
-                      _buildLabel('Monthly Tuition Fee (₹)'),
-                      TextFormField(
-                        controller: controller.monthlyFeeController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        validator: controller.feeValidator,
-                        onTapOutside: (_) =>
-                            FocusManager.instance.primaryFocus?.unfocus(),
-                        decoration: const InputDecoration(
-                          hintText: 'e.g. 1500 (optional, default 0)',
-                          prefixIcon: Icon(
-                            Icons.currency_rupee_rounded,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-
-                      // Add Student Action Button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          onPressed: controller.isLoading
-                              ? null
-                              : () {
-                                  controller.addStudent(context);
-                                },
-                          icon: controller.isLoading
-                              ? const SizedBox.shrink()
-                              : const Icon(
-                                  Icons.check_circle_outline_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                          label: controller.isLoading
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2.5,
-                                  ),
-                                )
-                              : const Text(
-                                  'Complete Enrollment',
-                                  style: TextStyle(
-                                    fontSize: 15.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ],
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(color: AppColors.border),
+                boxShadow: AppShadows.card,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 82,
+                    height: 82,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: const Icon(
+                      Icons.how_to_reg_rounded,
+                      size: 38,
+                      color: Color(0xFFD97706),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Direct Creation Disabled',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.text,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Teachers cannot manually create student accounts. Students must register their own accounts and join using your batch joining codes.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'How Enrollment Works:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.text,
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          '1. Share your reusable Batch Code with students.\n'
+                          '2. Students create an account and enter the code.\n'
+                          '3. You review and approve their request in Join Requests.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.textSecondary,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () => Get.offNamed(AppRoutes.teacherBatches),
+                      icon: const Icon(Icons.qr_code_rounded, size: 20),
+                      label: const Text(
+                        'View & Share Batch Codes',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: Color(0xFFC7D2FE)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () =>
+                          Get.offNamed(AppRoutes.teacherJoinRequests),
+                      icon: const Icon(Icons.group_add_rounded, size: 20),
+                      label: const Text(
+                        'View Pending Join Requests',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -221,9 +221,9 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
                                           color: AppColors.text,
                                         ),
                                       ),
-                                      SizedBox(height: 4),
-                                      Text(
-                                        "Try adjusting your search or add a new student below.",
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                        "Share your batch joining codes with students to invite them to join.",
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontSize: 12.5,
@@ -250,35 +250,69 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // Add Student Action Button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 54,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                        // Batch Joining & Requests Action Bar (replaces manual student creation)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 50,
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primary,
+                                    side: const BorderSide(
+                                      color: Color(0xFFC7D2FE),
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  onPressed: () =>
+                                      Get.toNamed(AppRoutes.teacherBatches),
+                                  icon: const Icon(
+                                    Icons.qr_code_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text(
+                                    'Batch Codes',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                            onPressed: () async {
-                              await Get.toNamed(AppRoutes.teacherAddStudent);
-                            },
-                            icon: const Icon(
-                              Icons.person_add_alt_1_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            label: const Text(
-                              'Enroll New Student',
-                              style: TextStyle(
-                                fontSize: 15.5,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: SizedBox(
+                                height: 50,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  onPressed: () => Get.toNamed(
+                                    AppRoutes.teacherJoinRequests,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.group_add_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text(
+                                    'Join Requests',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     );
@@ -310,10 +344,7 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
           onTap: () {
-            Get.toNamed(
-              AppRoutes.teacherStudentDetails,
-              arguments: student,
-            );
+            Get.toNamed(AppRoutes.teacherStudentDetails, arguments: student);
           },
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -373,9 +404,7 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
-                              student.batch.isEmpty
-                                  ? 'General'
-                                  : student.batch,
+                              student.batch.isEmpty ? 'General' : student.batch,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(

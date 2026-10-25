@@ -86,10 +86,7 @@ class _MyBatchesScreenState extends State<MyBatchesScreen> {
                 _copyCode(batch.activeJoinCode);
               },
             ),
-          TextButton(
-            child: const Text('Close'),
-            onPressed: () => Get.back(),
-          ),
+          TextButton(child: const Text('Close'), onPressed: () => Get.back()),
         ],
       ),
     );

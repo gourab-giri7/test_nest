@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
@@ -12,11 +13,17 @@ class ExamDetailsScreen extends StatelessWidget {
   final ExamModel exam;
   const ExamDetailsScreen({super.key, required this.exam});
 
-  String get teacherId => studentData?.teacherId.trim() ?? '';
+  String get teacherId => exam.teacherId.isNotEmpty
+      ? exam.teacherId
+      : (studentData?.teacherId.trim() ?? '');
+
+  String get studentId =>
+      studentData?.getStudentIdForTeacher(teacherId) ??
+      (studentData?.id.trim() ?? '');
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> get submissionStream {
     final s = studentData;
-    if (s == null || teacherId.isEmpty || s.id.trim().isEmpty) {
+    if (s == null || teacherId.isEmpty || studentId.isEmpty) {
       return const Stream.empty();
     }
     return FirebaseFirestore.instance
@@ -25,7 +32,7 @@ class ExamDetailsScreen extends StatelessWidget {
         .collection('exams')
         .doc(exam.examId)
         .collection('submissions')
-        .doc(s.id.trim())
+        .doc(studentId)
         .snapshots();
   }
 
@@ -131,6 +138,27 @@ class ExamDetailsScreen extends StatelessWidget {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                    if (exam.teacherName.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.school_outlined,
+                            size: 15,
+                            color: Colors.white.withOpacity(0.85),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Teacher: ${exam.teacherName}',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: Colors.white.withOpacity(0.95),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -277,12 +305,13 @@ class ExamDetailsScreen extends StatelessWidget {
                   final submitted = snap.data?.exists ?? false;
                   final data = snap.data?.data();
 
-                  final studentId = studentData?.id.trim() ?? '';
-                  final isAssigned =
-                      exam.assignedStudentIds.isNotEmpty &&
-                      exam.assignedStudentIds.any(
-                        (id) => id.trim() == studentId,
-                      );
+                  final currentUid = FirebaseAuth.instance.currentUser?.uid;
+                  final isAssigned = exam.isEligibleForStudent(
+                    studentId: studentId,
+                    authUid: currentUid,
+                    enrollment: studentData?.getEnrollmentForTeacher(teacherId),
+                    hasSubmitted: submitted,
+                  );
 
                   if (submitted) return _submitted(context, data ?? {});
 
@@ -381,15 +410,17 @@ class ExamDetailsScreen extends StatelessWidget {
   }
 
   void _start(BuildContext context) {
-    final studentId = studentData?.id.trim() ?? '';
-    final isAssigned =
-        exam.assignedStudentIds.isNotEmpty &&
-        exam.assignedStudentIds.any((id) => id.trim() == studentId);
+    final isEligible = exam.isEligibleForStudent(
+      studentId: studentId,
+      authUid: FirebaseAuth.instance.currentUser?.uid,
+      enrollment: studentData?.getEnrollmentForTeacher(teacherId),
+    );
 
-    if (!isAssigned) {
+    if (!isEligible) {
       customSnackbar(
         context: context,
-        message: 'You are not assigned to this exam.',
+        message:
+            'You are not eligible to take this exam based on your enrollment date or assignment.',
         color: Colors.red,
         ico: Icons.block,
       );
@@ -437,14 +468,9 @@ class ExamDetailsScreen extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(110, 44),
-            ),
+            style: ElevatedButton.styleFrom(minimumSize: const Size(110, 44)),
             onPressed: () {
               if (c.text != exam.examKey) {
                 customSnackbar(
@@ -465,83 +491,82 @@ class ExamDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _submitted(BuildContext context, Map<String, dynamic> data) =>
-      Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: AppColors.success.withOpacity(0.4)),
-          boxShadow: AppShadows.card,
+  Widget _submitted(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) => Container(
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: AppColors.success.withOpacity(0.4)),
+      boxShadow: AppShadows.card,
+    ),
+    child: Column(
+      children: [
+        Container(
+          width: 58,
+          height: 58,
+          decoration: const BoxDecoration(
+            color: AppColors.successSoft,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.verified_rounded,
+            color: AppColors.success,
+            size: 32,
+          ),
         ),
-        child: Column(
-          children: [
-            Container(
-              width: 58,
-              height: 58,
-              decoration: const BoxDecoration(
-                color: AppColors.successSoft,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.verified_rounded,
+        const SizedBox(height: 12),
+        const Text(
+          'Assessment Submitted',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            color: AppColors.text,
+            fontSize: 18,
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (exam.resultPublished)
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.successSoft,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Score Obtained: ${data['score'] ?? '—'} / ${exam.fullMarks}',
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
                 color: AppColors.success,
-                size: 32,
+                fontSize: 14,
               ),
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Assessment Submitted',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                color: AppColors.text,
-                fontSize: 18,
+          )
+        else
+          const Text(
+            'Your responses are safely recorded. Results are awaiting publication.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+        const SizedBox(height: 18),
+        if (exam.resultPublished)
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.analytics_outlined, size: 18),
+              label: const Text('View Scorecard & Answer Review'),
+              onPressed: () => Get.toNamed(
+                AppRoutes.studentExamResult,
+                arguments: {'exam': exam, 'submission': data},
               ),
             ),
-            const SizedBox(height: 6),
-            if (exam.resultPublished)
-              Container(
-                margin: const EdgeInsets.only(top: 4),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.successSoft,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'Score Obtained: ${data['score'] ?? '—'} / ${exam.fullMarks}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.success,
-                    fontSize: 14,
-                  ),
-                ),
-              )
-            else
-              const Text(
-                'Your responses are safely recorded. Results are awaiting publication.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-              ),
-            const SizedBox(height: 18),
-            if (exam.resultPublished)
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.analytics_outlined, size: 18),
-                  label: const Text('View Scorecard & Answer Review'),
-                  onPressed: () => Get.toNamed(
-                    AppRoutes.studentExamResult,
-                    arguments: {'exam': exam, 'submission': data},
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
+          ),
+      ],
+    ),
+  );
 
   Widget _row(String l, String v) => Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,

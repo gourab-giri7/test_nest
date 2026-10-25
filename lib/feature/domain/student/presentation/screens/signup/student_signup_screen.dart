@@ -115,8 +115,9 @@ class _StudentSignupBody extends StatelessWidget {
                                       color: AppColors.secondarySoft,
                                       borderRadius: BorderRadius.circular(22),
                                       border: Border.all(
-                                        color: AppColors.secondary
-                                            .withOpacity(0.2),
+                                        color: AppColors.secondary.withOpacity(
+                                          0.2,
+                                        ),
                                       ),
                                     ),
                                     child: const Icon(

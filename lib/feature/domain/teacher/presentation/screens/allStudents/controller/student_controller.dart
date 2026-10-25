@@ -17,6 +17,11 @@ class StudentController extends ChangeNotifier {
   ) {
     return docs.where((doc) {
       final data = doc.data();
+      final status = (data["status"] ?? "active").toString().toLowerCase();
+      if (status == "removed" || status == "removed_by_teacher") {
+        return false;
+      }
+
       final name = (data["name"] ?? "").toString().toLowerCase();
       final id = (data["id"] ?? "").toString().toLowerCase();
       final batch = (data["batch"] ?? "").toString();

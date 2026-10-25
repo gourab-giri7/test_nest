@@ -37,8 +37,11 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_controller.hasLoaded) {
-        _controller.loadExamHistory();
+      if (mounted) {
+        _controller.refreshStudentData();
+        if (!_controller.hasLoaded) {
+          _controller.loadExamHistory();
+        }
       }
     });
   }
@@ -125,6 +128,14 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                             children: [
                               // Basic Information Card
                               _buildBasicInfoCard(context, controller, student),
+                              const SizedBox(height: 16),
+
+                              // Login & Account Details Card
+                              _buildAccountLoginDetailsCard(
+                                context,
+                                controller,
+                                student,
+                              ),
                               const SizedBox(height: 24),
 
                               // Last Given Exams Section Header
@@ -379,6 +390,237 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAccountLoginDetailsCard(
+    BuildContext context,
+    StudentDetailsController controller,
+    StudentModel student,
+  ) {
+    final hasEmail = student.email.trim().isNotEmpty;
+    final loginId = hasEmail ? student.email.trim() : student.id.trim();
+    final status = student.status.trim().isNotEmpty
+        ? student.status.trim()
+        : 'Active';
+    final isActive =
+        status.toLowerCase() == 'active' || status.toLowerCase() == 'approved';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.shield_outlined,
+                  size: 18,
+                  color: Color(0xFF4F46E5),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Login & Account Details',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Login ID (Email / Student ID)
+          _infoRow(label: 'Login ID', value: loginId),
+          const Divider(color: Color(0xFFF1F5F9), height: 16),
+
+          // Account Status
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Account Status',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 3.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFFECFDF5)
+                        : const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isActive
+                          ? const Color(0xFFA7F3D0)
+                          : const Color(0xFFFDE68A),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isActive
+                              ? const Color(0xFF059669)
+                              : const Color(0xFFD97706),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        status,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isActive
+                              ? const Color(0xFF065F46)
+                              : const Color(0xFF92400E),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(color: Color(0xFFF1F5F9), height: 16),
+
+          // Password Security
+          _infoRow(label: 'Password', value: 'Protected by Firebase Auth'),
+          const SizedBox(height: 14),
+
+          // Reset Password Action Button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF4F46E5),
+                side: const BorderSide(color: Color(0xFFC7D2FE)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: controller.isSendingReset
+                  ? null
+                  : () => _handlePasswordReset(context, controller, student),
+              icon: controller.isSendingReset
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF4F46E5),
+                      ),
+                    )
+                  : const Icon(Icons.lock_reset_rounded, size: 18),
+              label: Text(
+                controller.isSendingReset
+                    ? 'Sending Reset Link...'
+                    : 'Send Password Reset Email',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handlePasswordReset(
+    BuildContext context,
+    StudentDetailsController controller,
+    StudentModel student,
+  ) async {
+    final email = student.email.trim();
+    if (email.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text('No Email Registered'),
+          content: Text(
+            '${student.name} does not have a registered email address associated with their account.\n\nStudents must register using the student registration flow to enable self-service and password recovery.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Get.back(), child: const Text('OK')),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Send Password Reset Link'),
+        content: Text(
+          'Send a secure Firebase password reset email to $email?\n\nThe student will receive a link to securely set a new password without exposing credentials.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4F46E5),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Get.back(result: true),
+            child: const Text('Send Email'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final result = await controller.sendPasswordResetEmail();
+    if (!context.mounted) return;
+    customSnackbar(
+      context: context,
+      message: result['message']?.toString() ?? 'Password reset email sent.',
+      color: result['success'] == true ? Colors.green : Colors.red,
+      ico: result['success'] == true ? Icons.check_circle : Icons.error,
     );
   }
 

@@ -104,8 +104,9 @@ class TeacherSignupScreen extends StatelessWidget {
                                         height: 68,
                                         decoration: BoxDecoration(
                                           color: AppColors.primarySoft,
-                                          borderRadius:
-                                              BorderRadius.circular(22),
+                                          borderRadius: BorderRadius.circular(
+                                            22,
+                                          ),
                                           border: Border.all(
                                             color: AppColors.primary
                                                 .withOpacity(0.2),
@@ -218,21 +219,23 @@ class TeacherSignupScreen extends StatelessWidget {
                                           .instance
                                           .primaryFocus
                                           ?.unfocus(),
-                                      decoration: _dec(
-                                        'Password',
-                                        Icons.lock_outline_rounded,
-                                      ).copyWith(
-                                        suffixIcon: IconButton(
-                                          onPressed: c.toggleObscure,
-                                          icon: Icon(
-                                            c.obscure
-                                                ? Icons.visibility_off_outlined
-                                                : Icons.visibility_outlined,
-                                            color: AppColors.textSecondary,
-                                            size: 20,
+                                      decoration:
+                                          _dec(
+                                            'Password',
+                                            Icons.lock_outline_rounded,
+                                          ).copyWith(
+                                            suffixIcon: IconButton(
+                                              onPressed: c.toggleObscure,
+                                              icon: Icon(
+                                                c.obscure
+                                                    ? Icons
+                                                          .visibility_off_outlined
+                                                    : Icons.visibility_outlined,
+                                                color: AppColors.textSecondary,
+                                                size: 20,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
                                     ),
                                     const SizedBox(height: 14),
 
@@ -245,21 +248,23 @@ class TeacherSignupScreen extends StatelessWidget {
                                           .instance
                                           .primaryFocus
                                           ?.unfocus(),
-                                      decoration: _dec(
-                                        'Confirm Password',
-                                        Icons.lock_reset_rounded,
-                                      ).copyWith(
-                                        suffixIcon: IconButton(
-                                          onPressed: c.toggleObscureConfirm,
-                                          icon: Icon(
-                                            c.obscureConfirm
-                                                ? Icons.visibility_off_outlined
-                                                : Icons.visibility_outlined,
-                                            color: AppColors.textSecondary,
-                                            size: 20,
+                                      decoration:
+                                          _dec(
+                                            'Confirm Password',
+                                            Icons.lock_reset_rounded,
+                                          ).copyWith(
+                                            suffixIcon: IconButton(
+                                              onPressed: c.toggleObscureConfirm,
+                                              icon: Icon(
+                                                c.obscureConfirm
+                                                    ? Icons
+                                                          .visibility_off_outlined
+                                                    : Icons.visibility_outlined,
+                                                color: AppColors.textSecondary,
+                                                size: 20,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
                                     ),
                                     const SizedBox(height: 28),
 
@@ -271,8 +276,9 @@ class TeacherSignupScreen extends StatelessWidget {
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: AppColors.primary,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(16),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
                                           ),
                                           elevation: 0,
                                         ),
@@ -381,10 +387,7 @@ class TeacherSignupScreen extends StatelessWidget {
   }
 
   static InputDecoration _dec(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, size: 20),
-    );
+    return InputDecoration(labelText: label, prefixIcon: Icon(icon, size: 20));
   }
 }
 

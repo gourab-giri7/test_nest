@@ -128,6 +128,8 @@ class Publishexamcontroller extends ChangeNotifier {
         questions: List.from(questions),
         resultPublished: false,
         assignedStudentIds: assignedIds.toList(growable: false),
+        teacherId: tData.id.trim(),
+        teacherName: tData.name.trim(),
       );
 
       await teacherRef.collection('exams').doc(examId).set(exam.toJson());

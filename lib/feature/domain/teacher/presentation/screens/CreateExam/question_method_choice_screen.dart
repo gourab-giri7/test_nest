@@ -106,10 +106,7 @@ class QuestionMethodChoiceScreen extends StatelessWidget {
                   buttonColor: const Color(0xFF059669),
                   onTap: () {
                     qc.setSource(QuestionSource.excel);
-                    Get.toNamed(
-                      AppRoutes.teacherFileUpload,
-                      arguments: qc,
-                    );
+                    Get.toNamed(AppRoutes.teacherFileUpload, arguments: qc);
                   },
                 ),
                 const SizedBox(height: 24),

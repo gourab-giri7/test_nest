@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
 import 'package:test_nest/model/Q&A_model.dart';
 
 class ExamModel {
@@ -11,9 +12,12 @@ class ExamModel {
   final String batch;
   final DateTime? examStart;
   final DateTime? examEnd;
+  final DateTime? createdAt;
   final List<QAModel> questions;
   final bool resultPublished;
   final List<String> assignedStudentIds;
+  final String teacherId;
+  final String teacherName;
 
   const ExamModel({
     required this.examId,
@@ -24,12 +28,19 @@ class ExamModel {
     required this.batch,
     required this.examStart,
     required this.examEnd,
+    this.createdAt,
     required this.questions,
     this.resultPublished = false,
     this.assignedStudentIds = const [],
+    this.teacherId = '',
+    this.teacherName = '',
   });
 
-  factory ExamModel.fromJson(Map<String, dynamic>? json) {
+  factory ExamModel.fromJson(
+    Map<String, dynamic>? json, {
+    String? teacherId,
+    String? teacherName,
+  }) {
     if (json == null) {
       return const ExamModel(
         examId: '',
@@ -40,9 +51,12 @@ class ExamModel {
         batch: '',
         examStart: null,
         examEnd: null,
+        createdAt: null,
         questions: [],
         resultPublished: false,
         assignedStudentIds: [],
+        teacherId: '',
+        teacherName: '',
       );
     }
 
@@ -55,6 +69,25 @@ class ExamModel {
     }
     final rawQuestions = json['questions'];
     final questionData = rawQuestions is List ? rawQuestions : const [];
+
+    final resolvedTeacherId =
+        (json['teacher_id'] ??
+                json['teacherId'] ??
+                details['teacher_id'] ??
+                details['teacherId'] ??
+                teacherId ??
+                '')
+            .toString()
+            .trim();
+    final resolvedTeacherName =
+        (json['teacher_name'] ??
+                json['teacherName'] ??
+                details['teacher_name'] ??
+                details['teacherName'] ??
+                teacherName ??
+                '')
+            .toString()
+            .trim();
 
     return ExamModel(
       examId:
@@ -75,9 +108,17 @@ class ExamModel {
       batch: (details['batch'] ?? json['batch'] ?? '').toString(),
       examStart: _toDateTime(details['exam_start'] ?? json['exam_start']),
       examEnd: _toDateTime(details['exam_end'] ?? json['exam_end']),
+      createdAt: _toDateTime(
+        details['created_at'] ??
+            json['created_at'] ??
+            details['timestamp'] ??
+            json['timestamp'],
+      ),
       resultPublished: _toBool(
         json['result_published'] ?? details['result_published'],
       ),
+      teacherId: resolvedTeacherId,
+      teacherName: resolvedTeacherName,
       assignedStudentIds: () {
         final rawIds =
             json['assigned_student_ids'] ?? details['assigned_student_ids'];
@@ -121,7 +162,8 @@ class ExamModel {
         (mapWithId['exam_id']?.toString().trim().isEmpty ?? true)) {
       mapWithId['exam_id'] = doc.id;
     }
-    return ExamModel.fromJson(mapWithId);
+    final parentTeacherId = doc.reference.parent.parent?.id;
+    return ExamModel.fromJson(mapWithId, teacherId: parentTeacherId);
   }
 
   static bool _toBool(dynamic value) {
@@ -140,12 +182,16 @@ class ExamModel {
 
   Map<String, dynamic> toJson() => {
     'exam_id': examId,
+    'teacher_id': teacherId,
+    'teacher_name': teacherName,
     'exam_details': {
       'exam_name': examName,
       'full_marks': fullMarks,
       'exam_key': examKey,
       'instruction': instruction,
       'batch': batch,
+      'teacher_id': teacherId,
+      'teacher_name': teacherName,
       'exam_start': examStart == null ? null : Timestamp.fromDate(examStart!),
       'exam_end': examEnd == null ? null : Timestamp.fromDate(examEnd!),
     },
@@ -217,12 +263,53 @@ class ExamModel {
     if (studentBatch != null &&
         studentBatch.trim().isNotEmpty &&
         batch.trim().isNotEmpty) {
-      return studentBatch.trim().toLowerCase() ==
-          batch.trim().toLowerCase();
+      return studentBatch.trim().toLowerCase() == batch.trim().toLowerCase();
     }
 
     // Default to true if the exam is not restricted to specific IDs
     return cleanId.isNotEmpty;
+  }
+
+  /// Checks whether this exam is eligible and accessible for a given student
+  /// according to their approved enrollment date, active membership status,
+  /// and exam assignment rules.
+  bool isEligibleForStudent({
+    required String studentId,
+    String? authUid,
+    required StudentEnrollment? enrollment,
+    bool hasSubmitted = false,
+  }) {
+    if (enrollment == null || !enrollment.isActive) {
+      return false;
+    }
+
+    // 1. Check student assignment (specific student IDs or batch match)
+    final isAssigned = isStudentAssigned(
+      studentId,
+      authUid: authUid,
+      studentBatch: enrollment.batchName,
+    );
+    if (!isAssigned) return false;
+
+    // 2. Preserve historical submissions and results
+    if (hasSubmitted) return true;
+
+    // 3. Enforce enrollment date restriction:
+    // Students must not see or access exams scheduled/held prior to their approved enrollment date.
+    final enrolledAt = enrollment.enrolledAt;
+    if (enrolledAt != null) {
+      final effectiveExamDate = examStart ?? createdAt ?? examEnd;
+      if (effectiveExamDate != null) {
+        // Allow a 5-minute leeway to accommodate server timestamp slight variance
+        if (effectiveExamDate.isBefore(
+          enrolledAt.subtract(const Duration(minutes: 5)),
+        )) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   ExamModel copyWith({
@@ -234,9 +321,12 @@ class ExamModel {
     String? batch,
     DateTime? examStart,
     DateTime? examEnd,
+    DateTime? createdAt,
     List<QAModel>? questions,
     bool? resultPublished,
     List<String>? assignedStudentIds,
+    String? teacherId,
+    String? teacherName,
   }) {
     return ExamModel(
       examId: examId ?? this.examId,
@@ -247,9 +337,12 @@ class ExamModel {
       batch: batch ?? this.batch,
       examStart: examStart ?? this.examStart,
       examEnd: examEnd ?? this.examEnd,
+      createdAt: createdAt ?? this.createdAt,
       questions: questions ?? this.questions,
       resultPublished: resultPublished ?? this.resultPublished,
       assignedStudentIds: assignedStudentIds ?? this.assignedStudentIds,
+      teacherId: teacherId ?? this.teacherId,
+      teacherName: teacherName ?? this.teacherName,
     );
   }
 }

@@ -73,126 +73,13 @@ class AddStudentController extends ChangeNotifier {
   }
 
   Future<void> addStudent(BuildContext context) async {
-    final tData = teacherData;
-    if (tData == null) {
-      customSnackbar(
-        context: context,
-        message: "Teacher session not found. Please log in again.",
-        color: Colors.red,
-        ico: Icons.error,
-      );
-      return;
-    }
-
-    if (!studentkey.currentState!.validate()) return;
-
-    if (batchController.text.trim().isEmpty ||
-        batchController.text.trim() == "select_batch") {
-      customSnackbar(
-        context: context,
-        message: "Please select a batch for the student",
-        color: Colors.red,
-        ico: Icons.error,
-      );
-      return;
-    }
-
-    try {
-      isLoading = true;
-      notifyListeners();
-
-      final teacherRef = firestore.collection('user').doc(tData.id.trim());
-      final batch = batchController.text.trim();
-      final name = fullNameController.text.trim();
-      final feeAmount =
-          double.tryParse(monthlyFeeController.text.trim()) ?? 0.0;
-
-      // Reserve the sequence and create the student atomically. This prevents
-      // two quick/parallel student creations from receiving the same ID.
-      final newStudentId = await firestore.runTransaction<String>((tx) async {
-        final teacherSnap = await tx.get(teacherRef);
-        final currentSeq =
-            int.tryParse(
-              (teacherSnap.data()?['last_std_id'] ?? tData.lastStdId)
-                  .toString(),
-            ) ??
-            0;
-        final nextSeq = currentSeq + 1;
-
-        final generatedId = generateStudentId(tData.name, nextSeq);
-        final studentRef = teacherRef.collection('students').doc(generatedId);
-        final studentSnap = await tx.get(studentRef);
-
-        if (studentSnap.exists) {
-          throw StateError('Generated student ID already exists: $generatedId');
-        }
-
-        tx.set(studentRef, {
-          'batch': batch,
-          'id': generatedId,
-          'name': name,
-          'password': '',
-          'monthly_fee': feeAmount,
-          // Always store the actual Firestore teacher document ID.
-          'teacher_id': teacherRef.id,
-          'teacher_name': tData.name.trim(),
-          'created_at': FieldValue.serverTimestamp(),
-        });
-
-        tx.set(teacherRef, {
-          'last_std_id': nextSeq.toString(),
-        }, SetOptions(merge: true));
-
-        return generatedId;
-      });
-
-      // If monthly fee is configured, ensure the fee record for the current month exists
-      if (feeAmount > 0) {
-        try {
-          await FeeService.ensureFeeRecord(
-            teacherId: teacherRef.id,
-            studentId: newStudentId,
-            studentName: name,
-            billingMonth: FeeService.currentMonthKey,
-            amountDue: feeAmount,
-          );
-        } catch (feeError) {
-          log("Warning: could not initialize first fee record: $feeError");
-        }
-      }
-
-      final generatedSequence = int.tryParse(
-        RegExp(r'(\d+)$').firstMatch(newStudentId)?.group(1) ?? '',
-      );
-      if (generatedSequence != null) {
-        tData.lastStdId = generatedSequence.toString();
-      }
-      TeacherData.updateTeacherLocalData();
-
-      isLoading = false;
-      notifyListeners();
-
-      if (!context.mounted) return;
-      customSnackbar(
-        context: context,
-        message: "Student added successfully",
-        color: Colors.green,
-        ico: Icons.done,
-      );
-
-      Get.back();
-    } catch (e) {
-      isLoading = false;
-      notifyListeners();
-      log("Error adding student: $e");
-      if (!context.mounted) return;
-      customSnackbar(
-        context: context,
-        message: "Something went wrong, please try again later",
-        color: Colors.red,
-        ico: Icons.info,
-      );
-    }
+    customSnackbar(
+      context: context,
+      message:
+          "Manual student account creation is disabled. Students must register and join through your batch joining codes.",
+      color: Colors.red,
+      ico: Icons.info_outline,
+    );
   }
 
   // ---------------------- dialog feature

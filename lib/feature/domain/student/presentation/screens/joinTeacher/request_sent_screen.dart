@@ -3,9 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:get/get.dart';
+import 'package:test_nest/feature/auth/loginFeatureStudents/student_login_feature.dart';
 import 'package:test_nest/routes/app_routes.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
-
 
 import 'package:test_nest/main.dart';
 
@@ -35,31 +35,25 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
     }
 
     try {
-      final teachersSnap = await FirebaseFirestore.instance
-          .collection('user')
-          .get();
-      for (final tDoc in teachersSnap.docs) {
-        final studentMatch = await tDoc.reference
-            .collection('students')
-            .where('auth_uid', isEqualTo: user.uid)
-            .limit(1)
-            .get();
+      final res = await StudentLoginFeature.resolveStudentState(user.uid);
+      if (res['state'] == 'approved') {
+        if (!mounted) return;
+        Get.offAllNamed(AppRoutes.studentDashboard);
+        return;
+      }
 
-        if (studentMatch.docs.isNotEmpty) {
-          final sData = studentMatch.docs.first.data();
-          studentData = StudentData(
-            id: sData['id']?.toString() ?? studentMatch.docs.first.id,
-            name: sData['name']?.toString() ?? 'Student',
-            teacherId: tDoc.id,
-            batch: sData['batch']?.toString() ?? '',
-            teacherName: tDoc.data()['name']?.toString() ?? '',
-          );
-          await StudentData.updateStudentLocalData();
-
-          if (!mounted) return;
-          Get.offAllNamed(AppRoutes.studentDashboard);
-          return;
-        }
+      if (res['state'] == 'needs_join') {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Your request was not approved or has expired. Please enter another batch code.',
+            ),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+        Get.offAllNamed(AppRoutes.studentJoinTeacher);
+        return;
       }
 
       if (mounted) {
@@ -260,6 +254,20 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
                         child: const Text('Enter Another Joining Code'),
                       ),
                     ),
+                    if (studentData != null &&
+                        studentData!.hasActiveEnrollment) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: TextButton.icon(
+                          onPressed: () =>
+                              Get.offAllNamed(AppRoutes.studentDashboard),
+                          icon: const Icon(Icons.dashboard_rounded, size: 18),
+                          label: const Text('Return to Dashboard'),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

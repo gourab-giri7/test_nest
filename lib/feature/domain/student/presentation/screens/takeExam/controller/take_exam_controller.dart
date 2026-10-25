@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
@@ -93,13 +94,18 @@ class TakeExamController extends ChangeNotifier {
       }
 
       // 2. Also check Firestore active attempt
+      final resolvedTeacherId = exam.teacherId.isNotEmpty
+          ? exam.teacherId
+          : s.teacherId.trim();
+      final resolvedStudentId = s.getStudentIdForTeacher(resolvedTeacherId);
+
       final draftDoc = await FirebaseFirestore.instance
           .collection('user')
-          .doc(s.teacherId.trim())
+          .doc(resolvedTeacherId)
           .collection('exams')
           .doc(exam.examId)
           .collection('active_attempts')
-          .doc(s.id.trim())
+          .doc(resolvedStudentId)
           .get();
 
       if (draftDoc.exists && draftDoc.data() != null) {
@@ -123,12 +129,18 @@ class TakeExamController extends ChangeNotifier {
   Future<void> _saveProgress() async {
     if (isSubmitted || isSubmitting) return;
     final s = studentData;
-    if (s == null || s.teacherId.trim().isEmpty || s.id.trim().isEmpty) return;
+    if (s == null) return;
+    final resolvedTeacherId = exam.teacherId.isNotEmpty
+        ? exam.teacherId
+        : s.teacherId.trim();
+    if (resolvedTeacherId.isEmpty) return;
+    final resolvedStudentId = s.getStudentIdForTeacher(resolvedTeacherId);
+    if (resolvedStudentId.isEmpty) return;
 
     try {
       // Save locally
       final map = {
-        'student_id': s.id.trim(),
+        'student_id': resolvedStudentId,
         'focus_loss_count': focusLossCount,
         'answers': selectedAnswers,
         'last_updated': DateTime.now().toIso8601String(),
@@ -138,13 +150,13 @@ class TakeExamController extends ChangeNotifier {
       // Save to Firestore active attempt
       await FirebaseFirestore.instance
           .collection('user')
-          .doc(s.teacherId.trim())
+          .doc(resolvedTeacherId)
           .collection('exams')
           .doc(exam.examId)
           .collection('active_attempts')
-          .doc(s.id.trim())
+          .doc(resolvedStudentId)
           .set({
-            'student_id': s.id.trim(),
+            'student_id': resolvedStudentId,
             'student_name': s.name.trim(),
             'focus_loss_count': focusLossCount,
             'answers': selectedAnswers,
@@ -375,7 +387,7 @@ class TakeExamController extends ChangeNotifier {
     notifyListeners();
 
     final s = studentData;
-    if (s == null || s.teacherId.trim().isEmpty || s.id.trim().isEmpty) {
+    if (s == null) {
       isSubmitting = false;
       notifyListeners();
       if (ctx != null && ctx.mounted) {
@@ -389,12 +401,50 @@ class TakeExamController extends ChangeNotifier {
       return;
     }
 
-    final studentId = s.id.trim();
+    final resolvedTeacherId = exam.teacherId.isNotEmpty
+        ? exam.teacherId
+        : s.teacherId.trim();
+    if (resolvedTeacherId.isEmpty) {
+      isSubmitting = false;
+      notifyListeners();
+      if (ctx != null && ctx.mounted) {
+        customSnackbar(
+          context: ctx,
+          message: 'Teacher information missing for this exam.',
+          color: Colors.red,
+          ico: Icons.error,
+        );
+      }
+      return;
+    }
+
+    final studentId = s.getStudentIdForTeacher(resolvedTeacherId);
+    final enrollment = s.getEnrollmentForTeacher(resolvedTeacherId);
+    final isEligible = exam.isEligibleForStudent(
+      studentId: studentId,
+      authUid: FirebaseAuth.instance.currentUser?.uid,
+      enrollment: enrollment,
+    );
+
+    if (!isEligible) {
+      isSubmitting = false;
+      notifyListeners();
+      if (ctx != null && ctx.mounted) {
+        customSnackbar(
+          context: ctx,
+          message:
+              'You are not eligible to submit this exam due to membership or enrollment date restrictions.',
+          color: Colors.red,
+          ico: Icons.block,
+        );
+      }
+      return;
+    }
 
     try {
       final examRef = FirebaseFirestore.instance
           .collection('user')
-          .doc(s.teacherId.trim())
+          .doc(resolvedTeacherId)
           .collection('exams')
           .doc(exam.examId);
 
@@ -493,7 +543,7 @@ class TakeExamController extends ChangeNotifier {
         await pref.remove(_attemptStorageKey);
         await FirebaseFirestore.instance
             .collection('user')
-            .doc(s.teacherId.trim())
+            .doc(resolvedTeacherId)
             .collection('exams')
             .doc(exam.examId)
             .collection('active_attempts')

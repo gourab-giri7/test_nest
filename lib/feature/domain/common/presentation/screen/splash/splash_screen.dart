@@ -96,11 +96,7 @@ class _SplashScreenState extends State<SplashScreen>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F172A),
-              Color(0xFF1E1B4B),
-              Color(0xFF312E81),
-            ],
+            colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
           ),
         ),
         child: Stack(
@@ -314,12 +310,14 @@ class _SplashScreenState extends State<SplashScreen>
                                               Color(0xFF818CF8),
                                             ],
                                           ),
-                                          borderRadius:
-                                              BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: const Color(0xFF38BDF8)
-                                                  .withOpacity(0.5),
+                                              color: const Color(
+                                                0xFF38BDF8,
+                                              ).withOpacity(0.5),
                                               blurRadius: 10,
                                             ),
                                           ],
@@ -373,11 +371,7 @@ class _FloatingBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white.withOpacity(0.08)),
         ),
-        child: Icon(
-          icon,
-          color: Colors.white.withOpacity(0.22),
-          size: 26,
-        ),
+        child: Icon(icon, color: Colors.white.withOpacity(0.22), size: 26),
       ),
     );
   }

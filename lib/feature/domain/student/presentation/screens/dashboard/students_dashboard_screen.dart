@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/core/services/exam_firestore_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/login/controller/login_controller.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
@@ -34,7 +36,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
   static const double _maxContentWidth = 640;
 
-  Stream<QuerySnapshot<Map<String, dynamic>>>? _examStream;
+  Stream<List<ExamModel>>? _examStream;
 
   @override
   void initState() {
@@ -46,7 +48,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   void _openExamStream() {
     try {
       if (studentData != null) {
-        _examStream = context.read<ExamController>().getExam();
+        final active = studentData!.activeEnrollments;
+        if (active.isNotEmpty) {
+          _examStream = ExamFirestoreService.getMultiTeacherExamsStream(
+            enrollments: active,
+          );
+        } else {
+          _examStream = Stream.value(const <ExamModel>[]);
+        }
       }
     } catch (e) {
       log('Could not open exam stream: $e');
@@ -84,39 +93,38 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final sData = studentData;
-    if (sData == null) return _buildSessionExpired();
+    if (sData == null || !sData.hasActiveEnrollment) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.offAllNamed(AppRoutes.studentJoinTeacher);
+      });
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        child: StreamBuilder<List<ExamModel>>(
           stream: _examStream,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               log('Dashboard exam stream error: ${snapshot.error}');
             }
 
-            final exams = <ExamModel>[];
-            for (final d in snapshot.data?.docs ?? const []) {
-              try {
-                exams.add(ExamModel.fromJson(d.data()));
-              } catch (e) {
-                log('Error parsing exam ${d.id}: $e');
-              }
-            }
-
-            final studentId = sData.id.trim();
-            final studentBatch = sData.batch.trim();
-            final assigned = exams
-                .where(
-                  (e) =>
-                      studentId.isNotEmpty &&
-                      e.isStudentAssigned(
-                        studentId,
-                        studentBatch: studentBatch,
-                      ),
-                )
-                .toList();
+            final exams = snapshot.data ?? const <ExamModel>[];
+            final currentUid = FirebaseAuth.instance.currentUser?.uid;
+            final assigned = exams.where((e) {
+              final enrollment = sData.getEnrollmentForTeacher(e.teacherId);
+              final studentId = sData.getStudentIdForTeacher(e.teacherId);
+              return studentId.isNotEmpty &&
+                  e.isEligibleForStudent(
+                    studentId: studentId,
+                    authUid: currentUid,
+                    enrollment: enrollment,
+                  );
+            }).toList();
 
             assigned.sort((a, b) {
               final aS = a.examStart, bS = b.examStart;
@@ -333,6 +341,34 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     letterSpacing: -0.3,
                   ),
                 ),
+                if (sData.activeEnrollments.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: sData.activeEnrollments.map((enr) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _line),
+                        ),
+                        child: Text(
+                          '${enr.teacherName.isNotEmpty ? enr.teacherName : "Teacher"} • ${enr.batchName}',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: _ink,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ],
             ),
           ),
@@ -589,7 +625,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${exam.examDate} · ${exam.startTime} – ${exam.endTime}',
+                  exam.teacherName.isNotEmpty
+                      ? '${exam.teacherName} · ${exam.examDate} · ${exam.startTime} – ${exam.endTime}'
+                      : '${exam.examDate} · ${exam.startTime} – ${exam.endTime}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -672,6 +710,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         subtitle: 'Account & logout',
         color: _warn,
         onTap: () => _showProfileSheet(context),
+      ),
+      _QuickAction(
+        icon: Icons.group_add_rounded,
+        title: 'Join Another Batch',
+        subtitle: 'Enter joining code',
+        color: const Color(0xFF0D9488),
+        onTap: () => Get.toNamed(AppRoutes.studentJoinTeacher),
       ),
     ];
 
@@ -857,7 +902,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${exam.examDate} · ${exam.startTime} · ${exam.fullMarks} marks',
+                      exam.teacherName.isNotEmpty
+                          ? '${exam.teacherName} · ${exam.examDate} · ${exam.fullMarks} marks'
+                          : '${exam.examDate} · ${exam.startTime} · ${exam.fullMarks} marks',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

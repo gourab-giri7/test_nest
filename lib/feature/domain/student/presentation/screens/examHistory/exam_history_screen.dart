@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -18,7 +19,7 @@ enum _CardState { active, upcoming, ended, pendingResult, scored }
 
 class ExamHistoryScreen extends StatefulWidget {
   final StudentData? initialStudentData;
-  final Stream<QuerySnapshot<Map<String, dynamic>>>? examStream;
+  final Stream<dynamic>? examStream;
   final int initialTab;
 
   const ExamHistoryScreen({
@@ -52,9 +53,10 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
 
   bool _isInitializing = true;
   StudentData? _currentStudent;
-  Stream<QuerySnapshot<Map<String, dynamic>>>? _stream;
+  Stream<List<ExamModel>>? _stream;
   String? _profileErrorMessage;
   String _searchQuery = '';
+  String _selectedTeacher = 'All Teachers';
 
   /// Cached per-exam submission streams so typing in search or switching tabs
   /// does not re-subscribe (and flicker) every card.
@@ -128,6 +130,27 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
     return controller.stream;
   }
 
+  Stream<List<ExamModel>> _adaptStream(Stream<dynamic> raw) {
+    return raw.map((event) {
+      if (event is List<ExamModel>) return event;
+      if (event is QuerySnapshot) {
+        final docs = (event as QuerySnapshot<Map<String, dynamic>>).docs;
+        final list = <ExamModel>[];
+        for (final doc in docs) {
+          try {
+            list.add(ExamModel.fromFirestore(doc));
+          } catch (_) {
+            try {
+              list.add(ExamModel.fromJson(doc.data()));
+            } catch (_) {}
+          }
+        }
+        return list;
+      }
+      return <ExamModel>[];
+    });
+  }
+
   Future<void> _loadProfileAndStream({bool forceRefresh = false}) async {
     setState(() {
       _isInitializing = true;
@@ -138,13 +161,19 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
     try {
       StudentData? resolvedStudent = widget.initialStudentData ?? studentData;
 
-      if (resolvedStudent == null || resolvedStudent.teacherId.trim().isEmpty) {
+      if (resolvedStudent == null ||
+          (resolvedStudent.teacherId.trim().isEmpty &&
+              resolvedStudent.enrollments.isEmpty)) {
         resolvedStudent = await StudentData.restoreFromPreferences();
       }
 
-      if (resolvedStudent == null ||
-          resolvedStudent.id.trim().isEmpty ||
-          resolvedStudent.teacherId.trim().isEmpty) {
+      final hasTeacherOrEnrollment =
+          resolvedStudent != null &&
+          ((resolvedStudent.id.trim().isNotEmpty &&
+                  resolvedStudent.teacherId.trim().isNotEmpty) ||
+              resolvedStudent.enrollments.isNotEmpty);
+
+      if (!hasTeacherOrEnrollment) {
         if (!mounted) return;
         setState(() {
           _currentStudent = null;
@@ -164,15 +193,27 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
         controller.refreshStream(teacherId: resolvedStudent.teacherId);
       }
 
-      final rawStream =
-          widget.examStream ??
-          controller?.getExamStream(
-            teacherId: resolvedStudent.teacherId,
-            forceFresh: true,
-          ) ??
-          ExamFirestoreService.getStudentExamsStream(
-            teacherId: resolvedStudent.teacherId,
-          );
+      Stream<List<ExamModel>> rawStream;
+      if (widget.examStream != null) {
+        rawStream = _adaptStream(widget.examStream!);
+      } else {
+        final enrollments = resolvedStudent.activeEnrollments.isNotEmpty
+            ? resolvedStudent.activeEnrollments
+            : (resolvedStudent.enrollments.isNotEmpty
+                  ? resolvedStudent.enrollments
+                  : [
+                      StudentEnrollment(
+                        teacherId: resolvedStudent.teacherId,
+                        teacherName: resolvedStudent.teacherName,
+                        batchId: resolvedStudent.batch,
+                        batchName: resolvedStudent.batch,
+                        studentId: resolvedStudent.id,
+                      ),
+                    ]);
+        rawStream = ExamFirestoreService.getMultiTeacherExamsStream(
+          enrollments: enrollments,
+        );
+      }
 
       final streamInstance = _withInitialTimeout(
         rawStream,
@@ -199,18 +240,24 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
   void _onRetry() => _loadProfileAndStream(forceRefresh: true);
 
   Stream<DocumentSnapshot<Map<String, dynamic>>>? _getSubmissionStream(
-    String examId,
+    ExamModel exam,
   ) {
     final student = _currentStudent;
-    if (student == null || student.teacherId.isEmpty || student.id.isEmpty) {
+    if (student == null) return null;
+    final teacherId = exam.teacherId.isNotEmpty
+        ? exam.teacherId
+        : student.teacherId.trim();
+    final studentId = student.getStudentIdForTeacher(teacherId);
+    if (teacherId.isEmpty || studentId.isEmpty) {
       return null;
     }
-    return _submissionStreams.putIfAbsent(examId, () {
+    final cacheKey = '${teacherId}_${exam.examId}_$studentId';
+    return _submissionStreams.putIfAbsent(cacheKey, () {
       try {
         return ExamFirestoreService.submission(
-          student.teacherId,
-          examId,
-          student.id,
+          teacherId,
+          exam.examId,
+          studentId,
         ).snapshots();
       } catch (_) {
         return null;
@@ -219,13 +266,23 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
   }
 
   void _onStartExam(BuildContext context, ExamModel exam) {
-    final studentId = _currentStudent?.id.trim() ?? '';
-    final isAssigned = exam.isStudentAssigned(studentId);
+    final student = _currentStudent;
+    final teacherId = exam.teacherId.isNotEmpty
+        ? exam.teacherId
+        : (student?.teacherId ?? '');
+    final studentId = student?.getStudentIdForTeacher(teacherId) ?? '';
+    final enrollment = student?.getEnrollmentForTeacher(teacherId);
+    final isEligible = exam.isEligibleForStudent(
+      studentId: studentId,
+      authUid: FirebaseAuth.instance.currentUser?.uid,
+      enrollment: enrollment,
+    );
 
-    if (!isAssigned) {
+    if (!isEligible) {
       customSnackbar(
         context: context,
-        message: 'You are not assigned to this exam.',
+        message:
+            'You are not eligible to take this exam based on your enrollment date or assignment.',
         color: Colors.red,
         ico: Icons.block,
       );
@@ -487,7 +544,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
       );
     }
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<List<ExamModel>>(
       stream: activeStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -501,15 +558,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
           return _buildSkeleton();
         }
 
-        final docs = snapshot.data?.docs ?? [];
-        final raw = <ExamModel>[];
-        for (final doc in docs) {
-          try {
-            raw.add(ExamModel.fromJson(doc.data()));
-          } catch (e) {
-            log('Error parsing exam document ${doc.id}: $e');
-          }
-        }
+        final raw = List<ExamModel>.from(snapshot.data ?? const <ExamModel>[]);
 
         // Newest start date first
         raw.sort((a, b) {
@@ -523,23 +572,58 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
           return bStart.compareTo(aStart);
         });
 
-        final studentId = _currentStudent!.id.trim();
-        final studentBatch = _currentStudent!.batch.trim();
+        final student = _currentStudent!;
+        final currentUid = FirebaseAuth.instance.currentUser?.uid;
         final allAssigned = raw
-            .where(
-              (exam) =>
-                  exam.isStudentAssigned(studentId, studentBatch: studentBatch),
-            )
+            .where((exam) {
+              final teacherId = exam.teacherId.isNotEmpty
+                  ? exam.teacherId
+                  : student.teacherId;
+              final studentId = student.getStudentIdForTeacher(teacherId);
+              final enrollment = student.getEnrollmentForTeacher(teacherId);
+              return exam.isEligibleForStudent(
+                studentId: studentId,
+                authUid: currentUid,
+                enrollment: enrollment,
+              );
+            })
             .toList(growable: false);
 
         if (allAssigned.isEmpty) return _buildEmptyAllExamsState();
 
-        final filtered = _searchQuery.isEmpty
+        final teacherNamesSet = <String>{'All Teachers'};
+        for (final exam in allAssigned) {
+          if (exam.teacherName.trim().isNotEmpty) {
+            teacherNamesSet.add(exam.teacherName.trim());
+          }
+        }
+        for (final name in student.allTeacherNames) {
+          if (name.trim().isNotEmpty) {
+            teacherNamesSet.add(name.trim());
+          }
+        }
+        final availableTeachers = teacherNamesSet.toList(growable: false);
+        if (!availableTeachers.contains(_selectedTeacher)) {
+          _selectedTeacher = 'All Teachers';
+        }
+
+        final teacherFiltered = _selectedTeacher == 'All Teachers'
             ? allAssigned
             : allAssigned
+                  .where(
+                    (e) =>
+                        e.teacherName.trim().toLowerCase() ==
+                        _selectedTeacher.trim().toLowerCase(),
+                  )
+                  .toList(growable: false);
+
+        final filtered = _searchQuery.isEmpty
+            ? teacherFiltered
+            : teacherFiltered
                   .where((exam) {
                     return exam.examName.toLowerCase().contains(_searchQuery) ||
-                        exam.batch.toLowerCase().contains(_searchQuery);
+                        exam.batch.toLowerCase().contains(_searchQuery) ||
+                        exam.teacherName.toLowerCase().contains(_searchQuery);
                   })
                   .toList(growable: false);
 
@@ -564,6 +648,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
                   .length,
             ),
             _buildSearchField(),
+            _buildTeacherFilterChips(availableTeachers),
             _buildTabs(
               all: filtered.length,
               active: active.length,
@@ -791,6 +876,69 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
     );
   }
 
+  Widget _buildTeacherFilterChips(List<String> teachers) {
+    if (teachers.length <= 1) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: SizedBox(
+        height: 32,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: teachers.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (context, index) {
+            final teacher = teachers[index];
+            final isSelected = teacher == _selectedTeacher;
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedTeacher = teacher;
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.primary : _surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isSelected ? AppColors.primary : _line,
+                    width: 1,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      index == 0
+                          ? Icons.people_outline_rounded
+                          : Icons.person_outline_rounded,
+                      size: 13,
+                      color: isSelected ? Colors.white : _muted,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      teacher,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w600,
+                        color: isSelected ? Colors.white : _ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildTabs({
     required int all,
     required int active,
@@ -921,7 +1069,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
   }
 
   Widget _buildLiveExamCard(ExamModel exam, BuildContext context) {
-    final submissionStream = _getSubmissionStream(exam.examId);
+    final submissionStream = _getSubmissionStream(exam);
 
     if (submissionStream == null) {
       return _buildCard(exam, context, submission: null);
@@ -1085,7 +1233,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
               ),
               const SizedBox(height: 1.5),
               Text(
-                exam.batch.isEmpty ? 'All batches' : exam.batch,
+                '${exam.batch.isEmpty ? 'All batches' : exam.batch}${exam.teacherName.trim().isNotEmpty ? ' • ${exam.teacherName.trim()}' : ''}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(

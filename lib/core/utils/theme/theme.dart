@@ -66,25 +66,25 @@ class AppGradients {
 
 class AppShadows {
   static List<BoxShadow> get card => [
-        BoxShadow(
-          color: const Color(0xFF0F172A).withOpacity(0.04),
-          blurRadius: 20,
-          offset: const Offset(0, 8),
-        ),
-        BoxShadow(
-          color: const Color(0xFF0F172A).withOpacity(0.02),
-          blurRadius: 6,
-          offset: const Offset(0, 2),
-        ),
-      ];
+    BoxShadow(
+      color: const Color(0xFF0F172A).withOpacity(0.04),
+      blurRadius: 20,
+      offset: const Offset(0, 8),
+    ),
+    BoxShadow(
+      color: const Color(0xFF0F172A).withOpacity(0.02),
+      blurRadius: 6,
+      offset: const Offset(0, 2),
+    ),
+  ];
 
   static List<BoxShadow> get elevated => [
-        BoxShadow(
-          color: AppColors.primary.withOpacity(0.18),
-          blurRadius: 28,
-          offset: const Offset(0, 12),
-        ),
-      ];
+    BoxShadow(
+      color: AppColors.primary.withOpacity(0.18),
+      blurRadius: 28,
+      offset: const Offset(0, 12),
+    ),
+  ];
 }
 
 class ColorTheme {
@@ -194,19 +194,13 @@ class ColorTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
         ),
       ),
       chipTheme: ChipThemeData(

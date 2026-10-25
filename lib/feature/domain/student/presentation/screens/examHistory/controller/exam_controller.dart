@@ -15,6 +15,8 @@ class ExamController extends ChangeNotifier {
   FirebaseFirestore get firestore => _firestore ?? FirebaseFirestore.instance;
 
   int selectedTab = 0;
+  String _selectedTeacherFilter = 'All Teachers';
+  String get selectedTeacherFilter => _selectedTeacherFilter;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -22,23 +24,58 @@ class ExamController extends ChangeNotifier {
   List<ExamModel> _exams = [];
   List<ExamModel> get exams => List.unmodifiable(_exams);
   List<ExamModel> get allExams => List.unmodifiable(_exams);
+  List<ExamModel> get filteredExams {
+    if (_selectedTeacherFilter == 'All Teachers') return _exams;
+    return _exams
+        .where(
+          (e) =>
+              e.teacherName.trim().toLowerCase() ==
+              _selectedTeacherFilter.trim().toLowerCase(),
+        )
+        .toList(growable: false);
+  }
+
+  List<String> get availableTeachers {
+    final names = <String>{};
+    for (final e in _exams) {
+      if (e.teacherName.trim().isNotEmpty) names.add(e.teacherName.trim());
+    }
+    if (studentData != null) {
+      for (final n in studentData!.allTeacherNames) {
+        if (n.isNotEmpty) names.add(n);
+      }
+    }
+    return ['All Teachers', ...names];
+  }
+
   List<ExamModel> get activeExams =>
-      _exams.where((e) => e.status == 'Active').toList(growable: false);
-  List<ExamModel> get upcomingExams =>
-      _exams.where((e) => e.status == 'Upcoming').toList(growable: false);
-  List<ExamModel> get completedExams =>
-      _exams.where((e) => e.status == 'Completed').toList(growable: false);
+      filteredExams.where((e) => e.status == 'Active').toList(growable: false);
+  List<ExamModel> get upcomingExams => filteredExams
+      .where((e) => e.status == 'Upcoming')
+      .toList(growable: false);
+  List<ExamModel> get completedExams => filteredExams
+      .where((e) => e.status == 'Completed')
+      .toList(growable: false);
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
+  StreamSubscription<List<ExamModel>>? _multiSubscription;
   Stream<QuerySnapshot<Map<String, dynamic>>>? _cachedStream;
+  Stream<List<ExamModel>>? _cachedMultiStream;
   String _cachedTeacherId = '';
 
   void changeTab(int index) {
     if (selectedTab != index) {
       selectedTab = index;
+      notifyListeners();
+    }
+  }
+
+  void setTeacherFilter(String filter) {
+    if (_selectedTeacherFilter != filter) {
+      _selectedTeacherFilter = filter;
       notifyListeners();
     }
   }
@@ -237,7 +274,9 @@ class ExamController extends ChangeNotifier {
       );
     }
 
-    if (!forceFresh && _cachedStream != null && _cachedTeacherId == resolvedTeacherId) {
+    if (!forceFresh &&
+        _cachedStream != null &&
+        _cachedTeacherId == resolvedTeacherId) {
       return _cachedStream!;
     }
 
@@ -255,9 +294,83 @@ class ExamController extends ChangeNotifier {
     return getExamStream();
   }
 
+  /// Returns a combined stream of [ExamModel]s across all enrolled teachers.
+  Stream<List<ExamModel>> getMultiTeacherStream({
+    List<StudentEnrollment>? enrollments,
+    bool forceFresh = true,
+  }) {
+    final effectiveEnrollments =
+        enrollments ?? studentData?.enrollments ?? const [];
+
+    if (!forceFresh && _cachedMultiStream != null) {
+      return _cachedMultiStream!;
+    }
+
+    _cachedMultiStream = ExamFirestoreService.getMultiTeacherExamsStream(
+      enrollments: effectiveEnrollments.isNotEmpty
+          ? effectiveEnrollments
+          : (studentData?.teacherId.isNotEmpty == true
+                ? [
+                    StudentEnrollment(
+                      teacherId: studentData!.teacherId,
+                      teacherName: studentData!.teacherName,
+                      batchId: '',
+                      batchName: studentData!.batch,
+                      studentId: studentData!.id,
+                    ),
+                  ]
+                : const []),
+    );
+
+    return _cachedMultiStream!;
+  }
+
+  /// Listens to combined multi-teacher exams.
+  void listenToMultiTeacherExams({List<StudentEnrollment>? enrollments}) {
+    final effectiveEnrollments =
+        enrollments ?? studentData?.enrollments ?? const [];
+
+    _multiSubscription?.cancel();
+    _multiSubscription = null;
+
+    if (effectiveEnrollments.isEmpty &&
+        (studentData?.teacherId.isEmpty ?? true)) {
+      _isLoading = false;
+      _exams = [];
+      _errorMessage = null;
+      notifyListeners();
+      return;
+    }
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final stream = getMultiTeacherStream(
+      enrollments: effectiveEnrollments,
+      forceFresh: true,
+    );
+
+    _multiSubscription = stream.listen(
+      (list) {
+        _exams = List.from(list);
+        _isLoading = false;
+        _errorMessage = null;
+        notifyListeners();
+      },
+      onError: (err) {
+        log('Error in multi-teacher exam stream: $err');
+        _errorMessage = err.toString();
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
+  }
+
   /// Clears the cached stream and forces a fresh query subscription on next build or retry.
   void refreshStream({String? teacherId}) {
     _cachedStream = null;
+    _cachedMultiStream = null;
     _cachedTeacherId = '';
     notifyListeners();
   }
@@ -265,11 +378,15 @@ class ExamController extends ChangeNotifier {
   void reset() {
     _subscription?.cancel();
     _subscription = null;
+    _multiSubscription?.cancel();
+    _multiSubscription = null;
     selectedTab = 0;
+    _selectedTeacherFilter = 'All Teachers';
     _isLoading = false;
     _exams = [];
     _errorMessage = null;
     _cachedStream = null;
+    _cachedMultiStream = null;
     _cachedTeacherId = '';
     notifyListeners();
   }
@@ -277,6 +394,7 @@ class ExamController extends ChangeNotifier {
   @override
   void dispose() {
     _subscription?.cancel();
+    _multiSubscription?.cancel();
     super.dispose();
   }
 }
