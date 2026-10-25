@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/CreateExam/create_exam_screen.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/examDetails/teacher_exam_details_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/exams/controller/teacher_exam_controller.dart';
 import 'package:test_nest/model/exam_model.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class TeacherExamsScreen extends StatelessWidget {
   const TeacherExamsScreen({super.key});
@@ -47,10 +47,7 @@ class TeacherExamsScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: IconButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CreateExamScreen()),
-              ),
+              onPressed: () => Get.toNamed(AppRoutes.teacherCreateExam),
               style: IconButton.styleFrom(backgroundColor: AppColors.primary),
               icon: const Icon(Icons.add, color: Colors.white),
             ),
@@ -507,17 +504,12 @@ class TeacherExamsScreen extends StatelessWidget {
             height: 42,
             child: OutlinedButton(
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => TeacherExamDetailsScreen(exam: exam),
-                  ),
-                );
+                Get.toNamed(AppRoutes.teacherExamDetails, arguments: exam);
               },
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 backgroundColor: const Color(0xFFFAFCFF),
-                side: const BorderSide(color: Color(0xFFBFDBFE)),
+                side: const BorderSide(color: Color(0xFFC7D2FE)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(11),
                 ),

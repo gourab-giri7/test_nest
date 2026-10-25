@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'package:get/get.dart';
 import "package:provider/provider.dart";
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart'
 import 'package:test_nest/model/Q&A_model.dart';
 import 'package:test_nest/model/exam_details_model.dart';
 import 'package:test_nest/model/exam_model.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class Publishexamcontroller extends ChangeNotifier {
   bool isLoad = false;
@@ -150,7 +152,7 @@ class Publishexamcontroller extends ChangeNotifier {
         color: Colors.green,
         ico: Icons.done,
       );
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      Get.offAllNamed(AppRoutes.teacherDashboard);
     } catch (e, st) {
       log('Publish exam error', error: e, stackTrace: st);
       isLoad = false;

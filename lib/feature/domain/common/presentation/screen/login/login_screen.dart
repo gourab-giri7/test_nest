@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:test_nest/core/utils/theme/theme.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/login/controller/login_controller.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/signup/teacher_signup_screen.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,534 +19,557 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Consumer<LoginController>(
-          builder: (context, controller, child) => Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 40.0,
-                  ),
+      body: Consumer<LoginController>(
+        builder: (context, controller, child) {
+          final activeAccent = controller.isStudentLogin
+              ? AppColors.secondary
+              : AppColors.primary;
+
+          return Stack(
+            children: [
+              // Modern Top Header Backdrop
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 260,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color:
-                            (controller.isStudentLogin
-                                    ? AppColors.secondary
-                                    : AppColors.primary)
-                                .withOpacity(0.12),
-                        blurRadius: 30,
-                        offset: const Offset(0, 12),
-                      ),
-                    ],
-                  ),
-                  child: Form(
-                    key: _loginFormKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Logo and Title
-                        Column(
-                          children: [
-                            Container(
-                              width: 90,
-                              height: 90,
-                              padding: const EdgeInsets.all(8),
-                              child: Image.asset(
-                                'assets/images/appLogo.png',
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => Image.asset(
-                                  'assets/images/logo.png',
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            RichText(
-                              text: const TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: 'Test ',
-                                    style: TextStyle(
-                                      color: Color(0xFF0F2942),
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'Nest',
-                                    style: TextStyle(
-                                      color: Color(0xFF2563EB),
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'Welcome Back',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Login to continue',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF64748B),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-
-                        // ===================Capsule Role Selector (Screen 2)=====================
-                        Container(
-                          height: 48,
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    if (controller.isStudentLogin) {
-                                      controller.changeLoginToTeacher();
-                                    }
-                                  },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: !controller.isStudentLogin
-                                          ? const Color(0xFF2563EB)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      'Teacher',
-                                      style: TextStyle(
-                                        color: !controller.isStudentLogin
-                                            ? Colors.white
-                                            : const Color(0xFF64748B),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    if (!controller.isStudentLogin) {
-                                      controller.changeLoginToStudent();
-                                    }
-                                  },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: controller.isStudentLogin
-                                          ? const Color(0xFF2563EB)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      'Student',
-                                      style: TextStyle(
-                                        color: controller.isStudentLogin
-                                            ? Colors.white
-                                            : const Color(0xFF64748B),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // teacher id
-                        controller.isStudentLogin
-                            ? Padding(
-                                padding: const EdgeInsets.only(bottom: 14),
-                                child: TextFormField(
-                                  controller: controller.teacherId,
-                                  validator: controller.fieldeValidation,
-                                  onTapOutside: (event) => FocusManager
-                                      .instance
-                                      .primaryFocus!
-                                      .unfocus(),
-                                  decoration: InputDecoration(
-                                    hintText: 'Teacher ID',
-                                    hintStyle: TextStyle(
-                                      color: Colors.grey[400],
-                                      fontSize: 14,
-                                    ),
-                                    prefixIcon: const Icon(
-                                      Icons.person_outline,
-                                      color: Color(0xFF64748B),
-                                      size: 20,
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                      horizontal: 16,
-                                    ),
-                                    filled: true,
-                                    fillColor: const Color(0xFFF8FAFC),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFFE2E8F0),
-                                      ),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFFE2E8F0),
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF2563EB),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-
-                        // User ID Field
-                        TextFormField(
-                          controller: controller.id,
-                          validator: controller.fieldeValidation,
-                          onTapOutside: (event) =>
-                              FocusManager.instance.primaryFocus!.unfocus(),
-                          decoration: InputDecoration(
-                            hintText: controller.isStudentLogin
-                                ? 'Student ID'
-                                : 'Email or Teacher ID',
-                            hintStyle: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 14,
-                            ),
-                            prefixIcon: Icon(
-                              controller.isStudentLogin
-                                  ? Icons.badge_outlined
-                                  : Icons.mail_outline,
-                              color: const Color(0xFF64748B),
-                              size: 20,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 14,
-                              horizontal: 16,
-                            ),
-                            filled: true,
-                            fillColor: const Color(0xFFF8FAFC),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(
-                                color: Color(0xFF2563EB),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Password Field — only shown for teacher login
-                        if (!controller.isStudentLogin)
-                          TextFormField(
-                            keyboardType: TextInputType.visiblePassword,
-                            controller: controller.password,
-                            validator: controller.isStudentLogin
-                                ? null
-                                : controller.fieldeValidation,
-                            onTapOutside: (event) =>
-                                FocusManager.instance.primaryFocus!.unfocus(),
-                            obscureText: controller.obscurePassword,
-                            decoration: InputDecoration(
-                              hintText: 'Password',
-                              hintStyle: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 14,
-                              ),
-                              prefixIcon: const Icon(
-                                Icons.lock_outline,
-                                color: Color(0xFF64748B),
-                                size: 20,
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  controller.obscurePassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  color: const Color(0xFF64748B),
-                                  size: 20,
-                                ),
-                                onPressed: () {
-                                  controller.toggelObscurePassword();
-                                },
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                vertical: 14,
-                                horizontal: 16,
-                              ),
-                              filled: true,
-                              fillColor: const Color(0xFFF8FAFC),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF2563EB),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                        // Forgot Password — only for teachers
-                        if (!controller.isStudentLogin)
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {},
-                              child: const Text(
-                                'Forgot Password?',
-                                style: TextStyle(
-                                  color: Color(0xFF2563EB),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 8),
-
-                        // Login Button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2563EB),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              elevation: 0,
-                            ),
-                            onPressed: controller.ispressed
-                                ? null
-                                : () {
-                                    if (!_loginFormKey.currentState!
-                                        .validate()) {
-                                      return;
-                                    }
-                                    controller.login(context);
-                                  },
-                            child: controller.ispressed
-                                ? const Center(
-                                    child: SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2.5,
-                                      ),
-                                    ),
-                                  )
-                                : const Text(
-                                    'Login',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        if (!controller.isStudentLogin) ...[
-                          const SizedBox(height: 14),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Don't have an account?",
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 13,
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const TeacherSignupScreen(),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Register',
-                                  style: TextStyle(
-                                    color: Color(0xFF2563EB),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-
-                        // const SizedBox(height: 24),
-
-                        // // Divider
-                        // Row(
-                        //   children: [
-                        //     Expanded(
-                        //       child: Divider(
-                        //         color: Colors.grey[200],
-                        //         thickness: 1,
-                        //       ),
-                        //     ),
-                        //     Padding(
-                        //       padding: const EdgeInsets.symmetric(
-                        //         horizontal: 16,
-                        //       ),
-                        //       child: Text(
-                        //         'or continue with',
-                        //         style: TextStyle(
-                        //           color: Colors.grey[500],
-                        //           fontSize: 12,
-                        //         ),
-                        //       ),
-                        //     ),
-                        //     Expanded(
-                        //       child: Divider(
-                        //         color: Colors.grey[200],
-                        //         thickness: 1,
-                        //       ),
-                        //     ),
-                        //   ],
-                        // ),
-
-                        // const SizedBox(height: 24),
-
-                        // // Social Buttons
-                        // Row(
-                        //   mainAxisAlignment: MainAxisAlignment.center,
-                        //   children: [
-                        //     _buildSocialButton(
-                        //       color: Colors.red,
-                        //       text: 'G',
-                        //       label: 'Google',
-                        //     ),
-                        //     const SizedBox(width: 20),
-                        //     _buildSocialButton(
-                        //       color: Colors.orange[800]!,
-                        //       text: 'O',
-                        //       label: 'Office',
-                        //     ),
-                        //   ],
-                        // ),
-                        // const SizedBox(height: 32),
-
-                        // // Footer
-                        // Row(
-                        //   mainAxisAlignment: MainAxisAlignment.center,
-                        //   children: [
-                        //     Text(
-                        //       "Don't have an account?",
-                        //       style: TextStyle(color: Colors.grey[600]),
-                        //     ),
-                        //     const SizedBox(width: 4),
-                        //     GestureDetector(
-                        //       onTap: () {},
-                        //       child: Text(
-                        //         footerAction,
-                        //         style: TextStyle(
-                        //           color: activeColor,
-                        //           fontWeight: FontWeight.bold,
-                        //         ),
-                        //       ),
-                        //     ),
-                        //   ],
-                        // ),
-                      ],
+                    gradient: controller.isStudentLogin
+                        ? AppGradients.student
+                        : AppGradients.teacherHero,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(40),
+                      bottomRight: Radius.circular(40),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
-        ),
+
+              SafeArea(
+                child: Center(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22.0,
+                      vertical: 16.0,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 430),
+                      child: Column(
+                        children: [
+                          // Top Bar with optional back button if canPop
+                          if (ModalRoute.of(context)?.canPop ?? false)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: IconButton(
+                                onPressed: () => Get.back(),
+                                style: IconButton.styleFrom(
+                                  backgroundColor:
+                                      Colors.white.withOpacity(0.16),
+                                  foregroundColor: Colors.white,
+                                ),
+                                icon: const Icon(
+                                  Icons.arrow_back_ios_new_rounded,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+
+                          // Brand Logo & Greeting Header
+                          Container(
+                            width: 76,
+                            height: 76,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.25),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Image.asset(
+                              'assets/images/appLogo.png',
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Image.asset(
+                                'assets/images/logo.png',
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.school_rounded,
+                                  color: Colors.white,
+                                  size: 38,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Welcome Back',
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            controller.isStudentLogin
+                                ? 'Sign in to your Student Learning Portal'
+                                : 'Sign in to your Teacher Management Portal',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.84),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Elevated Main Form Card
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24.0,
+                              vertical: 30.0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(color: AppColors.border),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: activeAccent.withOpacity(0.10),
+                                  blurRadius: 32,
+                                  offset: const Offset(0, 14),
+                                ),
+                              ],
+                            ),
+                            child: Form(
+                              key: _loginFormKey,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Modern Segmented Role Switcher
+                                  Container(
+                                    height: 52,
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceAlt,
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              if (controller.isStudentLogin) {
+                                                controller
+                                                    .changeLoginToTeacher();
+                                              }
+                                            },
+                                            child: AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 220,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    !controller.isStudentLogin
+                                                        ? AppColors.primary
+                                                        : Colors.transparent,
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
+                                                boxShadow:
+                                                    !controller.isStudentLogin
+                                                        ? [
+                                                            BoxShadow(
+                                                              color: AppColors
+                                                                  .primary
+                                                                  .withOpacity(
+                                                                    0.25,
+                                                                  ),
+                                                              blurRadius: 8,
+                                                              offset:
+                                                                  const Offset(
+                                                                    0,
+                                                                    3,
+                                                                  ),
+                                                            ),
+                                                          ]
+                                                        : null,
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons
+                                                        .cast_for_education_rounded,
+                                                    size: 17,
+                                                    color: !controller
+                                                            .isStudentLogin
+                                                        ? Colors.white
+                                                        : AppColors
+                                                            .textSecondary,
+                                                  ),
+                                                  const SizedBox(width: 7),
+                                                  Text(
+                                                    'Teacher',
+                                                    style: TextStyle(
+                                                      color: !controller
+                                                              .isStudentLogin
+                                                          ? Colors.white
+                                                          : AppColors
+                                                              .textSecondary,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              if (!controller.isStudentLogin) {
+                                                controller
+                                                    .changeLoginToStudent();
+                                              }
+                                            },
+                                            child: AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 220,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: controller.isStudentLogin
+                                                    ? AppColors.secondary
+                                                    : Colors.transparent,
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
+                                                boxShadow: controller
+                                                        .isStudentLogin
+                                                    ? [
+                                                        BoxShadow(
+                                                          color: AppColors
+                                                              .secondary
+                                                              .withOpacity(
+                                                                0.25,
+                                                              ),
+                                                          blurRadius: 8,
+                                                          offset: const Offset(
+                                                            0,
+                                                            3,
+                                                          ),
+                                                        ),
+                                                      ]
+                                                    : null,
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.school_rounded,
+                                                    size: 17,
+                                                    color: controller
+                                                            .isStudentLogin
+                                                        ? Colors.white
+                                                        : AppColors
+                                                            .textSecondary,
+                                                  ),
+                                                  const SizedBox(width: 7),
+                                                  Text(
+                                                    'Student',
+                                                    style: TextStyle(
+                                                      color: controller
+                                                              .isStudentLogin
+                                                          ? Colors.white
+                                                          : AppColors
+                                                              .textSecondary,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+
+                                  // Optional Teacher ID field (only in legacy student login mode)
+                                  if (controller.isStudentLogin &&
+                                      controller.useLegacyStudentLogin) ...[
+                                    const _InputLabel(label: 'Teacher ID'),
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      controller: controller.teacherId,
+                                      validator: controller.fieldeValidation,
+                                      onTapOutside: (event) => FocusManager
+                                          .instance
+                                          .primaryFocus!
+                                          .unfocus(),
+                                      decoration: const InputDecoration(
+                                        hintText: 'Enter your Teacher ID',
+                                        prefixIcon: Icon(
+                                          Icons.supervisor_account_outlined,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                  ],
+
+                                  // User ID / Email Field
+                                  _InputLabel(
+                                    label: controller.isStudentLogin
+                                        ? (controller.useLegacyStudentLogin
+                                              ? 'Student ID'
+                                              : 'Email Address')
+                                        : 'Email or Teacher ID',
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    controller: controller.id,
+                                    validator: controller.fieldeValidation,
+                                    onTapOutside: (event) => FocusManager
+                                        .instance
+                                        .primaryFocus!
+                                        .unfocus(),
+                                    decoration: InputDecoration(
+                                      hintText: controller.isStudentLogin
+                                          ? (controller.useLegacyStudentLogin
+                                                ? 'Enter your Student ID'
+                                                : 'student@example.com')
+                                          : 'teacher@institute.com',
+                                      prefixIcon: Icon(
+                                        (controller.isStudentLogin &&
+                                                controller
+                                                    .useLegacyStudentLogin)
+                                            ? Icons.badge_outlined
+                                            : Icons.alternate_email_rounded,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+
+                                  // Password Field — shown for teacher and standard student login
+                                  if (!controller.isStudentLogin ||
+                                      !controller.useLegacyStudentLogin) ...[
+                                    const _InputLabel(label: 'Password'),
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      keyboardType:
+                                          TextInputType.visiblePassword,
+                                      controller: controller.password,
+                                      validator: controller.fieldeValidation,
+                                      onTapOutside: (event) => FocusManager
+                                          .instance
+                                          .primaryFocus!
+                                          .unfocus(),
+                                      obscureText: controller.obscurePassword,
+                                      decoration: InputDecoration(
+                                        hintText: '••••••••',
+                                        prefixIcon: const Icon(
+                                          Icons.lock_outline_rounded,
+                                          size: 20,
+                                        ),
+                                        suffixIcon: IconButton(
+                                          icon: Icon(
+                                            controller.obscurePassword
+                                                ? Icons.visibility_outlined
+                                                : Icons.visibility_off_outlined,
+                                            size: 20,
+                                          ),
+                                          onPressed: () {
+                                            controller.toggelObscurePassword();
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+
+                                  // Legacy student toggle button
+                                  if (controller.isStudentLogin)
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton.icon(
+                                        onPressed: () {
+                                          controller.toggleLegacyStudentLogin();
+                                        },
+                                        icon: Icon(
+                                          controller.useLegacyStudentLogin
+                                              ? Icons.email_outlined
+                                              : Icons.qr_code_rounded,
+                                          size: 15,
+                                          color: AppColors.secondary,
+                                        ),
+                                        label: Text(
+                                          controller.useLegacyStudentLogin
+                                              ? 'Use Email & Password'
+                                              : 'Have a Teacher ID & Student ID?',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.secondary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+
+                                  // Forgot Password — only for teachers
+                                  if (!controller.isStudentLogin)
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton(
+                                        onPressed: () {},
+                                        child: const Text(
+                                          'Forgot Password?',
+                                          style: TextStyle(
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(height: 10),
+
+                                  // Primary Login Button
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 54,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: activeAccent,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                        ),
+                                        elevation: 0,
+                                      ),
+                                      onPressed: controller.ispressed
+                                          ? null
+                                          : () {
+                                              if (!_loginFormKey.currentState!
+                                                  .validate()) {
+                                                return;
+                                              }
+                                              controller.login(context);
+                                            },
+                                      child: controller.ispressed
+                                          ? const SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2.5,
+                                              ),
+                                            )
+                                          : Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  controller.isStudentLogin
+                                                      ? 'Sign In as Student'
+                                                      : 'Sign In as Teacher',
+                                                  style: const TextStyle(
+                                                    fontSize: 15.5,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                const Icon(
+                                                  Icons.arrow_forward_rounded,
+                                                  size: 18,
+                                                  color: Colors.white,
+                                                ),
+                                              ],
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 22),
+
+                                  const Divider(height: 1),
+                                  const SizedBox(height: 18),
+
+                                  // Registration Footer
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Text(
+                                        "New to Test Nest? ",
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () {
+                                          if (controller.isStudentLogin) {
+                                            Get.toNamed(AppRoutes.studentSignup);
+                                          } else {
+                                            Get.toNamed(AppRoutes.teacherSignup);
+                                          }
+                                        },
+                                        child: Text(
+                                          controller.isStudentLogin
+                                              ? 'Create Student Account'
+                                              : 'Create Teacher Account',
+                                          style: TextStyle(
+                                            color: activeAccent,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
+}
 
-  // Helper for placeholder social buttons (Use flutter_svg for real icons in production)
-  Widget _buildSocialButton({
-    required Color color,
-    required String text,
-    required String label,
-  }) {
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: color,
-        ),
+class _InputLabel extends StatelessWidget {
+  final String label;
+  const _InputLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w700,
+        color: AppColors.text,
+        letterSpacing: 0.1,
       ),
     );
   }

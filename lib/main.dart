@@ -27,12 +27,14 @@ import 'package:test_nest/feature/domain/teacher/presentation/screens/exams/cont
 import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/controller/file_upload_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/reviewPublishExam/controller/publishExamController.dart';
 
+import 'package:get/get.dart';
+import 'package:test_nest/routes/app_pages.dart';
+import 'package:test_nest/routes/app_routes.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   pref = await SharedPreferences.getInstance();
 
@@ -55,7 +57,10 @@ Future<void> main() async {
             .get();
 
         if (doc.exists && doc.data() != null) {
-          teacherData = TeacherData.fromJson(doc.data()!, docId: currentUser.uid);
+          teacherData = TeacherData.fromJson(
+            doc.data()!,
+            docId: currentUser.uid,
+          );
           validLoggedIn = true;
           restoredRole = 'teacher';
         } else {
@@ -114,10 +119,7 @@ Future<void> main() async {
           restoredRole = 'student';
         }
       } catch (e, stackTrace) {
-        log(
-          'Failed to decode studentData: $e',
-          stackTrace: stackTrace,
-        );
+        log('Failed to decode studentData: $e', stackTrace: stackTrace);
 
         studentData = null;
         await _clearLoginSession();
@@ -153,9 +155,7 @@ Future<void> main() async {
           create: (_) => StudentController(),
         ),
 
-        ChangeNotifierProvider<ExamController>(
-          create: (_) => ExamController(),
-        ),
+        ChangeNotifierProvider<ExamController>(create: (_) => ExamController()),
 
         ChangeNotifierProvider<FileUploadController>(
           create: (_) => FileUploadController(),
@@ -187,14 +187,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Test Nest',
       theme: ColorTheme.light,
-      routes: {
-        '/login': (context) => const LoginScreen(),
-      },
-      home: const SplashScreen(),
+      initialRoute: AppPages.initial,
+      getPages: AppPages.routes,
     );
   }
 }

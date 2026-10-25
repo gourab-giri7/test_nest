@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:test_nest/core/utils/theme/theme.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/takeExam/controller/take_exam_controller.dart';
 import 'package:test_nest/model/exam_model.dart';
 
@@ -59,6 +60,9 @@ class _TakeExamContent extends StatelessWidget {
         }
 
         final question = controller.currentQuestion;
+        final progress = controller.totalQuestions > 0
+            ? (controller.currentIndex + 1) / controller.totalQuestions
+            : 0.0;
 
         return PopScope(
           canPop: false,
@@ -70,25 +74,60 @@ class _TakeExamContent extends StatelessWidget {
           child: Scaffold(
             backgroundColor: AppColors.background,
             appBar: AppBar(
-              backgroundColor: AppColors.background,
+              backgroundColor: Colors.white,
               elevation: 0,
-              title: Text(
-                controller.exam.examName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
+              leading: IconButton(
+                icon: const Icon(Icons.close_rounded, color: AppColors.text),
+                tooltip: 'Finish Exam',
+                onPressed: () => _showSubmitDialog(context, controller),
+              ),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    controller.exam.examName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: AppColors.text,
+                    ),
+                  ),
+                  Text(
+                    'Attempted ${controller.selectedAnswers.length} of ${controller.totalQuestions}',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
               actions: const [_ExamTimer()],
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(4),
+                child: LinearProgressIndicator(
+                  value: progress.clamp(0.0, 1.0),
+                  minHeight: 4,
+                  backgroundColor: AppColors.surfaceAlt,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppColors.primary,
+                  ),
+                ),
+              ),
             ),
             body: Column(
               children: [
                 Expanded(
-                  child: _QuestionContent(
-                    controller: controller,
-                    question: question,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 680),
+                      child: _QuestionContent(
+                        controller: controller,
+                        question: question,
+                      ),
+                    ),
                   ),
                 ),
                 _BottomSection(controller: controller),
@@ -111,30 +150,47 @@ class _TakeExamContent extends StatelessWidget {
       barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Submit Exam?'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.task_alt_rounded, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text(
+                'Submit Assessment?',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19),
+              ),
+            ],
+          ),
           content: Text(
-            'Answered ${controller.selectedAnswers.length} '
-            'of ${controller.totalQuestions} questions.\n\n'
-            'Are you sure you want to finish and submit your exam?',
+            'You have answered ${controller.selectedAnswers.length} '
+            'out of ${controller.totalQuestions} questions.'
+            'Are you sure you want to finish and submit your exam now?',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              height: 1.45,
+            ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Review Questions'),
+              onPressed: () => Get.back(),
+              child: const Text('Keep Reviewing'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: AppColors.success,
                 foregroundColor: Colors.white,
+                minimumSize: const Size(120, 44),
               ),
               onPressed: () {
-                Navigator.of(dialogContext).pop();
+                Get.back();
                 controller.submitExam(
                   context: context,
                   reason: SubmissionReason.manual,
                 );
               },
-              child: const Text('Submit Now'),
+              child: const Text('Submit Final'),
             ),
           ],
         );
@@ -143,9 +199,6 @@ class _TakeExamContent extends StatelessWidget {
   }
 }
 
-///
-/// ISOLATED TIMER
-///
 class _ExamTimer extends StatelessWidget {
   const _ExamTimer();
 
@@ -158,17 +211,17 @@ class _ExamTimer extends StatelessWidget {
         final time = TakeExamController.formatDuration(remaining);
         final isLow = remaining.inMinutes < 5;
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Center(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: isLow ? const Color(0xFFFEE2E2) : AppColors.primarySoft,
-                borderRadius: BorderRadius.circular(10),
+                color: isLow ? AppColors.dangerSoft : AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isLow
-                      ? const Color(0xFFF87171)
-                      : const Color(0xFFBFDBFE),
+                      ? AppColors.danger.withOpacity(0.4)
+                      : AppColors.primary.withOpacity(0.25),
                 ),
               ),
               child: Row(
@@ -177,17 +230,15 @@ class _ExamTimer extends StatelessWidget {
                   Icon(
                     Icons.timer_outlined,
                     size: 16,
-                    color: isLow ? const Color(0xFFDC2626) : AppColors.primary,
+                    color: isLow ? AppColors.danger : AppColors.primary,
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 5),
                   Text(
                     time,
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: isLow
-                          ? const Color(0xFFDC2626)
-                          : AppColors.primary,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13.5,
+                      color: isLow ? AppColors.danger : AppColors.primary,
                     ),
                   ),
                 ],
@@ -200,9 +251,6 @@ class _ExamTimer extends StatelessWidget {
   }
 }
 
-///
-/// QUESTION CONTENT
-///
 class _QuestionContent extends StatelessWidget {
   final TakeExamController controller;
   final dynamic question;
@@ -212,37 +260,54 @@ class _QuestionContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Question ${controller.currentIndex + 1} of ${controller.totalQuestions}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-                fontSize: 15,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'QUESTION ${controller.currentIndex + 1} OF ${controller.totalQuestions}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primary,
+                  fontSize: 11.5,
+                  letterSpacing: 0.6,
+                ),
               ),
             ),
             if (controller.isCurrentMarked)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.warningSoft,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.warning.withOpacity(0.3)),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.bookmark, size: 14, color: Color(0xFFD97706)),
+                    Icon(
+                      Icons.bookmark_rounded,
+                      size: 14,
+                      color: AppColors.warning,
+                    ),
                     SizedBox(width: 4),
                     Text(
-                      'Marked for Review',
+                      'Flagged for Review',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFB45309),
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.warning,
                       ),
                     ),
                   ],
@@ -250,34 +315,32 @@ class _QuestionContent extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 10),
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadows.card,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Text(
-              question.q,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.text,
-              ),
+          child: Text(
+            question.q,
+            style: const TextStyle(
+              fontSize: 16.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.text,
+              height: 1.45,
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         _OptionsList(controller: controller, question: question),
       ],
     );
   }
 }
 
-///
-/// OPTIONS
-///
 class _OptionsList extends StatelessWidget {
   final TakeExamController controller;
   final dynamic question;
@@ -294,6 +357,7 @@ class _OptionsList extends StatelessWidget {
     ];
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         for (final option in options)
           _AnswerOption(
@@ -306,9 +370,6 @@ class _OptionsList extends StatelessWidget {
   }
 }
 
-///
-/// SINGLE OPTION
-///
 class _AnswerOption extends StatelessWidget {
   final TakeExamController controller;
   final String label;
@@ -325,9 +386,9 @@ class _AnswerOption extends StatelessWidget {
     final isSelected = controller.selectedChoice == label;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         onTap: (controller.isSubmitting || controller.isSubmitted)
             ? null
             : () {
@@ -335,46 +396,61 @@ class _AnswerOption extends StatelessWidget {
               },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
           decoration: BoxDecoration(
             color: isSelected ? AppColors.primarySoft : Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: isSelected ? AppColors.primary : AppColors.border,
               width: isSelected ? 2 : 1,
             ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.12),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 14,
-                backgroundColor: isSelected
-                    ? AppColors.primary
-                    : const Color(0xFFF1F5F9),
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.primary : AppColors.surfaceAlt,
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : const Color(0xFF475569),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                    color: isSelected ? Colors.white : AppColors.textSecondary,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Text(
                   text,
                   style: TextStyle(
                     fontSize: 15,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                    color: const Color(0xFF1E293B),
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: AppColors.text,
+                    height: 1.35,
                   ),
                 ),
               ),
               if (isSelected)
-                const Icon(Icons.check_circle, color: AppColors.primary),
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
             ],
           ),
         ),
@@ -383,9 +459,6 @@ class _AnswerOption extends StatelessWidget {
   }
 }
 
-///
-/// BOTTOM SECTION (Action Buttons + Question Navigator Palette)
-///
 class _BottomSection extends StatelessWidget {
   final TakeExamController controller;
 
@@ -396,12 +469,13 @@ class _BottomSection extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: const Border(top: BorderSide(color: AppColors.border)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, -3),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
@@ -410,43 +484,52 @@ class _BottomSection extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Row 1: Actions [Previous] [Mark for Review] [Next / Submit]
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
               child: Row(
                 children: [
-                  // Previous Button
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onPressed:
-                        (controller.currentIndex > 0 &&
-                            !controller.isSubmitting &&
-                            !controller.isSubmitted)
-                        ? controller.previous
-                        : null,
-                    icon: const Icon(Icons.arrow_back, size: 16),
-                    label: const Text('Previous'),
-                  ),
-                  const SizedBox(width: 8),
-
-                  // Mark for Review Button
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed:
+                          (controller.currentIndex > 0 &&
+                              !controller.isSubmitting &&
+                              !controller.isSubmitted)
+                          ? controller.previous
+                          : null,
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 14,
+                      ),
+                      label: const Text(
+                        'Previous',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
                         backgroundColor: controller.isCurrentMarked
-                            ? const Color(0xFFFEF3C7)
+                            ? AppColors.warningSoft
                             : Colors.transparent,
                         side: BorderSide(
                           color: controller.isCurrentMarked
                               ? AppColors.warning
-                              : const Color(0xFFCBD5E1),
+                              : AppColors.border,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
                       onPressed:
@@ -455,71 +538,84 @@ class _BottomSection extends StatelessWidget {
                           : controller.toggleMarkForReview,
                       icon: Icon(
                         controller.isCurrentMarked
-                            ? Icons.bookmark
-                            : Icons.bookmark_border,
-                        size: 16,
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        size: 17,
                         color: controller.isCurrentMarked
-                            ? const Color(0xFFB45309)
-                            : const Color(0xFF475569),
+                            ? AppColors.warning
+                            : AppColors.textSecondary,
                       ),
                       label: Text(
-                        controller.isCurrentMarked ? 'Marked' : 'Mark Review',
+                        controller.isCurrentMarked ? 'Flagged' : 'Flag',
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                           color: controller.isCurrentMarked
-                              ? const Color(0xFFB45309)
-                              : const Color(0xFF475569),
+                              ? AppColors.warning
+                              : AppColors.textSecondary,
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
 
-                  // Next / Submit Button
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: controller.isLastQuestion
-                          ? AppColors.success
-                          : AppColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        backgroundColor: controller.isLastQuestion
+                            ? AppColors.success
+                            : AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
-                    ),
-                    onPressed:
-                        (controller.isSubmitting || controller.isSubmitted)
-                        ? null
-                        : () {
-                            if (controller.isLastQuestion) {
-                              _TakeExamContent._showSubmitDialog(
-                                context,
-                                controller,
-                              );
-                            } else {
-                              controller.next();
-                            }
-                          },
-                    child: controller.isSubmitting
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                      onPressed:
+                          (controller.isSubmitting || controller.isSubmitted)
+                          ? null
+                          : () {
+                              if (controller.isLastQuestion) {
+                                _TakeExamContent._showSubmitDialog(
+                                  context,
+                                  controller,
+                                );
+                              } else {
+                                controller.next();
+                              }
+                            },
+                      icon: controller.isSubmitting
+                          ? const SizedBox.shrink()
+                          : Icon(
+                              controller.isLastQuestion
+                                  ? Icons.check_circle_outline_rounded
+                                  : Icons.arrow_forward_rounded,
+                              size: 17,
                             ),
-                          )
-                        : Text(
-                            controller.isLastQuestion ? 'Submit' : 'Next',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                      label: controller.isSubmitting
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              controller.isLastQuestion ? 'Submit' : 'Next',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                    ),
                   ),
                 ],
               ),
             ),
-
             const Divider(height: 1),
-
-            // Row 2: Question Navigator & Palette Legend
             _QuestionNavigator(controller: controller),
           ],
         ),
@@ -528,9 +624,6 @@ class _BottomSection extends StatelessWidget {
   }
 }
 
-///
-/// QUESTION NAVIGATOR PALETTE
-///
 class _QuestionNavigator extends StatelessWidget {
   final TakeExamController controller;
 
@@ -541,29 +634,29 @@ class _QuestionNavigator extends StatelessWidget {
     final total = controller.totalQuestions;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Legend
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          Wrap(
+            spacing: 14,
+            runSpacing: 4,
+            alignment: WrapAlignment.spaceEvenly,
             children: [
-              _legendItem(AppColors.warning, 'Marked (🟨)'),
-              _legendItem(AppColors.success, 'Answered (🟩)'),
-              _legendItem(const Color(0xFFCBD5E1), 'Not Answered (⬜)'),
+              _legendItem(AppColors.success, 'Answered'),
+              _legendItem(AppColors.warning, 'Flagged'),
+              _legendItem(const Color(0xFFCBD5E1), 'Unvisited'),
             ],
           ),
-          const SizedBox(height: 8),
-
-          // Scrollable numbers palette
+          const SizedBox(height: 10),
           SizedBox(
-            height: 48,
+            height: 44,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               itemCount: total,
-              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              separatorBuilder: (_, __) => const SizedBox(width: 7),
               itemBuilder: (context, index) {
                 final isCurrent = controller.currentIndex == index;
                 final isAns = controller.isAnswered(index);
@@ -574,7 +667,6 @@ class _QuestionNavigator extends StatelessWidget {
                 Widget? indicator;
 
                 if (isMark && isAns) {
-                  // Marked + Answered: Yellow with checkmark
                   bgColor = AppColors.warning;
                   textColor = Colors.white;
                   indicator = const Icon(
@@ -583,47 +675,36 @@ class _QuestionNavigator extends StatelessWidget {
                     color: Colors.white,
                   );
                 } else if (isMark) {
-                  // Marked only: Yellow
                   bgColor = AppColors.warning;
                   textColor = Colors.white;
                 } else if (isAns) {
-                  // Answered: Green
                   bgColor = AppColors.success;
                   textColor = Colors.white;
                 } else {
-                  // Not answered: Grey
-                  bgColor = const Color(0xFFF1F5F9);
-                  textColor = const Color(0xFF475569);
+                  bgColor = AppColors.surfaceAlt;
+                  textColor = AppColors.textSecondary;
                 }
 
                 return InkWell(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   onTap: (controller.isSubmitting || controller.isSubmitted)
                       ? null
                       : () => controller.goToQuestion(index),
-                  child: Container(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
                       color: bgColor,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isCurrent
                             ? AppColors.primary
                             : (isAns || isMark
                                   ? Colors.transparent
-                                  : const Color(0xFFCBD5E1)),
+                                  : AppColors.border),
                         width: isCurrent ? 2.5 : 1,
                       ),
-                      boxShadow: isCurrent
-                          ? [
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.3),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]
-                          : null,
                     ),
                     child: Center(
                       child: Row(
@@ -637,9 +718,7 @@ class _QuestionNavigator extends StatelessWidget {
                             '${index + 1}',
                             style: TextStyle(
                               color: textColor,
-                              fontWeight: isCurrent
-                                  ? FontWeight.bold
-                                  : FontWeight.w600,
+                              fontWeight: FontWeight.w800,
                               fontSize: 13,
                             ),
                           ),
@@ -665,13 +744,17 @@ class _QuestionNavigator extends StatelessWidget {
           height: 10,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BorderRadius.circular(3),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 5),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
         ),
       ],
     );

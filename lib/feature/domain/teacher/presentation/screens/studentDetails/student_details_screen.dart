@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/core/services/fee_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
@@ -7,8 +8,8 @@ import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart'
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/studentDetails/controller/student_details_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/studentDetails/model/student_exam_submission_summary.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/studentDetails/student_exam_details_screen.dart';
 import 'package:test_nest/model/fee_record_model.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class StudentDetailsScreen extends StatefulWidget {
   final StudentModel student;
@@ -60,7 +61,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
             backgroundColor: const Color(0xFFF8FAFC),
             appBar: AppBar(
               surfaceTintColor: Colors.transparent,
-              backgroundColor: const Color(0xFF2563EB),
+              backgroundColor: const Color(0xFF4F46E5),
               elevation: 0,
               centerTitle: true,
               leading: IconButton(
@@ -69,7 +70,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                   size: 18,
                   color: Colors.white,
                 ),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Get.back(),
               ),
               title: const Text(
                 'Student Details',
@@ -101,7 +102,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
               ],
             ),
             body: RefreshIndicator(
-              color: const Color(0xFF2563EB),
+              color: const Color(0xFF4F46E5),
               onRefresh: () => controller.loadExamHistory(forceRefresh: true),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(
@@ -146,7 +147,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFEFF6FF),
+                                        color: const Color(0xFFEEF2FF),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
@@ -154,7 +155,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                                         style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
-                                          color: Color(0xFF2563EB),
+                                          color: Color(0xFF4F46E5),
                                         ),
                                       ),
                                     ),
@@ -188,7 +189,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF2563EB), Color(0xFF4F46E5), Color(0xFF06B6D4)],
+          colors: [Color(0xFF4F46E5), Color(0xFF4F46E5), Color(0xFF06B6D4)],
         ),
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
@@ -207,7 +208,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
               child: Icon(
                 Icons.person_rounded,
                 size: 52,
-                color: Color(0xFF2563EB),
+                color: Color(0xFF4F46E5),
               ),
             ),
           ),
@@ -397,7 +398,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
         ),
         child: const Column(
           children: [
-            CircularProgressIndicator(color: Color(0xFF2563EB)),
+            CircularProgressIndicator(color: Color(0xFF4F46E5)),
             SizedBox(height: 12),
             Text(
               'Loading exam records...',
@@ -535,15 +536,13 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StudentExamDetailsScreen(
-                  student: student,
-                  summary: summary,
-                  teacherId: _controller.teacherId,
-                ),
-              ),
+            Get.toNamed(
+              AppRoutes.teacherStudentExamDetails,
+              arguments: {
+                'student': student,
+                'summary': summary,
+                'teacherId': _controller.teacherId,
+              },
             );
           },
           child: Padding(
@@ -558,12 +557,12 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
+                        color: const Color(0xFFEEF2FF),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Icon(
                         Icons.edit_note_rounded,
-                        color: Color(0xFF2563EB),
+                        color: Color(0xFF4F46E5),
                         size: 24,
                       ),
                     ),
@@ -659,7 +658,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF2563EB),
+                            color: Color(0xFF4F46E5),
                           ),
                         ),
                       ],
@@ -671,14 +670,14 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF2563EB),
+                            color: Color(0xFF4F46E5),
                           ),
                         ),
                         SizedBox(width: 4),
                         Icon(
                           Icons.arrow_forward_ios_rounded,
                           size: 13,
-                          color: Color(0xFF2563EB),
+                          color: Color(0xFF4F46E5),
                         ),
                       ],
                     ),
@@ -728,7 +727,6 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
       selectedBatch = availableBatches.first;
     }
 
-    var isPasswordMasked = true;
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -743,7 +741,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
               ),
               title: const Row(
                 children: [
-                  Icon(Icons.edit_note, color: Color(0xFF2563EB)),
+                  Icon(Icons.edit_note, color: Color(0xFF4F46E5)),
                   SizedBox(width: 8),
                   Text(
                     'Edit Student',
@@ -891,7 +889,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(dContext),
+                  onPressed: () => Get.back(),
                   child: const Text(
                     'Cancel',
                     style: TextStyle(color: Colors.grey),
@@ -899,7 +897,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
+                    backgroundColor: const Color(0xFF4F46E5),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -907,7 +905,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                   ),
                   onPressed: () async {
                     if (formKey.currentState!.validate()) {
-                      Navigator.pop(dContext);
+                      Get.back();
                       final feeVal =
                           double.tryParse(feeController.text.trim()) ?? 0.0;
                       final success = await controller.updateStudent(
@@ -1028,12 +1026,10 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                               border: Border.all(color: AppColors.border),
                             ),
                             child: Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       FeeService.monthLabel(r.billingMonth),
@@ -1157,7 +1153,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dContext),
+            onPressed: () => Get.back(),
             child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
@@ -1169,7 +1165,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
               ),
             ),
             onPressed: () async {
-              Navigator.pop(dContext);
+              Get.back();
               final success = await controller.deleteStudent();
               if (context.mounted) {
                 if (success) {
@@ -1179,7 +1175,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                     color: Colors.green,
                     ico: Icons.check_circle,
                   );
-                  Navigator.pop(context); // Go back to Students List
+                  Get.back(); // Go back to Students List
                 } else {
                   customSnackbar(
                     context: context,

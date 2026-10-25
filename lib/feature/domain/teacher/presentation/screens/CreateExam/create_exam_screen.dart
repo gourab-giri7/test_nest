@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/teacher/data/datasources/get_student_data.dart';
@@ -43,7 +44,7 @@ class _CreateExamScreenState extends State<CreateExamScreen> {
                       Icons.arrow_back_ios_new_rounded,
                       size: 20,
                     ),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => Get.back(),
                   ),
                   title: const Text(
                     'Create Exam',

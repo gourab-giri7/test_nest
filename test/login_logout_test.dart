@@ -16,15 +16,18 @@ void main() {
   });
 
   group('LoginController & Session Lifecycle Tests', () {
-    test('Default constructor starts in logged out state without GlobalKey', () {
-      final controller = LoginController();
+    test(
+      'Default constructor starts in logged out state without GlobalKey',
+      () {
+        final controller = LoginController();
 
-      expect(controller.isLogined, isFalse);
-      expect(controller.role, isEmpty);
-      expect(controller.ispressed, isFalse);
-      expect(controller.isStudentLogin, isFalse);
-      expect(controller.obscurePassword, isTrue);
-    });
+        expect(controller.isLogined, isFalse);
+        expect(controller.role, isEmpty);
+        expect(controller.ispressed, isFalse);
+        expect(controller.isStudentLogin, isFalse);
+        expect(controller.obscurePassword, isTrue);
+      },
+    );
 
     test('Custom constructor supports restored session state', () {
       final controller = LoginController(
@@ -70,95 +73,91 @@ void main() {
       expect(controller.obscurePassword, isTrue);
     });
 
-    test('loadTeacherData and loadStudentData store session to SharedPreferences', () async {
-      await loadTeacherData('T123', 'pass123');
+    test(
+      'TeacherData.updateTeacherLocalData saves complete session without password',
+      () async {
+        teacherData = TeacherData(
+          name: 'John Doe',
+          email: 'teacher@testnest.com',
+          id: 'T1',
+          teacherId: 'T1',
+          lastStdId: '5',
+          lastExamId: '3',
+          batch: ['Batch A', 'Batch B'],
+        );
 
-      expect(pref.getString('id'), equals('T123'));
-      expect(pref.getString('password'), equals('pass123'));
-      expect(pref.getString('role'), equals('teacher'));
-      expect(pref.getBool('isLogined'), isTrue);
+        await TeacherData.updateTeacherLocalData();
 
-      await loadStudentData('T123', 'S456', 'pass456');
+        expect(pref.getBool('isLogined'), isTrue);
+        expect(pref.getString('role'), equals('teacher'));
+        expect(pref.getString('id'), equals('T1'));
+        expect(pref.getString('teacherData'), isNotNull);
+        expect(pref.getString('teacherData'), contains('John Doe'));
+        expect(pref.getString('password'), isNull); // Never stores password
+      },
+    );
 
-      expect(pref.getString('teacherId'), equals('T123'));
-      expect(pref.getString('id'), equals('S456'));
-      expect(pref.getString('password'), equals('pass456'));
-      expect(pref.getString('role'), equals('student'));
-      expect(pref.getBool('isLogined'), isTrue);
-    });
+    test(
+      'StudentData.updateStudentLocalData saves complete session without password',
+      () async {
+        studentData = StudentData(
+          name: 'Jane Student',
+          id: 'S1',
+          teacherId: 'T1',
+          batch: 'Batch A',
+          teacherName: 'John Doe',
+        );
 
-    test('TeacherData.updateTeacherLocalData saves complete session to SharedPreferences', () async {
-      teacherData = TeacherData(
-        name: 'John Doe',
-        password: 'pass',
-        id: 'T1',
-        teacherId: 'T1',
-        lastStdId: '5',
-        lastExamId: '3',
-        batch: ['Batch A', 'Batch B'],
-      );
+        await StudentData.updateStudentLocalData();
 
-      await TeacherData.updateTeacherLocalData();
+        expect(pref.getBool('isLogined'), isTrue);
+        expect(pref.getString('role'), equals('student'));
+        expect(pref.getString('id'), equals('S1'));
+        expect(pref.getString('teacherId'), equals('T1'));
+        expect(pref.getString('studentData'), isNotNull);
+        expect(pref.getString('studentData'), contains('Jane Student'));
+        expect(pref.getString('password'), isNull); // Never stores password
+      },
+    );
 
-      expect(pref.getBool('isLogined'), isTrue);
-      expect(pref.getString('role'), equals('teacher'));
-      expect(pref.getString('id'), equals('T1'));
-      expect(pref.getString('teacherData'), isNotNull);
-      expect(pref.getString('teacherData'), contains('John Doe'));
-    });
+    test(
+      'StudentData.fromJson resolves ID correctly from id, student_id, or docId',
+      () {
+        final s1 = StudentData.fromJson({'id': 'S1', 'name': 'A'});
+        expect(s1.id, equals('S1'));
 
-    test('StudentData.updateStudentLocalData saves complete session to SharedPreferences', () async {
-      studentData = StudentData(
-        name: 'Jane Student',
-        password: 'spass',
-        id: 'S1',
-        teacherId: 'T1',
-        batch: 'Batch A',
-        teacherName: 'John Doe',
-      );
+        final s2 = StudentData.fromJson({'student_id': 'S2', 'name': 'B'});
+        expect(s2.id, equals('S2'));
 
-      await StudentData.updateStudentLocalData();
+        final s3 = StudentData.fromJson({'name': 'C'}, docId: 'DOC_S3');
+        expect(s3.id, equals('DOC_S3'));
+      },
+    );
 
-      expect(pref.getBool('isLogined'), isTrue);
-      expect(pref.getString('role'), equals('student'));
-      expect(pref.getString('id'), equals('S1'));
-      expect(pref.getString('teacherId'), equals('T1'));
-      expect(pref.getString('studentData'), isNotNull);
-      expect(pref.getString('studentData'), contains('Jane Student'));
-    });
+    test(
+      'changeLoginToTeacher and changeLoginToStudent clear inputs and switch modes',
+      () {
+        final controller = LoginController();
+        controller.id.text = 'my_id';
+        controller.password.text = 'secret';
+        controller.teacherId.text = 'T_ID';
 
-    test('StudentData.fromJson resolves ID correctly from id, student_id, or docId', () {
-      final s1 = StudentData.fromJson({'id': 'S1', 'name': 'A'});
-      expect(s1.id, equals('S1'));
+        controller.changeLoginToStudent();
+        expect(controller.isStudentLogin, isTrue);
+        expect(controller.id.text, isEmpty);
+        expect(controller.password.text, isEmpty);
+        expect(controller.teacherId.text, isEmpty);
 
-      final s2 = StudentData.fromJson({'student_id': 'S2', 'name': 'B'});
-      expect(s2.id, equals('S2'));
+        controller.id.text = 'new_id';
+        controller.password.text = 'new_pass';
+        controller.teacherId.text = 'new_t';
 
-      final s3 = StudentData.fromJson({'name': 'C'}, docId: 'DOC_S3');
-      expect(s3.id, equals('DOC_S3'));
-    });
-
-    test('changeLoginToTeacher and changeLoginToStudent clear inputs and switch modes', () {
-      final controller = LoginController();
-      controller.id.text = 'my_id';
-      controller.password.text = 'secret';
-      controller.teacherId.text = 'T_ID';
-
-      controller.changeLoginToStudent();
-      expect(controller.isStudentLogin, isTrue);
-      expect(controller.id.text, isEmpty);
-      expect(controller.password.text, isEmpty);
-      expect(controller.teacherId.text, isEmpty);
-
-      controller.id.text = 'new_id';
-      controller.password.text = 'new_pass';
-      controller.teacherId.text = 'new_t';
-
-      controller.changeLoginToTeacher();
-      expect(controller.isStudentLogin, isFalse);
-      expect(controller.id.text, isEmpty);
-      expect(controller.password.text, isEmpty);
-      expect(controller.teacherId.text, isEmpty);
-    });
+        controller.changeLoginToTeacher();
+        expect(controller.isStudentLogin, isFalse);
+        expect(controller.id.text, isEmpty);
+        expect(controller.password.text, isEmpty);
+        expect(controller.teacherId.text, isEmpty);
+      },
+    );
   });
 }

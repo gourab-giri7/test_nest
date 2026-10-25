@@ -10,6 +10,8 @@ class TeacherData {
   String lastStdId;
   String lastExamId;
   List<String> batch;
+  bool feeTrackingEnabled;
+
   TeacherData({
     required this.name,
     required this.email,
@@ -18,7 +20,9 @@ class TeacherData {
     required this.lastStdId,
     required this.lastExamId,
     required this.batch,
+    this.feeTrackingEnabled = true,
   });
+
   factory TeacherData.fromJson(Map<String, dynamic> json, {String? docId}) {
     final String resolvedId = (docId != null && docId.trim().isNotEmpty)
         ? docId.trim()
@@ -37,6 +41,7 @@ class TeacherData {
       lastStdId: (json['last_std_id'] ?? '0').toString(),
       lastExamId: (json['last_exam_id'] ?? '0').toString(),
       batch: List<String>.from(json['batch'] ?? []),
+      feeTrackingEnabled: json['fee_tracking_enabled'] != false,
     );
   }
 
@@ -49,6 +54,7 @@ class TeacherData {
       "last_std_id": data.lastStdId,
       "last_exam_id": data.lastExamId,
       "batch": data.batch,
+      "fee_tracking_enabled": data.feeTrackingEnabled,
       // NOTE: password is intentionally NOT stored here
     };
   }

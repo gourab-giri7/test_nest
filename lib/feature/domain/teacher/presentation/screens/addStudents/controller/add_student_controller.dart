@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:test_nest/core/services/fee_service.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
@@ -103,7 +104,8 @@ class AddStudentController extends ChangeNotifier {
       final teacherRef = firestore.collection('user').doc(tData.id.trim());
       final batch = batchController.text.trim();
       final name = fullNameController.text.trim();
-      final feeAmount = double.tryParse(monthlyFeeController.text.trim()) ?? 0.0;
+      final feeAmount =
+          double.tryParse(monthlyFeeController.text.trim()) ?? 0.0;
 
       // Reserve the sequence and create the student atomically. This prevents
       // two quick/parallel student creations from receiving the same ID.
@@ -151,7 +153,7 @@ class AddStudentController extends ChangeNotifier {
             teacherId: teacherRef.id,
             studentId: newStudentId,
             studentName: name,
-            batch: batch,
+            billingMonth: FeeService.currentMonthKey,
             amountDue: feeAmount,
           );
         } catch (feeError) {
@@ -178,7 +180,7 @@ class AddStudentController extends ChangeNotifier {
         ico: Icons.done,
       );
 
-      Navigator.pop(context);
+      Get.back();
     } catch (e) {
       isLoading = false;
       notifyListeners();

@@ -24,23 +24,51 @@ class ExamDetailsModel {
     this.assignedStudentIds = const [],
   });
 
-  factory ExamDetailsModel.fromJson(Map<String, dynamic> json) {
-    final details = json['exam_details'] as Map<String, dynamic>? ?? {};
+  factory ExamDetailsModel.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return ExamDetailsModel(
+        examName: '',
+        fullMarks: '',
+        examKey: '',
+        instruction: '',
+        batch: '',
+        examStart: DateTime.now(),
+        examEnd: DateTime.now(),
+        assignedStudentIds: const [],
+      );
+    }
+    final rawDetails = json['exam_details'];
+    final details = rawDetails is Map
+        ? Map<String, dynamic>.from(rawDetails)
+        : json;
 
     return ExamDetailsModel(
-      // examId: json['exam_id']?.toString() ?? '',
-      examName: details['exam_name']?.toString() ?? '',
-      fullMarks: details['full_marks']?.toString() ?? '',
-      examKey: details['exam_key']?.toString() ?? '',
-      instruction: details['instruction']?.toString() ?? '',
-      batch: details['batch']?.toString() ?? '',
-      examStart: _timestampToDateTime(details['exam_start']),
-      examEnd: _timestampToDateTime(details['exam_end']),
-      assignedStudentIds: List<String>.from(
-        json['assigned_student_ids'] ?? const [],
+      examName: (details['exam_name'] ?? json['exam_name'] ?? '').toString(),
+      fullMarks: (details['full_marks'] ?? json['full_marks'] ?? '').toString(),
+      examKey: (details['exam_key'] ?? json['exam_key'] ?? '').toString(),
+      instruction: (details['instruction'] ?? json['instruction'] ?? '')
+          .toString(),
+      batch: (details['batch'] ?? json['batch'] ?? '').toString(),
+      examStart: _timestampToDateTime(
+        details['exam_start'] ?? json['exam_start'],
       ),
+      examEnd: _timestampToDateTime(details['exam_end'] ?? json['exam_end']),
+      assignedStudentIds: () {
+        final rawIds =
+            json['assigned_student_ids'] ?? details['assigned_student_ids'];
+        if (rawIds is List) {
+          return rawIds
+              .map((id) => id?.toString().trim() ?? '')
+              .where((id) => id.isNotEmpty)
+              .toList(growable: false);
+        }
+        return const <String>[];
+      }(),
     );
   }
+
+  factory ExamDetailsModel.fromMap(Map<String, dynamic>? map) =>
+      ExamDetailsModel.fromJson(map);
 
   static DateTime _timestampToDateTime(dynamic value) {
     if (value is Timestamp) {

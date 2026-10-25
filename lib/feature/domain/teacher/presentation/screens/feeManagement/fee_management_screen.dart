@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/core/services/fee_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
@@ -131,7 +132,11 @@ class _FeeManagementScreenState extends State<FeeManagementScreen> {
                 'Collected',
                 AppColors.success,
               ),
-              _summaryItem('₹${_fmt(c.totalDue)}', 'Total Due', AppColors.primary),
+              _summaryItem(
+                '₹${_fmt(c.totalDue)}',
+                'Total Due',
+                AppColors.primary,
+              ),
               _summaryItem(
                 '₹${_fmt(c.totalDue - c.totalCollected)}',
                 'Outstanding',
@@ -145,7 +150,11 @@ class _FeeManagementScreenState extends State<FeeManagementScreen> {
             children: [
               _countBadge('${c.paidCount}', 'Paid', AppColors.success),
               _countBadge('${c.partialCount}', 'Partial', AppColors.warning),
-              _countBadge('${c.unpaidCount}', 'Unpaid', AppColors.textSecondary),
+              _countBadge(
+                '${c.unpaidCount}',
+                'Unpaid',
+                AppColors.textSecondary,
+              ),
               _countBadge('${c.overdueCount}', 'Overdue', AppColors.danger),
             ],
           ),
@@ -169,7 +178,10 @@ class _FeeManagementScreenState extends State<FeeManagementScreen> {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),
@@ -239,10 +251,7 @@ class _FeeManagementScreenState extends State<FeeManagementScreen> {
             DropdownButtonHideUnderline(
               child: DropdownButton<String?>(
                 value: c.selectedBatch,
-                hint: const Text(
-                  'All Batches',
-                  style: TextStyle(fontSize: 13),
-                ),
+                hint: const Text('All Batches', style: TextStyle(fontSize: 13)),
                 items: [
                   const DropdownMenuItem<String?>(
                     value: null,
@@ -333,7 +342,7 @@ class _FeeManagementScreenState extends State<FeeManagementScreen> {
         status: status,
         controller: controller,
         onPaymentRecorded: () {
-          Navigator.pop(sheetCtx);
+          Get.back();
           if (context.mounted) {
             customSnackbar(
               context: context,
@@ -445,7 +454,10 @@ class _StudentFeeCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     LinearProgressIndicator(
                       value: status.amountDue > 0
-                          ? (status.amountPaid / status.amountDue).clamp(0.0, 1.0)
+                          ? (status.amountPaid / status.amountDue).clamp(
+                              0.0,
+                              1.0,
+                            )
                           : 0.0,
                       backgroundColor: AppColors.border,
                       valueColor: AlwaysStoppedAnimation(statusColor),
@@ -752,7 +764,7 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
       decoration: BoxDecoration(
         color: AppColors.primarySoft,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
+        border: Border.all(color: const Color(0xFFC7D2FE)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -952,14 +964,10 @@ class _PaymentEntryCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isReversal
-            ? const Color(0xFFFEF2F2)
-            : const Color(0xFFF0FDF4),
+        color: isReversal ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isReversal
-              ? const Color(0xFFFECACA)
-              : const Color(0xFFBBF7D0),
+          color: isReversal ? const Color(0xFFFECACA) : const Color(0xFFBBF7D0),
         ),
       ),
       child: Row(
@@ -1007,6 +1015,5 @@ class _PaymentEntryCard extends StatelessWidget {
     );
   }
 
-  String _fmtDate(DateTime d) =>
-      '${d.day}/${d.month}/${d.year}';
+  String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 }

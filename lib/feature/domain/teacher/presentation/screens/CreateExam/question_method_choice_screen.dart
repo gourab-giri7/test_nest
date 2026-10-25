@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/file_upload_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/manualQuestions/controller/question_controller.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/manualQuestions/manual_questions_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/widgets/exam_step_indicator.dart';
 import 'package:test_nest/model/exam_details_model.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class QuestionMethodChoiceScreen extends StatelessWidget {
   final QuestionController qc;
@@ -25,7 +25,7 @@ class QuestionMethodChoiceScreen extends StatelessWidget {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
         ),
         title: const Text(
           'Create Exam',
@@ -83,15 +83,9 @@ class QuestionMethodChoiceScreen extends StatelessWidget {
                   buttonColor: const Color(0xFF4F46E5),
                   onTap: () {
                     qc.setSource(QuestionSource.manual);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            ChangeNotifierProvider<QuestionController>.value(
-                              value: qc,
-                              child: const ManualQuestionsScreen(),
-                            ),
-                      ),
+                    Get.toNamed(
+                      AppRoutes.teacherManualQuestions,
+                      arguments: qc,
                     );
                   },
                 ),
@@ -112,15 +106,9 @@ class QuestionMethodChoiceScreen extends StatelessWidget {
                   buttonColor: const Color(0xFF059669),
                   onTap: () {
                     qc.setSource(QuestionSource.excel);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            ChangeNotifierProvider<QuestionController>.value(
-                              value: qc,
-                              child: const FileUploadScreen(),
-                            ),
-                      ),
+                    Get.toNamed(
+                      AppRoutes.teacherFileUpload,
+                      arguments: qc,
                     );
                   },
                 ),

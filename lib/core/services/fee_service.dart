@@ -31,22 +31,21 @@ class FeeService {
   static CollectionReference<Map<String, dynamic>> _feeRecordsRef(
     String teacherId,
     String studentId,
-  ) =>
-      _db
-          .collection('user')
-          .doc(teacherId)
-          .collection('students')
-          .doc(studentId)
-          .collection('feeRecords');
+  ) => _db
+      .collection('user')
+      .doc(teacherId)
+      .collection('students')
+      .doc(studentId)
+      .collection('feeRecords');
 
   static CollectionReference<Map<String, dynamic>> _paymentsRef(
     String teacherId,
     String studentId,
     String billingMonth,
-  ) =>
-      _feeRecordsRef(teacherId, studentId).doc(billingMonth).collection(
-        'payments',
-      );
+  ) => _feeRecordsRef(
+    teacherId,
+    studentId,
+  ).doc(billingMonth).collection('payments');
 
   // ---------------------------------------------------------------------------
   // Fee record operations
@@ -78,7 +77,7 @@ class FeeService {
       });
     } else {
       // Update amount due only if it changed
-      final existingDue = FeeRecord._toDouble(snap.data()?['amount_due']);
+      final existingDue = FeeRecord.toDouble(snap.data()?['amount_due']);
       if (existingDue != amountDue) {
         await ref.update({
           'amount_due': amountDue,
@@ -119,7 +118,7 @@ class FeeService {
 
     await _db.runTransaction((tx) async {
       final feeSnap = await tx.get(feeRef);
-      final existingPaid = FeeRecord._toDouble(feeSnap.data()?['amount_paid']);
+      final existingPaid = FeeRecord.toDouble(feeSnap.data()?['amount_paid']);
       final newPaid = existingPaid + amount;
 
       if (!feeSnap.exists) {
@@ -153,12 +152,10 @@ class FeeService {
     required String billingMonth,
   }) async {
     try {
-      final snap =
-          await _paymentsRef(teacherId, studentId, billingMonth).get();
-      final entries =
-          snap.docs
-              .map((d) => PaymentEntry.fromJson(d.data(), docId: d.id))
-              .toList();
+      final snap = await _paymentsRef(teacherId, studentId, billingMonth).get();
+      final entries = snap.docs
+          .map((d) => PaymentEntry.fromJson(d.data(), docId: d.id))
+          .toList();
       entries.sort((a, b) => b.paidAt.compareTo(a.paidAt));
       return entries;
     } catch (e) {
@@ -174,8 +171,10 @@ class FeeService {
     required String billingMonth,
   }) async {
     try {
-      final snap =
-          await _feeRecordsRef(teacherId, studentId).doc(billingMonth).get();
+      final snap = await _feeRecordsRef(
+        teacherId,
+        studentId,
+      ).doc(billingMonth).get();
       if (!snap.exists || snap.data() == null) return null;
       return FeeRecord.fromJson(snap.data()!, docId: snap.id);
     } catch (e) {
@@ -190,10 +189,10 @@ class FeeService {
     required String studentId,
   }) async {
     try {
-      final snap =
-          await _feeRecordsRef(teacherId, studentId)
-              .orderBy('billing_month', descending: true)
-              .get();
+      final snap = await _feeRecordsRef(
+        teacherId,
+        studentId,
+      ).orderBy('billing_month', descending: true).get();
       return snap.docs
           .map((d) => FeeRecord.fromJson(d.data(), docId: d.id))
           .toList();
@@ -249,10 +248,10 @@ class FeeService {
     required double amountDue,
   }) async {
     final ref = _feeRecordsRef(teacherId, studentId).doc(billingMonth);
-    await ref.set(
-      {'amount_due': amountDue, 'updated_at': FieldValue.serverTimestamp()},
-      SetOptions(merge: true),
-    );
+    await ref.set({
+      'amount_due': amountDue,
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   // ---------------------------------------------------------------------------

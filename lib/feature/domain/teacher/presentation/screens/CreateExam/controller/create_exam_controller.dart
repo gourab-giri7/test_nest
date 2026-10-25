@@ -1,16 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/teacher/data/datasources/get_student_data.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/createExam/question_method_choice_screen.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/file_upload_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/manualQuestions/controller/question_controller.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/manualQuestions/manual_questions_screen.dart';
 import 'package:test_nest/model/exam_details_model.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class CreateExamController extends ChangeNotifier {
   final examKey = GlobalKey<FormState>();
@@ -274,10 +273,7 @@ class CreateExamController extends ChangeNotifier {
 
     qc.setSource(questionSource);
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => QuestionMethodChoiceScreen(qc: qc)),
-    );
+    Get.toNamed(AppRoutes.teacherQuestionMethodChoice, arguments: qc);
   }
 
   void clearAll() {

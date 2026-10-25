@@ -1,9 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/dashboard/teacher_dashboard_screen.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class TeacherSignupController extends ChangeNotifier {
   final formKey = GlobalKey<FormState>();
@@ -132,10 +133,7 @@ class TeacherSignupController extends ChangeNotifier {
           color: Colors.green,
           ico: Icons.check_circle,
         );
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const TeacherDashboardScreen()),
-          (route) => false,
-        );
+        Get.offAllNamed(AppRoutes.teacherDashboard);
       }
     } on FirebaseAuthException catch (e) {
       if (!context.mounted) return;

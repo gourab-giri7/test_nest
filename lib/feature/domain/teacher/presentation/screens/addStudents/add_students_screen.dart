@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/addStudents/controller/add_student_controller.dart';
@@ -24,197 +25,189 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         surfaceTintColor: Colors.transparent,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(
-            Icons.arrow_back_ios_new,
+            Icons.arrow_back_ios_new_rounded,
             size: 18,
-            color: Color(0xFF0F172A),
+            color: AppColors.text,
           ),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
         ),
         title: const Text(
-          'Add Student',
+          'Enroll New Student',
           style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF0F172A),
+            fontSize: 19,
+            fontWeight: FontWeight.w900,
+            color: AppColors.text,
           ),
         ),
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 450),
+          constraints: const BoxConstraints(maxWidth: 480),
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Consumer<AddStudentController>(
-              builder: (context, controller, child) => Form(
-                key: controller.studentkey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Avatar placeholder with camera badge (Screen 8)
-                    Stack(
-                      children: [
-                        Container(
-                          width: 96,
-                          height: 96,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEFF6FF),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.person,
-                            size: 52,
-                            color: Color(0xFF2563EB),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                              size: 14,
-                            ),
+              builder: (context, controller, child) => Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: AppShadows.card,
+                ),
+                child: Form(
+                  key: controller.studentkey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Modern Avatar Header
+                      Container(
+                        width: 82,
+                        height: 82,
+                        decoration: BoxDecoration(
+                          color: AppColors.primarySoft,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: AppColors.primary.withOpacity(0.2),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
+                        child: const Icon(
+                          Icons.person_add_alt_1_rounded,
+                          size: 38,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Student Enrollment Form',
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.text,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Assign a student ID, batch, and optional monthly fee',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
-                    // Student Name
-                    _buildLabel('Student Name'),
-                    _buildTextField(
-                      controller: controller.fullNameController,
-                      hint: 'Enter student name',
-                      validator: controller.validator,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Student ID (Read-only generated ID)
-                    _buildLabel('Student ID'),
-                    _buildTextField(
-                      controller: controller.studentIdController,
-                      hint: 'Enter student ID',
-                      enabled: false,
-                      validator: controller.validator,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Batch Dropdown
-                    _buildLabel('Batch'),
-                    GestureDetector(
-                      onTap: () {
-                        batchDialog(context);
-                      },
-                      child: _buildTextField(
-                        controller: controller.batchController,
-                        hint: 'Select batch',
-                        enabled: false,
-                        suffix: true,
+                      // Student Name
+                      _buildLabel('Student Full Name *'),
+                      _buildTextField(
+                        controller: controller.fullNameController,
+                        hint: 'Enter student full name',
+                        prefixIcon: Icons.person_outline_rounded,
                         validator: controller.validator,
                       ),
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                    // Monthly Tuition Fee
-                    _buildLabel('Monthly Tuition Fee (₹)'),
-                    TextFormField(
-                      controller: controller.monthlyFeeController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      validator: controller.feeValidator,
-                      onTapOutside: (_) =>
-                          FocusManager.instance.primaryFocus!.unfocus(),
-                      decoration: InputDecoration(
-                        hintText: 'e.g. 1500 (optional, default 0)',
-                        prefixIcon: const Icon(
-                          Icons.currency_rupee,
-                          size: 18,
-                          color: Color(0xFF64748B),
+                      // Student ID (Read-only generated ID)
+                      _buildLabel('Auto-Generated Student ID'),
+                      _buildTextField(
+                        controller: controller.studentIdController,
+                        hint: 'Student ID',
+                        prefixIcon: Icons.badge_outlined,
+                        enabled: false,
+                        validator: controller.validator,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Batch Dropdown
+                      _buildLabel('Assign Batch *'),
+                      GestureDetector(
+                        onTap: () {
+                          batchDialog(context);
+                        },
+                        child: _buildTextField(
+                          controller: controller.batchController,
+                          hint: 'Tap to choose or add a batch',
+                          prefixIcon: Icons.groups_outlined,
+                          enabled: false,
+                          suffix: true,
+                          validator: controller.validator,
                         ),
-                        hintStyle: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 14,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Monthly Tuition Fee
+                      _buildLabel('Monthly Tuition Fee (₹)'),
+                      TextFormField(
+                        controller: controller.monthlyFeeController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE2E8F0),
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE2E8F0),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF2563EB),
+                        validator: controller.feeValidator,
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
+                        decoration: const InputDecoration(
+                          hintText: 'e.g. 1500 (optional, default 0)',
+                          prefixIcon: Icon(
+                            Icons.currency_rupee_rounded,
+                            size: 18,
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 32),
+                      const SizedBox(height: 28),
 
-                    // Add Student Action Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                      // Add Student Action Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
+                          onPressed: controller.isLoading
+                              ? null
+                              : () {
+                                  controller.addStudent(context);
+                                },
+                          icon: controller.isLoading
+                              ? const SizedBox.shrink()
+                              : const Icon(
+                                  Icons.check_circle_outline_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                          label: controller.isLoading
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                              : const Text(
+                                  'Complete Enrollment',
+                                  style: TextStyle(
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
                         ),
-                        onPressed: controller.isLoading
-                            ? null
-                            : () {
-                                controller.addStudent(context);
-                              },
-                        child: controller.isLoading
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : const Text(
-                                'Add Student',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -232,9 +225,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         child: Text(
           text,
           style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF334155),
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: AppColors.text,
           ),
         ),
       ),
@@ -244,6 +237,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   Widget _buildTextField({
     required TextEditingController controller,
     String hint = "",
+    IconData? prefixIcon,
     bool enabled = true,
     bool suffix = false,
     String? Function(String?)? validator,
@@ -251,40 +245,27 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     return TextFormField(
       validator: validator,
       enabled: enabled,
-      onTapOutside: (_) => FocusManager.instance.primaryFocus!.unfocus(),
+      onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
       controller: controller,
       style: TextStyle(
         fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: !enabled ? const Color(0xFF475569) : const Color(0xFF0F172A),
+        fontWeight: FontWeight.w700,
+        color: !enabled ? AppColors.textSecondary : AppColors.text,
       ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
+        prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 20) : null,
         filled: true,
-        fillColor: enabled ? Colors.white : const Color(0xFFF1F5F9),
+        fillColor: enabled ? const Color(0xFFF8FAFC) : AppColors.surfaceAlt,
         suffixIcon: suffix
-            ? const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B))
+            ? const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.textSecondary,
+              )
             : null,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
         disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF2563EB)),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
       ),
     );

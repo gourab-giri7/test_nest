@@ -50,8 +50,10 @@ class TeacherLoginFeature {
 
       return 404;
     } on FirebaseAuthException catch (e) {
-      log('Firebase Auth error: ${e.code} - ${e.message}',
-          name: 'teacher_login');
+      log(
+        'Firebase Auth error: ${e.code} - ${e.message}',
+        name: 'teacher_login',
+      );
       if (e.code == 'wrong-password' ||
           e.code == 'user-not-found' ||
           e.code == 'invalid-credential' ||

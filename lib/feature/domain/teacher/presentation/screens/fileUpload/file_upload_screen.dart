@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/controller/file_upload_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/manualQuestions/controller/question_controller.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/reviewPublishExam/review_publish_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/widgets/exam_step_indicator.dart';
 import 'package:test_nest/model/Q&A_model.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class FileUploadScreen extends StatefulWidget {
   const FileUploadScreen({super.key});
@@ -35,7 +36,7 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
         ),
         title: const Text(
           'Import from Excel',
@@ -366,21 +367,9 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
                                   qc = context.read<QuestionController>();
                                 } catch (_) {}
 
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) {
-                                      if (qc != null) {
-                                        return ChangeNotifierProvider<
-                                          QuestionController
-                                        >.value(
-                                          value: qc,
-                                          child: const ReviewPublishScreen(),
-                                        );
-                                      }
-                                      return const ReviewPublishScreen();
-                                    },
-                                  ),
+                                Get.toNamed(
+                                  AppRoutes.teacherReviewPublish,
+                                  arguments: qc,
                                 );
                               }
                             : null,

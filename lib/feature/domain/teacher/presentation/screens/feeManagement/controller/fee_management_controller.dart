@@ -24,7 +24,8 @@ class StudentFeeStatus {
   double get amountDue => feeRecord?.amountDue ?? defaultMonthlyFee;
   double get amountPaid => feeRecord?.amountPaid ?? 0.0;
   double get balance => (amountDue - amountPaid).clamp(0, double.infinity);
-  String get status => FeeRecord.computeStatus(amountDue, amountPaid, feeRecord?.dueDate);
+  String get status =>
+      FeeRecord.computeStatus(amountDue, amountPaid, feeRecord?.dueDate);
 }
 
 // =============================================================================
@@ -122,11 +123,10 @@ class FeeManagementController extends ChangeNotifier {
           .collection('students')
           .get();
 
-      final students =
-          studentsSnap.docs
-              .map((d) => StudentModel.fromJson(d.data(), docId: d.id))
-              .where((s) => s.id.isNotEmpty)
-              .toList();
+      final students = studentsSnap.docs
+          .map((d) => StudentModel.fromJson(d.data(), docId: d.id))
+          .where((s) => s.id.isNotEmpty)
+          .toList();
 
       // Collect available batches
       final batches = <String>{};
@@ -148,8 +148,7 @@ class FeeManagementController extends ChangeNotifier {
       // 3. Build combined status list
       _allStatuses = students.map((student) {
         // Use student's individual monthly fee if set, otherwise 0
-        final defaultFee =
-            student.monthlyFee > 0 ? student.monthlyFee : 0.0;
+        final defaultFee = student.monthlyFee > 0 ? student.monthlyFee : 0.0;
         return StudentFeeStatus(
           student: student,
           feeRecord: feeRecords[student.id],

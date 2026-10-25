@@ -41,24 +41,39 @@ void main() {
       expect(controller.emailValidator(''), 'Email is required');
       expect(controller.emailValidator('invalidEmail'), 'Enter a valid email');
       expect(controller.emailValidator('teacher@'), 'Enter a valid email');
-      expect(controller.emailValidator('teacher@example'), 'Enter a valid email');
+      expect(
+        controller.emailValidator('teacher@example'),
+        'Enter a valid email',
+      );
       expect(controller.emailValidator('teacher@testnest.com'), isNull);
     });
 
     test('Password validator requires minimum 6 characters', () {
       expect(controller.passwordValidator(null), 'Password is required');
       expect(controller.passwordValidator(''), 'Password is required');
-      expect(controller.passwordValidator('12345'), 'Minimum 6 characters required');
+      expect(
+        controller.passwordValidator('12345'),
+        'Minimum 6 characters required',
+      );
       expect(controller.passwordValidator('123456'), isNull);
       expect(controller.passwordValidator('SecretPass!'), isNull);
     });
 
-    test('Confirm password validator verifies equality with password controller', () {
-      controller.password.text = 'SuperSecret123';
+    test(
+      'Confirm password validator verifies equality with password controller',
+      () {
+        controller.password.text = 'SuperSecret123';
 
-      expect(controller.confirmPasswordValidator('WrongPass'), 'Passwords do not match');
-      expect(controller.confirmPasswordValidator(''), 'Passwords do not match');
-      expect(controller.confirmPasswordValidator('SuperSecret123'), isNull);
-    });
+        expect(
+          controller.confirmPasswordValidator('WrongPass'),
+          'Passwords do not match',
+        );
+        expect(
+          controller.confirmPasswordValidator(''),
+          'Passwords do not match',
+        );
+        expect(controller.confirmPasswordValidator('SuperSecret123'), isNull);
+      },
+    );
   });
 }

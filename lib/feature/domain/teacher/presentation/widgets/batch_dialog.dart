@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/addStudents/controller/add_student_controller.dart';
 
@@ -177,7 +178,7 @@ Future<void> batchDialog(BuildContext context) async {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(dialogContext);
+                Get.back();
               },
               child: const Text("Cancel"),
             ),
@@ -188,7 +189,7 @@ Future<void> batchDialog(BuildContext context) async {
               onPressed: () {
                 if (controller.selectedBatche != "select_batch") {
                   controller.batchController.text = controller.selectedBatche;
-                  Navigator.pop(context);
+                  Get.back();
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -310,7 +311,7 @@ Future<String?> addBatchDialog(BuildContext context) async {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(dialogContext);
+              Get.back();
             },
             child: const Text("Cancel"),
           ),
@@ -325,7 +326,7 @@ Future<String?> addBatchDialog(BuildContext context) async {
                 return;
               }
               context.read<AddStudentController>().addbatch(batchName, context);
-              Navigator.pop(context);
+              Get.back();
             },
             icon: const Icon(Icons.add_rounded, size: 18),
             label: const Text("Add Batch"),

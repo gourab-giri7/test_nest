@@ -1,27 +1,32 @@
 import 'dart:developer';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/feature/auth/loginFeatureStudents/student_login_feature.dart';
 import 'package:test_nest/feature/auth/loginFeatureTeacher/teacher_login_feature.dart';
-import 'package:test_nest/feature/domain/common/presentation/screen/login/login_screen.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
-import 'package:test_nest/feature/domain/student/presentation/screens/dashboard/students_dashboard_screen.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/allStudents/controller/student_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/CreateExam/controller/create_exam_controller.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/dashboard/teacher_dashboard_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/exams/controller/teacher_exam_controller.dart';
 import 'package:test_nest/main.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class LoginController extends ChangeNotifier {
   TextEditingController teacherId = TextEditingController();
   TextEditingController id = TextEditingController();
   TextEditingController password = TextEditingController();
   bool isStudentLogin = false;
+  bool useLegacyStudentLogin = false;
   bool obscurePassword = true;
   bool ispressed = false;
+
+  void toggleLegacyStudentLogin() {
+    useLegacyStudentLogin = !useLegacyStudentLogin;
+    notifyListeners();
+  }
 
   // ------------- for main
   bool isLogined = false;
@@ -110,12 +115,7 @@ class LoginController extends ChangeNotifier {
             color: Colors.green,
             ico: Icons.login,
           );
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => const TeacherDashboardScreen(),
-            ),
-            (route) => false,
-          );
+          Get.offAllNamed(AppRoutes.teacherDashboard);
           return;
         } else if (result == 404) {
           customSnackbar(
@@ -133,47 +133,103 @@ class LoginController extends ChangeNotifier {
           );
         }
       } else {
-        // Student login — no password needed
+        // Student login
         final teacherid = teacherId.text.trim();
-        final result = await StudentLoginFeature.studentlogin(
-          teacherid,
-          userId,
-        );
-        if (!context.mounted) return;
 
-        if (result == 200) {
-          await saveStudentSession(teacherid, userId);
-          isLogined = true;
-          role = "student";
-          ispressed = false;
-          notifyListeners();
-          customSnackbar(
-            context: context,
-            message: "Login successful",
-            color: Colors.green,
-            ico: Icons.login,
+        // If user is explicitly using legacy student code without password
+        if (useLegacyStudentLogin ||
+            (teacherid.isNotEmpty && userpassword.isEmpty)) {
+          final result = await StudentLoginFeature.studentlogin(
+            teacherid,
+            userId,
           );
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => const StudentDashboardScreen(),
-            ),
-            (route) => false,
-          );
-          return;
-        } else if (result == 404) {
-          customSnackbar(
-            context: context,
-            message: "Teacher ID or Student ID not found",
-            color: Colors.red,
-            ico: Icons.error,
-          );
+          if (!context.mounted) return;
+
+          if (result == 200) {
+            final resolvedTeacherId = (studentData?.teacherId.isNotEmpty == true)
+                ? studentData!.teacherId
+                : teacherid;
+            await saveStudentSession(resolvedTeacherId, userId);
+            isLogined = true;
+            role = "student";
+            ispressed = false;
+            notifyListeners();
+            customSnackbar(
+              context: context,
+              message: "Login successful",
+              color: Colors.green,
+              ico: Icons.login,
+            );
+            Get.offAllNamed(AppRoutes.studentDashboard);
+            return;
+          } else if (result == 404) {
+            customSnackbar(
+              context: context,
+              message: "Teacher ID or Student ID not found",
+              color: Colors.red,
+              ico: Icons.error,
+            );
+          } else {
+            customSnackbar(
+              context: context,
+              message: "Something went wrong, please try again later",
+              color: Colors.orange,
+              ico: Icons.info,
+            );
+          }
         } else {
-          customSnackbar(
-            context: context,
-            message: "Something went wrong, please try again later",
-            color: Colors.orange,
-            ico: Icons.info,
+          // Standard student login via Firebase Authentication (email & password)
+          final res = await StudentLoginFeature.studentEmailLogin(
+            userId,
+            userpassword,
           );
+          if (!context.mounted) return;
+
+          final status = res['status'] as int;
+          if (status == 200) {
+            final state = res['state'] as String;
+            ispressed = false;
+            notifyListeners();
+
+            if (state == 'approved') {
+              isLogined = true;
+              role = "student";
+              notifyListeners();
+              customSnackbar(
+                context: context,
+                message: "Welcome back!",
+                color: Colors.green,
+                ico: Icons.login,
+              );
+              Get.offAllNamed(AppRoutes.studentDashboard);
+            } else if (state == 'pending') {
+              Get.offAllNamed(
+                AppRoutes.studentRequestSent,
+                arguments: {
+                  'batchName': res['batchName'] ?? 'Your Batch',
+                  'teacherName': res['teacherName'] ?? 'Your Teacher',
+                },
+              );
+            } else {
+              // 'needs_join'
+              Get.offAllNamed(AppRoutes.studentJoinTeacher);
+            }
+            return;
+          } else if (status == 404) {
+            customSnackbar(
+              context: context,
+              message: res['message'] ?? "Invalid email or password",
+              color: Colors.red,
+              ico: Icons.error,
+            );
+          } else {
+            customSnackbar(
+              context: context,
+              message: res['message'] ?? "Login failed. Please try again.",
+              color: Colors.red,
+              ico: Icons.error,
+            );
+          }
         }
       }
     } catch (e) {
@@ -223,12 +279,7 @@ class LoginController extends ChangeNotifier {
 
     await pref.clear();
 
-    if (context.mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
-      );
-    }
+    Get.offAllNamed(AppRoutes.login);
 
     notifyListeners();
   }

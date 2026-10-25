@@ -3,21 +3,26 @@ import 'dart:developer';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/login/controller/login_controller.dart';
-import 'package:test_nest/feature/domain/student/presentation/screens/examDetails/exam_details_screen.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/CreateExam/create_exam_screen.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/allStudents/all_students_screen.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/exams/teacher_exam_screen.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/feeManagement/controller/fee_management_controller.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/feeManagement/fee_management_screen.dart';
 import 'package:test_nest/main.dart';
 import 'package:test_nest/model/exam_model.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class TeacherDashboardScreen extends StatefulWidget {
-  const TeacherDashboardScreen({super.key});
+  final Stream<QuerySnapshot<Map<String, dynamic>>>? studentsStream;
+  final Stream<QuerySnapshot<Map<String, dynamic>>>? examsStream;
+  final Stream<QuerySnapshot<Map<String, dynamic>>>? recentExamsStream;
+
+  const TeacherDashboardScreen({
+    super.key,
+    this.studentsStream,
+    this.examsStream,
+    this.recentExamsStream,
+  });
 
   @override
   State<TeacherDashboardScreen> createState() => _TeacherDashboardScreenState();
@@ -31,6 +36,12 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   String _cachedTeacherId = '';
 
   void _initStreams(String teacherId) {
+    if (widget.studentsStream != null) {
+      _studentsStream = widget.studentsStream;
+      _examsStream = widget.examsStream;
+      _recentExamsStream = widget.recentExamsStream;
+      return;
+    }
     if (_cachedTeacherId == teacherId && _studentsStream != null) return;
     _cachedTeacherId = teacherId;
     _studentsStream = FirebaseFirestore.instance
@@ -75,7 +86,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     final tData = teacherData;
     if (tData == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: AppColors.background,
         appBar: AppBar(title: const Text('Test Nest')),
         body: const Center(
           child: Text('Session expired. Please log in again.'),
@@ -84,82 +95,104 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
-            // Top Header (Blue Gradient with Good Morning & Avatar)
             _buildTopHeader(tData),
-
-            // Content Overlapping Header
             Transform.translate(
-              offset: const Offset(0, -32),
+              offset: const Offset(0, -34),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
+                  constraints: const BoxConstraints(maxWidth: 620),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Floating 4 Metrics Stats Card (Screen 4)
                         _buildFloatingMetricsCard(tData),
                         const SizedBox(height: 24),
 
-                        // Quick Actions Section (2x2 Grid)
-                        const Text(
-                          'Quick Actions',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
-                          ),
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.grid_view_rounded,
+                              size: 19,
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Command Center',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.text,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 14),
                         _buildQuickActionsGrid(context),
                         const SizedBox(height: 24),
 
-                        // Promotional Banner Card (Screen 4)
                         _buildBannerCard(context),
                         const SizedBox(height: 24),
 
-                        // Recent Exams Section Header
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Recent Exams',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A),
+                            const Expanded(
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.assignment_turned_in_rounded,
+                                    size: 19,
+                                    color: AppColors.primary,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Recent Assessments',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppColors.text,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            TextButton(
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const TeacherExamsScreen(),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
                                 ),
+                                minimumSize: const Size(50, 36),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                              child: const Text(
+                              onPressed: () => Get.toNamed(AppRoutes.teacherExams),
+                              icon: const Text(
                                 'View All',
                                 style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2563EB),
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.primary,
                                 ),
+                              ),
+                              label: const Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 12,
+                                color: AppColors.primary,
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
 
-                        // Recent Exams Stream List
                         _buildRecentExamsStream(tData),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
@@ -176,41 +209,66 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   Widget _buildTopHeader(TeacherData tData) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(top: 54, bottom: 58, left: 24, right: 24),
+      padding: const EdgeInsets.only(top: 56, bottom: 62, left: 22, right: 22),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2563EB), Color(0xFF4F46E5)],
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+        gradient: AppGradients.teacherHero,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Good Morning,',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withOpacity(0.85),
-                  fontWeight: FontWeight.w500,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'EDUCATOR PORTAL',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFFC7D2FE),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                tData.name.isNotEmpty ? '${tData.name}!' : 'Teacher!',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: -0.3,
+                const SizedBox(height: 10),
+                Text(
+                  tData.name.isNotEmpty ? 'Welcome, ${tData.name}' : 'Welcome, Educator',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 3),
+                Text(
+                  tData.email.isNotEmpty
+                      ? tData.email
+                      : 'Manage your batches, exams & student progress',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.white.withOpacity(0.8),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 12),
           InkWell(
             onTap: () => _showLogoutDialog(context),
             borderRadius: BorderRadius.circular(30),
@@ -219,14 +277,21 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.4),
+                  color: Colors.white.withOpacity(0.45),
                   width: 2,
                 ),
               ),
-              child: const CircleAvatar(
-                radius: 24,
+              child: CircleAvatar(
+                radius: 25,
                 backgroundColor: Colors.white,
-                child: Icon(Icons.person, color: Color(0xFF2563EB), size: 28),
+                child: Text(
+                  tData.name.isNotEmpty ? tData.name[0].toUpperCase() : 'T',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 20,
+                  ),
+                ),
               ),
             ),
           ),
@@ -258,43 +323,37 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
             return Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.border),
+                boxShadow: AppShadows.card,
               ),
               child: Row(
                 children: [
                   _statItem(
                     'Students',
                     studentCount.toString(),
-                    const Color(0xFF2563EB),
+                    AppColors.primary,
                   ),
                   _vDivider(),
                   _statItem(
-                    'Exams',
+                    'Total Exams',
                     totalExams.toString(),
-                    const Color(0xFFEF4444),
+                    AppColors.secondary,
                   ),
                   _vDivider(),
                   _statItem(
                     'Active',
                     activeCount.toString(),
-                    const Color(0xFF10B981),
+                    AppColors.success,
                   ),
                   _vDivider(),
                   _statItem(
                     'Completed',
                     completedCount.toString(),
-                    const Color(0xFFF59E0B),
+                    AppColors.warning,
                   ),
                 ],
               ),
@@ -317,13 +376,16 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
               color: color,
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           Text(
             label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
             ),
           ),
         ],
@@ -332,100 +394,136 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   }
 
   Widget _vDivider() {
-    return Container(width: 1, height: 32, color: const Color(0xFFF1F5F9));
+    return Container(width: 1, height: 32, color: AppColors.border);
   }
 
   Widget _buildQuickActionsGrid(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          crossAxisSpacing: 14,
-          mainAxisSpacing: 14,
-          childAspectRatio: 1.5,
+    final tData = teacherData;
+    final isFeeEnabled = tData?.feeTrackingEnabled != false;
+
+    return Column(
+      children: [
+        Row(
           children: [
-            // Students Action Card
-            _actionCard(
-              title: 'Students',
-              subtitle: 'Manage students',
-              icon: Icons.people_alt_rounded,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
-              ),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AllStudentsScreen()),
+            Expanded(
+              child: _actionCard(
+                title: 'Students',
+                subtitle: 'Enrolled roster',
+                icon: Icons.people_alt_rounded,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
+                ),
+                onTap: () => Get.toNamed(AppRoutes.teacherAllStudents),
               ),
             ),
-            // Create Exam Action Card
-            _actionCard(
-              title: 'Create Exam',
-              subtitle: 'Add new exam',
-              icon: Icons.edit_note_rounded,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF8B5CF6), Color(0xFFA855F7)],
-              ),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CreateExamScreen()),
-              ),
-            ),
-            // Exams Action Card
-            _actionCard(
-              title: 'Exams',
-              subtitle: 'View all exams',
-              icon: Icons.assignment_rounded,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF10B981), Color(0xFF059669)],
-              ),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const TeacherExamsScreen()),
-              ),
-            ),
-            // Fee Management Action Card
-            _actionCard(
-              title: 'Fee Records',
-              subtitle: 'Monthly fees & dues',
-              icon: Icons.account_balance_wallet_rounded,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
-              ),
-              onTap: () {
-                final t = teacherData;
-                if (t == null) return;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChangeNotifierProvider(
-                      create: (_) => FeeManagementController(
-                        teacherId: t.id,
-                        teacherName: t.name,
-                      ),
-                      child: const FeeManagementScreen(),
-                    ),
-                  ),
-                );
-              },
-            ),
-            // Results Action Card
-            _actionCard(
-              title: 'Results',
-              subtitle: 'Check results',
-              icon: Icons.insert_chart_rounded,
-              gradient: const LinearGradient(
-                colors: [Color(0xFFF59E0B), Color(0xFFEA580C)],
-              ),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const TeacherExamsScreen()),
+            const SizedBox(width: 14),
+            Expanded(
+              child: _actionCard(
+                title: 'Batches',
+                subtitle: 'Batches & codes',
+                icon: Icons.groups_rounded,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF312E81), Color(0xFF4338CA)],
+                ),
+                onTap: () => Get.toNamed(AppRoutes.teacherBatches),
               ),
             ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: _actionCard(
+                title: 'Create Exam',
+                subtitle: 'Build assessment',
+                icon: Icons.edit_note_rounded,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF7C3AED), Color(0xFF9333EA)],
+                ),
+                onTap: () => Get.toNamed(AppRoutes.teacherCreateExam),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: _actionCard(
+                title: 'Exams',
+                subtitle: 'All assessments',
+                icon: Icons.assignment_rounded,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF059669), Color(0xFF10B981)],
+                ),
+                onTap: () => Get.toNamed(AppRoutes.teacherExams),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: _actionCard(
+                title: 'Join Requests',
+                subtitle: 'Student approvals',
+                icon: Icons.group_add_rounded,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0284C7), Color(0xFF0EA5E9)],
+                ),
+                onTap: () => Get.toNamed(AppRoutes.teacherJoinRequests),
+              ),
+            ),
+            const SizedBox(width: 14),
+            if (isFeeEnabled)
+              Expanded(
+                child: _actionCard(
+                  title: 'Fee Ledger',
+                  subtitle: 'Monthly dues',
+                  icon: Icons.account_balance_wallet_rounded,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                  ),
+                  onTap: () {
+                    final t = teacherData;
+                    if (t == null) return;
+                    Get.toNamed(AppRoutes.teacherFeeManagement);
+                  },
+                ),
+              )
+            else
+              Expanded(
+                child: _actionCard(
+                  title: 'Results',
+                  subtitle: 'Analytics & marks',
+                  icon: Icons.insert_chart_rounded,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
+                  ),
+                  onTap: () => Get.toNamed(AppRoutes.teacherExams),
+                ),
+              ),
+          ],
+        ),
+        if (isFeeEnabled) ...[
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _actionCard(
+                  title: 'Results',
+                  subtitle: 'Analytics & marks',
+                  icon: Icons.insert_chart_rounded,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
+                  ),
+                  onTap: () => Get.toNamed(AppRoutes.teacherExams),
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        ],
+      ],
     );
   }
 
@@ -437,47 +535,63 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     required VoidCallback onTap,
   }) {
     return Container(
+      constraints: const BoxConstraints(minHeight: 112),
       decoration: BoxDecoration(
         gradient: gradient,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(icon, color: Colors.white, size: 28),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.18),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 22),
+                ),
+                const SizedBox(height: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w900,
                         color: Colors.white,
+                        letterSpacing: -0.2,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         color: Colors.white.withOpacity(0.85),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -493,51 +607,68 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   Widget _buildBannerCard(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFDBEAFE)),
+        color: AppColors.primarySoft,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFC7D2FE)),
       ),
       child: Row(
         children: [
-          Expanded(
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              color: AppColors.primary,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  'Create Engaging Exams',
+                  'Launch a Timed Exam',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E40AF),
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primaryDark,
                   ),
                 ),
-                SizedBox(height: 4),
+                SizedBox(height: 3),
                 Text(
-                  'Build better assessments for your students',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF3B82F6)),
+                  'Import Excel questions or enter manually in minutes',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 10),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
               ),
               elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              minimumSize: const Size(88, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CreateExamScreen()),
-            ),
+            onPressed: () => Get.toNamed(AppRoutes.teacherCreateExam),
             child: const Text(
               'Create',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
             ),
           ),
         ],
@@ -554,7 +685,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(24.0),
-              child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+              child: CircularProgressIndicator(color: AppColors.primary),
             ),
           );
         }
@@ -563,17 +694,21 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
         if (docs.isEmpty) {
           return Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(26),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: AppColors.border),
             ),
             child: const Center(
               child: Text(
                 "No exams created yet. Tap 'Create Exam' to get started.",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           );
@@ -584,27 +719,20 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadows.card,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Column(
             children: [
               for (int i = 0; i < exams.length; i++) ...[
                 InkWell(
+                  borderRadius: BorderRadius.circular(14),
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ExamDetailsScreen(exam: exams[i]),
-                      ),
+                    Get.toNamed(
+                      AppRoutes.teacherExamDetails,
+                      arguments: exams[i],
                     );
                   },
                   child: _buildRecentExamItem(exams[i]),
@@ -621,30 +749,29 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
   Widget _buildRecentExamItem(ExamModel exam) {
     final statusColor = exam.status == 'Completed'
-        ? const Color(0xFF059669)
-        : (exam.status == 'Active'
-              ? const Color(0xFF2563EB)
-              : const Color(0xFFD97706));
+        ? AppColors.success
+        : (exam.status == 'Active' ? AppColors.primary : AppColors.warning);
     final statusBg = exam.status == 'Completed'
-        ? const Color(0xFFECFDF5)
+        ? AppColors.successSoft
         : (exam.status == 'Active'
-              ? const Color(0xFFEFF6FF)
-              : const Color(0xFFFFFBEB));
+              ? AppColors.primarySoft
+              : AppColors.warningSoft);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      padding: const EdgeInsets.symmetric(vertical: 13.0),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(13),
             ),
             child: const Icon(
-              Icons.assignment_outlined,
-              color: Color(0xFF2563EB),
-              size: 20,
+              Icons.description_outlined,
+              color: AppColors.primary,
+              size: 21,
             ),
           ),
           const SizedBox(width: 14),
@@ -655,24 +782,25 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
                 Text(
                   exam.examName.isNotEmpty ? exam.examName : "Untitled Exam",
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.text,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${exam.examDate} • ${exam.startTime}',
+                  '${exam.examDate}  •  ${exam.startTime}',
                   style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
+                    fontSize: 11.5,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: statusBg,
               borderRadius: BorderRadius.circular(20),
@@ -681,7 +809,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
               exam.status,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w800,
                 color: statusColor,
               ),
             ),
@@ -692,54 +820,43 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   }
 
   Widget _buildBottomNav(BuildContext context) {
+    final isFeeEnabled = teacherData?.feeTrackingEnabled != false;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: const Border(top: BorderSide(color: AppColors.border)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            blurRadius: 14,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _navItem(0, Icons.home_rounded, 'Home', () {}),
+              _navItem(0, Icons.dashboard_rounded, 'Home', () {}),
               _navItem(1, Icons.people_alt_rounded, 'Students', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AllStudentsScreen()),
-                );
+                Get.toNamed(AppRoutes.teacherAllStudents);
               }),
               _navItem(2, Icons.assignment_rounded, 'Exams', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TeacherExamsScreen()),
-                );
+                Get.toNamed(AppRoutes.teacherExams);
               }),
-              _navItem(3, Icons.account_balance_wallet_rounded, 'Fees', () {
-                final t = teacherData;
-                if (t == null) return;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChangeNotifierProvider(
-                      create: (_) => FeeManagementController(
-                        teacherId: t.id,
-                        teacherName: t.name,
-                      ),
-                      child: const FeeManagementScreen(),
-                    ),
-                  ),
-                );
-              }),
-              _navItem(4, Icons.logout_rounded, 'Logout', () {
+              if (isFeeEnabled)
+                _navItem(3, Icons.account_balance_wallet_rounded, 'Fees', () {
+                  final t = teacherData;
+                  if (t == null) return;
+                  Get.toNamed(AppRoutes.teacherFeeManagement);
+                })
+              else
+                _navItem(3, Icons.groups_rounded, 'Batches', () {
+                  Get.toNamed(AppRoutes.teacherBatches);
+                }),
+              _navItem(4, Icons.logout_rounded, 'Sign Out', () {
                 _showLogoutDialog(context);
               }),
             ],
@@ -751,36 +868,36 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
   Widget _navItem(int index, IconData icon, String label, VoidCallback onTap) {
     final isSelected = _currentNavIndex == index;
-    return InkWell(
-      onTap: () {
-        setState(() => _currentNavIndex = index);
-        onTap();
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 22,
-              color: isSelected
-                  ? const Color(0xFF2563EB)
-                  : const Color(0xFF94A3B8),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected
-                    ? const Color(0xFF2563EB)
-                    : const Color(0xFF94A3B8),
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          setState(() => _currentNavIndex = index);
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 5),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 22,
+                color: isSelected ? AppColors.primary : AppColors.textMuted,
               ),
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: isSelected ? AppColors.primary : AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -790,37 +907,37 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: const Text(
-          "Logout",
-          style: TextStyle(fontWeight: FontWeight.bold),
+          "Sign Out",
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
         content: const Text("Are you sure you want to log out?"),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+            onPressed: () => Get.back(),
+            child: const Text(
+              "Cancel",
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: AppColors.danger,
               foregroundColor: Colors.white,
+              minimumSize: const Size(100, 42),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             onPressed: () {
-              // Resolve the provider before closing the dialog. The dialog
-              // context becomes deactivated immediately after pop().
               final loginController = context.read<LoginController>();
-
-              Navigator.of(dialogCtx).pop();
-
+              Get.back();
               loginController.logout(context);
             },
             child: const Text(
-              "Logout",
-              style: TextStyle(fontWeight: FontWeight.bold),
+              "Sign Out",
+              style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
         ],

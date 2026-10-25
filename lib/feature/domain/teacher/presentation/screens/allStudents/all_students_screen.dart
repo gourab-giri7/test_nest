@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:test_nest/core/utils/theme/theme.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/teacher/data/datasources/get_student_data.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/addStudents/add_students_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/allStudents/controller/student_controller.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/studentDetails/student_details_screen.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class AllStudentsScreen extends StatefulWidget {
   const AllStudentsScreen({super.key});
@@ -33,20 +33,24 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
         surfaceTintColor: Colors.transparent,
         backgroundColor: AppColors.background,
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          onPressed: () => Get.back(),
+        ),
         title: const Text(
-          'All Students',
+          'Student Directory',
           style: TextStyle(
             fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w900,
             color: AppColors.text,
           ),
         ),
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 450),
+          constraints: const BoxConstraints(maxWidth: 540),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: GetStudentData.getAllStudent(),
               builder: (context, asyncSnapshot) {
@@ -60,7 +64,7 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
                   return const Center(
                     child: Text(
                       "We are facing technical issues. Please try again later.",
-                      style: TextStyle(color: Colors.blueGrey),
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
                   );
                 }
@@ -80,29 +84,26 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Search Field & Batch Filter
+                        // Search & Batch Filter Bar
                         Row(
                           children: [
                             Expanded(
-                              flex: 2,
+                              flex: 3,
                               child: TextField(
                                 onChanged: controller.search,
                                 decoration: InputDecoration(
-                                  hintText: 'Search Students',
-                                  hintStyle: TextStyle(
-                                    color: Colors.grey[400],
-                                    fontSize: 14,
-                                  ),
-                                  prefixIcon: Icon(
-                                    Icons.search,
-                                    color: Colors.grey[400],
-                                    size: 22,
+                                  hintText: 'Search by name or ID...',
+                                  prefixIcon: const Icon(
+                                    Icons.search_rounded,
+                                    color: AppColors.textSecondary,
+                                    size: 20,
                                   ),
                                   contentPadding: const EdgeInsets.symmetric(
                                     vertical: 14,
+                                    horizontal: 14,
                                   ),
                                   filled: true,
-                                  fillColor: const Color(0xFFFAFCFF),
+                                  fillColor: Colors.white,
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(16),
                                     borderSide: const BorderSide(
@@ -115,64 +116,128 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
                                       color: AppColors.border,
                                     ),
                                   ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: const BorderSide(
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 10),
                             Expanded(
-                              child: SizedBox(
+                              flex: 2,
+                              child: Container(
                                 height: 50,
-                                child: DropdownButton<String>(
-                                  isExpanded: true,
-                                  value: effectiveBatch,
-                                  items: [
-                                    const DropdownMenuItem<String>(
-                                      value: 'all',
-                                      child: Text('All Batches'),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    isExpanded: true,
+                                    value: effectiveBatch,
+                                    icon: const Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 20,
+                                      color: AppColors.textSecondary,
                                     ),
-                                    ...batchItems.map(
-                                      (batch) => DropdownMenuItem<String>(
-                                        value: batch,
-                                        child: Text(batch),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.text,
+                                    ),
+                                    items: [
+                                      const DropdownMenuItem<String>(
+                                        value: 'all',
+                                        child: Text('All Batches'),
                                       ),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      controller.filter(value);
-                                    }
-                                  },
+                                      ...batchItems.map(
+                                        (batch) => DropdownMenuItem<String>(
+                                          value: batch,
+                                          child: Text(
+                                            batch,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        controller.filter(value);
+                                      }
+                                    },
+                                  ),
                                 ),
                               ),
                             ),
                           ],
                         ),
+                        const SizedBox(height: 14),
 
-                        const SizedBox(height: 16),
+                        // Roster Count Pill
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Showing ${studentsList.length} Student(s)',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
 
                         // Scrollable Student Cards
                         Expanded(
                           child: studentsList.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    "No students found",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.blueGrey,
-                                    ),
+                              ? Container(
+                                  width: double.infinity,
+                                  margin: const EdgeInsets.symmetric(
+                                    vertical: 20,
+                                  ),
+                                  padding: const EdgeInsets.all(28),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(22),
+                                    border: Border.all(color: AppColors.border),
+                                  ),
+                                  child: const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.person_off_outlined,
+                                        size: 48,
+                                        color: AppColors.textMuted,
+                                      ),
+                                      SizedBox(height: 12),
+                                      Text(
+                                        "No students found",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 16,
+                                          color: AppColors.text,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        "Try adjusting your search or add a new student below.",
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 )
                               : ListView.separated(
                                   physics: const BouncingScrollPhysics(),
                                   itemCount: studentsList.length,
                                   separatorBuilder: (context, index) =>
-                                      const SizedBox(height: 12),
+                                      const SizedBox(height: 10),
                                   itemBuilder: (context, index) {
                                     final doc = studentsList[index];
                                     final student = StudentModel.fromJson(
@@ -183,39 +248,33 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
                                   },
                                 ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
 
                         // Add Student Action Button
                         SizedBox(
                           width: double.infinity,
-                          height: 52,
+                          height: 54,
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(16),
                               ),
                             ),
                             onPressed: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const AddStudentScreen(),
-                                ),
-                              );
+                              await Get.toNamed(AppRoutes.teacherAddStudent);
                             },
                             icon: const Icon(
-                              Icons.add,
+                              Icons.person_add_alt_1_rounded,
                               color: Colors.white,
                               size: 20,
                             ),
                             label: const Text(
-                              'Add Student',
+                              'Enroll New Student',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w800,
                                 color: Colors.white,
                               ),
                             ),
@@ -234,49 +293,50 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
   }
 
   Widget _buildStudentCard(BuildContext context, StudentModel student) {
+    final initial = student.name.isNotEmpty
+        ? student.name[0].toUpperCase()
+        : 'S';
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.015),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.card,
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StudentDetailsScreen(student: student),
-              ),
+            Get.toNamed(
+              AppRoutes.teacherStudentDetails,
+              arguments: student,
             );
           },
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                // Avatar Circular Image / Placeholder
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: const Color(0xFFEFF6FF),
-                  child: const Icon(
-                    Icons.person,
-                    color: Color(0xFF2563EB),
-                    size: 26,
+                Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
-
-                // Student Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,37 +344,64 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
                       Text(
                         student.name,
                         style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w800,
                           color: AppColors.text,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        "ID: ${student.id}",
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.blueGrey,
-                        ),
-                      ),
-                      Text(
-                        "Batch: ${student.batch}",
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey[500],
-                        ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceAlt,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'ID: ${student.id}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              student.batch.isEmpty
+                                  ? 'General'
+                                  : student.batch,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-
-                // Arrow Icon
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: Color(0xFF94A3B8),
-                  size: 16,
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    color: AppColors.surfaceAlt,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: AppColors.textSecondary,
+                    size: 13,
+                  ),
                 ),
               ],
             ),

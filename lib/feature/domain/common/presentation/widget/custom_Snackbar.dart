@@ -8,8 +8,12 @@ void customSnackbar({
   required Color color,
   required IconData ico,
 }) {
+  final overlayState =
+      Overlay.maybeOf(context, rootOverlay: true) ?? Overlay.maybeOf(context);
+  if (overlayState == null) return;
+
   showTopSnackBar(
-    Overlay.of(context),
+    overlayState,
     CustomSnackBar.success(
       message: message,
       backgroundColor: color,

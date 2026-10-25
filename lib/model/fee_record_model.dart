@@ -40,11 +40,7 @@ class FeeRecord {
   /// Outstanding balance.
   double get balance => (amountDue - amountPaid).clamp(0, double.infinity);
 
-  static String computeStatus(
-    double due,
-    double paid,
-    DateTime? dueDate,
-  ) {
+  static String computeStatus(double due, double paid, DateTime? dueDate) {
     if (due <= 0) return 'paid'; // No fee set — treat as paid
     if (paid >= due) return 'paid';
     if (paid > 0) return 'partial';
@@ -92,11 +88,13 @@ class FeeRecord {
     );
   }
 
-  static double _toDouble(dynamic v) {
+  static double toDouble(dynamic v) {
     if (v == null) return 0.0;
     if (v is num) return v.toDouble();
     return double.tryParse(v.toString()) ?? 0.0;
   }
+
+  static double _toDouble(dynamic v) => toDouble(v);
 
   static DateTime? _toDateTime(dynamic v) {
     if (v is Timestamp) return v.toDate();

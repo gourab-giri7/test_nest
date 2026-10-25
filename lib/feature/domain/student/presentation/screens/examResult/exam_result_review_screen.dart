@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/model/Q&A_model.dart';
 import 'package:test_nest/model/exam_model.dart';
@@ -28,18 +29,23 @@ class ExamResultReviewScreen extends StatelessWidget {
       appBar: AppBar(
         surfaceTintColor: Colors.transparent,
         backgroundColor: AppColors.background,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          onPressed: () => Get.back(),
+        ),
         title: const Text(
-          'Result & Answer Review',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          'Scorecard & Answer Review',
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
         ),
       ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 680),
           child: ListView(
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             children: [
-              // Score Overview Card
               _buildOverviewCard(
                 score: score,
                 fullMarks: exam.fullMarks,
@@ -47,20 +53,29 @@ class ExamResultReviewScreen extends StatelessWidget {
                 attempted: attempted,
                 total: totalQuestions,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-              // Review Header
-              const Text(
-                'Question by Question Review',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.text,
-                ),
+              const Row(
+                children: [
+                  Icon(
+                    Icons.fact_check_rounded,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Detailed Question Breakdown',
+                    style: TextStyle(
+                      fontSize: 17.5,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.text,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
 
-              // Questions List
               ...List.generate(exam.questions.length, (i) {
                 final q = exam.questions[i];
                 final selected = (answers[q.id] ?? answers[i.toString()] ?? '')
@@ -110,60 +125,70 @@ class ExamResultReviewScreen extends StatelessWidget {
     final bool isPassed = pctInt >= 40;
 
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.elevated,
       ),
       child: Column(
         children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: isPassed ? AppColors.successSoft : AppColors.dangerSoft,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              isPassed ? 'OFFICIAL SCORECARD' : 'NEEDS IMPROVEMENT',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+                color: isPassed ? AppColors.success : AppColors.danger,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
             exam.examName,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
               color: AppColors.text,
+              letterSpacing: -0.3,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Batch: ${exam.batch} • Full Marks: $fullMarks',
+            'Batch: ${exam.batch}  •  Max Marks: $fullMarks',
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 12.5,
               color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
 
-          // Circular Score Indicator
           Center(
             child: SizedBox(
-              width: 120,
-              height: 120,
+              width: 130,
+              height: 130,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   SizedBox(
-                    width: 120,
-                    height: 120,
+                    width: 130,
+                    height: 130,
                     child: CircularProgressIndicator(
                       value: pct,
-                      strokeWidth: 9,
+                      strokeWidth: 10,
                       strokeCap: StrokeCap.round,
-                      backgroundColor: const Color(0xFFF1F5F9),
+                      backgroundColor: AppColors.surfaceAlt,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        isPassed
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFFEF4444),
+                        isPassed ? AppColors.success : AppColors.danger,
                       ),
                     ),
                   ),
@@ -173,31 +198,31 @@ class ExamResultReviewScreen extends StatelessWidget {
                       Text(
                         '$score / $fullMarks',
                         style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
                           color: AppColors.text,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+                          horizontal: 8,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
                           color: isPassed
-                              ? const Color(0xFFECFDF5)
-                              : const Color(0xFFFEF2F2),
-                          borderRadius: BorderRadius.circular(6),
+                              ? AppColors.successSoft
+                              : AppColors.dangerSoft,
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           '$pctInt%',
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
                             color: isPassed
-                                ? const Color(0xFF059669)
-                                : const Color(0xFFDC2626),
+                                ? AppColors.success
+                                : AppColors.danger,
                           ),
                         ),
                       ),
@@ -207,18 +232,17 @@ class ExamResultReviewScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 24),
 
-          // 4 Key Metrics
           Row(
             children: [
               Expanded(
                 child: _metricBox(
                   label: 'Total',
                   value: '$numTotal',
-                  textColor: AppColors.text,
-                  bgColor: const Color(0xFFF8FAFC),
-                  borderColor: const Color(0xFFE2E8F0),
+                  textColor: AppColors.primary,
+                  bgColor: AppColors.primarySoft,
+                  borderColor: AppColors.primary.withOpacity(0.2),
                 ),
               ),
               const SizedBox(width: 8),
@@ -226,9 +250,9 @@ class ExamResultReviewScreen extends StatelessWidget {
                 child: _metricBox(
                   label: 'Correct',
                   value: '$numCorrect',
-                  textColor: const Color(0xFF059669),
-                  bgColor: const Color(0xFFECFDF5),
-                  borderColor: const Color(0xFFA7F3D0),
+                  textColor: AppColors.success,
+                  bgColor: AppColors.successSoft,
+                  borderColor: AppColors.success.withOpacity(0.25),
                 ),
               ),
               const SizedBox(width: 8),
@@ -236,9 +260,9 @@ class ExamResultReviewScreen extends StatelessWidget {
                 child: _metricBox(
                   label: 'Incorrect',
                   value: '$numIncorrect',
-                  textColor: const Color(0xFFDC2626),
-                  bgColor: const Color(0xFFFEF2F2),
-                  borderColor: const Color(0xFFFECACA),
+                  textColor: AppColors.danger,
+                  bgColor: AppColors.dangerSoft,
+                  borderColor: AppColors.danger.withOpacity(0.25),
                 ),
               ),
               const SizedBox(width: 8),
@@ -246,9 +270,9 @@ class ExamResultReviewScreen extends StatelessWidget {
                 child: _metricBox(
                   label: 'Skipped',
                   value: '$numUnattempted',
-                  textColor: const Color(0xFF64748B),
-                  bgColor: const Color(0xFFF1F5F9),
-                  borderColor: const Color(0xFFE2E8F0),
+                  textColor: AppColors.textSecondary,
+                  bgColor: AppColors.surfaceAlt,
+                  borderColor: AppColors.border,
                 ),
               ),
             ],
@@ -266,10 +290,10 @@ class ExamResultReviewScreen extends StatelessWidget {
     required Color borderColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor),
       ),
       child: Column(
@@ -277,8 +301,8 @@ class ExamResultReviewScreen extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
               color: textColor,
             ),
           ),
@@ -286,9 +310,9 @@ class ExamResultReviewScreen extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: textColor.withOpacity(0.8),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: textColor.withOpacity(0.85),
             ),
           ),
         ],
@@ -311,75 +335,65 @@ class ExamResultReviewScreen extends StatelessWidget {
     if (!isAnswered) {
       statusColor = AppColors.textSecondary;
       statusText = 'Unanswered';
-      statusIcon = Icons.help_outline;
+      statusIcon = Icons.remove_circle_outline_rounded;
     } else if (isCorrect) {
-      statusColor = const Color(0xFF059669);
-      statusText = '✓ Correct';
-      statusIcon = Icons.check_circle;
+      statusColor = AppColors.success;
+      statusText = 'Correct';
+      statusIcon = Icons.check_circle_rounded;
     } else {
-      statusColor = const Color(0xFFDC2626);
-      statusText = '✗ Incorrect';
-      statusIcon = Icons.cancel;
+      statusColor = AppColors.danger;
+      statusText = 'Incorrect';
+      statusIcon = Icons.cancel_rounded;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isCorrect
-              ? const Color(0xFF86EFAC)
-              : (isAnswered ? const Color(0xFFFCA5A5) : AppColors.border),
-          width: 1.5,
+              ? AppColors.success.withOpacity(0.45)
+              : (isAnswered
+                    ? AppColors.danger.withOpacity(0.45)
+                    : AppColors.border),
+          width: 1.4,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Question # and status badge
           Row(
             children: [
-              CircleAvatar(
-                radius: 12,
-                backgroundColor: AppColors.primarySoft,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Text(
-                  '$index',
+                  'Q$index',
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
                     color: AppColors.primary,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  question.q,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    height: 1.3,
-                    color: AppColors.text,
-                  ),
-                ),
-              ),
+              const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: isCorrect
                       ? AppColors.successSoft
                       : (isAnswered
                             ? AppColors.dangerSoft
-                            : const Color(0xFFF1F5F9)),
+                            : AppColors.surfaceAlt),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -391,7 +405,7 @@ class ExamResultReviewScreen extends StatelessWidget {
                       statusText,
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                         color: statusColor,
                       ),
                     ),
@@ -401,14 +415,23 @@ class ExamResultReviewScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          Text(
+            question.q,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              height: 1.4,
+              color: AppColors.text,
+            ),
+          ),
+          const SizedBox(height: 14),
 
-          // Option A, B, C, D
           _buildOptionReviewRow('A', question.a, selected, correct),
-          const SizedBox(height: 6),
+          const SizedBox(height: 7),
           _buildOptionReviewRow('B', question.b, selected, correct),
-          const SizedBox(height: 6),
+          const SizedBox(height: 7),
           _buildOptionReviewRow('C', question.c, selected, correct),
-          const SizedBox(height: 6),
+          const SizedBox(height: 7),
           _buildOptionReviewRow('D', question.d, selected, correct),
         ],
       ),
@@ -432,18 +455,18 @@ class ExamResultReviewScreen extends StatelessWidget {
     if (isCorrectAnswer) {
       bg = AppColors.successSoft;
       border = AppColors.success;
-      textColor = const Color(0xFF047857);
+      textColor = const Color(0xFF065F46);
       badge = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: AppColors.success,
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
-          isUserChoice ? 'Your Answer (Correct)' : 'Correct Answer',
+          isUserChoice ? 'Your Choice ✓' : 'Correct Key',
           style: const TextStyle(
             fontSize: 10,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
             color: Colors.white,
           ),
         ),
@@ -451,33 +474,33 @@ class ExamResultReviewScreen extends StatelessWidget {
     } else if (isUserChoice) {
       bg = AppColors.dangerSoft;
       border = AppColors.danger;
-      textColor = const Color(0xFFB91C1C);
+      textColor = const Color(0xFF991B1B);
       badge = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: AppColors.danger,
           borderRadius: BorderRadius.circular(6),
         ),
         child: const Text(
-          'Your Answer (Incorrect)',
+          'Your Choice ✗',
           style: TextStyle(
             fontSize: 10,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
             color: Colors.white,
           ),
         ),
       );
     } else {
-      bg = const Color(0xFFF8FAFC);
+      bg = AppColors.background;
       border = AppColors.border;
-      textColor = const Color(0xFF334155);
+      textColor = AppColors.textSecondary;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: border,
           width: (isUserChoice || isCorrectAnswer) ? 1.5 : 1,
@@ -485,28 +508,37 @@ class ExamResultReviewScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 11,
-            backgroundColor: border.withOpacity(0.2),
+          Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: (isUserChoice || isCorrectAnswer)
+                  ? border
+                  : AppColors.surfaceAlt,
+              shape: BoxShape.circle,
+            ),
             child: Text(
               letter,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: textColor,
+                fontWeight: FontWeight.w900,
+                color: (isUserChoice || isCorrectAnswer)
+                    ? Colors.white
+                    : AppColors.textSecondary,
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 13.5,
                 color: textColor,
                 fontWeight: (isUserChoice || isCorrectAnswer)
-                    ? FontWeight.bold
-                    : FontWeight.normal,
+                    ? FontWeight.w700
+                    : FontWeight.w500,
               ),
             ),
           ),

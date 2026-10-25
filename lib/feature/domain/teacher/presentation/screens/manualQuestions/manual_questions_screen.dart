@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/manualQuestions/controller/question_controller.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/screens/reviewPublishExam/review_publish_screen.dart';
-
 import 'package:test_nest/feature/domain/teacher/presentation/widgets/exam_step_indicator.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 class ManualQuestionsScreen extends StatelessWidget {
   const ManualQuestionsScreen({super.key});
@@ -21,7 +21,7 @@ class ManualQuestionsScreen extends StatelessWidget {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
         ),
         title: const Text(
           'Add Questions',
@@ -106,17 +106,9 @@ class ManualQuestionsScreen extends StatelessWidget {
                           return;
                         }
                         // Navigate to ReviewPublishScreen sharing the same QuestionController
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ChangeNotifierProvider<
-                                  QuestionController
-                                >.value(
-                                  value: qc,
-                                  child: const ReviewPublishScreen(),
-                                ),
-                          ),
+                        Get.toNamed(
+                          AppRoutes.teacherReviewPublish,
+                          arguments: qc,
                         );
                       },
                       child: Text(

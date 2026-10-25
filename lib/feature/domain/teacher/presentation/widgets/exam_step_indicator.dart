@@ -9,24 +9,19 @@ class ExamStepIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.card,
       ),
       child: Row(
         children: [
           _buildStep(
             stepNumber: 1,
-            title: 'Basic Info',
+            title: 'Setup',
             isCompleted: currentStep > 1,
             isActive: currentStep == 1,
           ),
@@ -40,7 +35,7 @@ class ExamStepIndicator extends StatelessWidget {
           _buildLine(isPassed: currentStep > 2),
           _buildStep(
             stepNumber: 3,
-            title: 'Review',
+            title: 'Publish',
             isCompleted: false,
             isActive: currentStep == 3,
           ),
@@ -60,9 +55,9 @@ class ExamStepIndicator extends StatelessWidget {
     Widget content;
 
     if (isCompleted) {
-      circleBg = const Color(0xFF10B981);
+      circleBg = AppColors.success;
       textColor = AppColors.text;
-      content = const Icon(Icons.check_rounded, color: Colors.white, size: 16);
+      content = const Icon(Icons.check_rounded, color: Colors.white, size: 15);
     } else if (isActive) {
       circleBg = AppColors.primary;
       textColor = AppColors.primary;
@@ -70,19 +65,19 @@ class ExamStepIndicator extends StatelessWidget {
         '$stepNumber',
         style: const TextStyle(
           color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
+          fontWeight: FontWeight.w900,
+          fontSize: 12.5,
         ),
       );
     } else {
-      circleBg = const Color(0xFFF1F5F9);
+      circleBg = AppColors.surfaceAlt;
       textColor = AppColors.textSecondary;
       content = Text(
         '$stepNumber',
         style: const TextStyle(
-          color: Color(0xFF94A3B8),
-          fontWeight: FontWeight.w600,
-          fontSize: 13,
+          color: AppColors.textMuted,
+          fontWeight: FontWeight.w800,
+          fontSize: 12.5,
         ),
       );
     }
@@ -91,14 +86,20 @@ class ExamStepIndicator extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 26,
-          height: 26,
+          width: 28,
+          height: 28,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: circleBg,
             shape: BoxShape.circle,
-            border: (!isCompleted && !isActive)
-                ? Border.all(color: const Color(0xFFCBD5E1), width: 1.5)
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.28),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
                 : null,
           ),
           child: content,
@@ -107,8 +108,8 @@ class ExamStepIndicator extends StatelessWidget {
         Text(
           title,
           style: TextStyle(
-            fontSize: 12,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+            fontSize: 12.5,
+            fontWeight: isActive ? FontWeight.w900 : FontWeight.w600,
             color: textColor,
           ),
         ),
@@ -119,11 +120,11 @@ class ExamStepIndicator extends StatelessWidget {
   Widget _buildLine({required bool isPassed}) {
     return Expanded(
       child: Container(
-        height: 2,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
+        height: 2.5,
+        margin: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: isPassed ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
-          borderRadius: BorderRadius.circular(1),
+          color: isPassed ? AppColors.success : AppColors.border,
+          borderRadius: BorderRadius.circular(2),
         ),
       ),
     );

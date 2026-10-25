@@ -4,12 +4,13 @@ import 'dart:developer';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
-import 'package:test_nest/feature/domain/student/presentation/screens/examSubmited/exam_submited_screen.dart';
 import 'package:test_nest/main.dart';
 import 'package:test_nest/model/Q&A_model.dart';
 import 'package:test_nest/model/exam_model.dart';
+import 'package:test_nest/routes/app_routes.dart';
 
 enum SubmissionReason { manual, timeExpired, appClosed, focusLost, reassigned }
 
@@ -431,7 +432,7 @@ class TakeExamController extends ChangeNotifier {
         isSubmitting = false;
         notifyListeners();
         if (ctx != null && ctx.mounted) {
-          Navigator.pop(ctx);
+          Get.back();
         }
         return;
       }
@@ -504,19 +505,15 @@ class TakeExamController extends ChangeNotifier {
       isSubmitting = false;
       notifyListeners();
 
-      if (ctx != null && ctx.mounted) {
-        Navigator.pushReplacement(
-          ctx,
-          MaterialPageRoute(
-            builder: (_) => SubmissionScreen(
-              examTitle: exam.examName,
-              totalQuestions: total,
-              attemptedQuestions: selectedAnswers.length,
-              fullMarks: exam.fullMarks,
-            ),
-          ),
-        );
-      }
+      Get.offNamed(
+        AppRoutes.studentExamSubmitted,
+        arguments: {
+          'examTitle': exam.examName,
+          'totalQuestions': total,
+          'attemptedQuestions': selectedAnswers.length,
+          'fullMarks': exam.fullMarks,
+        },
+      );
     } catch (e, st) {
       log('Submission error', error: e, stackTrace: st);
       isSubmitting = false;

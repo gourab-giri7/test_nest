@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:intl/intl.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart';
@@ -776,9 +777,9 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
+                            color: const Color(0xFFEEF2FF),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFDBEAFE)),
+                            border: Border.all(color: const Color(0xFFE0E7FF)),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -1279,7 +1280,7 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
                   child: SizedBox(
                     width: double.infinity,
                     child: TextButton(
-                      onPressed: () => Navigator.pop(ctx),
+                      onPressed: () => Get.back(),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -1341,7 +1342,8 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
                 controller: reasonController,
                 decoration: InputDecoration(
                   labelText: 'Reassignment Reason (Optional)',
-                  hintText: 'e.g. Technical glitch, power outage, approved retake',
+                  hintText:
+                      'e.g. Technical glitch, power outage, approved retake',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -1352,7 +1354,7 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, false),
+            onPressed: () => Get.back(result: false),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -1360,7 +1362,7 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
               backgroundColor: const Color(0xFFD97706),
               foregroundColor: Colors.white,
             ),
-            onPressed: () => Navigator.pop(dialogCtx, true),
+            onPressed: () => Get.back(result: true),
             child: const Text('Reassign Now'),
           ),
         ],
@@ -1406,7 +1408,9 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
 
         // 3. Atomically increment attempt count and ensure assignment
         final reassignedMap =
-            (examSnap.data()?['reassigned_students'] as Map<String, dynamic>?) ?? {};
+            (examSnap.data()?['reassigned_students']
+                as Map<String, dynamic>?) ??
+            {};
         final newAttemptCount =
             ((reassignedMap[studentId] as num?)?.toInt() ?? 0) + 1;
 
@@ -1536,7 +1540,9 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
                             ),
                           ),
                         ),
-                        title: Text('Score: $score / ${item['full_marks'] ?? '0'}'),
+                        title: Text(
+                          'Score: $score / ${item['full_marks'] ?? '0'}',
+                        ),
                         subtitle: Text(
                           'Reassigned by: $by\nReason: $reason',
                           style: const TextStyle(fontSize: 12),
@@ -1639,13 +1645,13 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
+              onPressed: () => Get.back(),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: selected.isEmpty
                   ? null
-                  : () => Navigator.pop(dialogContext, selected.toList()),
+                  : () => Get.back(result: selected.toList()),
               child: const Text('Add Selected'),
             ),
           ],

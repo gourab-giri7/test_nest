@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
@@ -102,7 +103,7 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(color: Color(0xFF2563EB)),
+              const CircularProgressIndicator(color: Color(0xFF4F46E5)),
               const SizedBox(height: 16),
               Text(
                 'Loading exam questions...',
@@ -147,7 +148,7 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
                 ElevatedButton.icon(
                   onPressed: _loadExamDetails,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
+                    backgroundColor: const Color(0xFF4F46E5),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -300,7 +301,7 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
           size: 18,
           color: Color(0xFF0F172A),
         ),
-        onPressed: () => Navigator.pop(context),
+        onPressed: () => Get.back(),
       ),
       title: const Text(
         'Student Exam Details',
@@ -334,12 +335,12 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF2563EB), Color(0xFF4F46E5)],
+          colors: [Color(0xFF4F46E5), Color(0xFF4F46E5)],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+            color: const Color(0xFF4F46E5).withValues(alpha: 0.25),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -555,8 +556,8 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
           child: _metricCard(
             'Questions',
             total.toString(),
-            const Color(0xFF2563EB),
-            const Color(0xFFEFF6FF),
+            const Color(0xFF4F46E5),
+            const Color(0xFFEEF2FF),
           ),
         ),
         const SizedBox(width: 8),
@@ -691,7 +692,7 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: const Color(0xFFEEF2FF),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -699,7 +700,7 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2563EB),
+                    color: Color(0xFF4F46E5),
                   ),
                 ),
               ),

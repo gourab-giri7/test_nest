@@ -1,19 +1,120 @@
 import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
 
-/// Student login does NOT require a password.
-/// Students authenticate by providing a valid Teacher ID + Student ID combination.
-/// The teacher ID + student ID pair is verified against Firestore.
-///
-/// SECURITY NOTE: Without Firebase Auth for students, Firestore security rules
-/// cannot properly restrict student read/write access by identity.
-/// The proper fix is to implement Firebase Auth for students as well.
-/// This is documented as a known limitation — teacher-side security rules
-/// protect teacher data, but student submissions rely on server-side validation
-/// or backend enforcement for full security.
 class StudentLoginFeature {
   static final firestore = FirebaseFirestore.instance;
+  static final auth = FirebaseAuth.instance;
+
+  /// Signs in a student using Firebase Authentication (email & password).
+  /// Resolves the student's status:
+  /// - 'approved': active student relationship found -> returns 200, state: 'approved'.
+  /// - 'pending': request pending approval -> returns 200, state: 'pending'.
+  /// - 'needs_join': no teacher relationship -> returns 200, state: 'needs_join'.
+  static Future<Map<String, dynamic>> studentEmailLogin(
+    String email,
+    String password,
+  ) async {
+    try {
+      final trimmedEmail = email.trim().toLowerCase();
+      final trimmedPassword = password.trim();
+
+      if (trimmedEmail.isEmpty || trimmedPassword.isEmpty) {
+        return {
+          'status': 404,
+          'message': 'Please enter both email and password.',
+        };
+      }
+
+      final credential = await auth.signInWithEmailAndPassword(
+        email: trimmedEmail,
+        password: trimmedPassword,
+      );
+      final uid = credential.user!.uid;
+
+      return await resolveStudentState(uid);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password' ||
+          e.code == 'user-not-found' ||
+          e.code == 'invalid-credential' ||
+          e.code == 'invalid-email') {
+        return {'status': 404, 'message': 'Invalid email or password.'};
+      }
+      return {
+        'status': 400,
+        'message': e.message ?? 'Authentication error occurred.',
+      };
+    } catch (e) {
+      return {'status': 500, 'message': 'Login failed: $e'};
+    }
+  }
+
+  /// Determines the onboarding/access state of an authenticated student.
+  static Future<Map<String, dynamic>> resolveStudentState(String uid) async {
+    try {
+      // 1. Check if user document exists in users collection
+      final userDoc = await firestore.collection('users').doc(uid).get();
+      final userName =
+          userDoc.data()?['name'] ?? auth.currentUser?.displayName ?? 'Student';
+
+      // 2. Check if student has an approved teacher relationship in user/{teacherId}/students
+      final teachers = await firestore.collection('user').get();
+      for (final tDoc in teachers.docs) {
+        final stdQuery = await tDoc.reference
+            .collection('students')
+            .where('auth_uid', isEqualTo: uid)
+            .limit(1)
+            .get();
+        if (stdQuery.docs.isNotEmpty) {
+          final sData = stdQuery.docs.first.data();
+          studentData = StudentData(
+            id: sData['id']?.toString() ?? stdQuery.docs.first.id,
+            name: sData['name']?.toString() ?? userName,
+            teacherId: tDoc.id,
+            batch: sData['batch']?.toString() ?? '',
+            teacherName: tDoc.data()['name']?.toString() ?? '',
+          );
+          await StudentData.updateStudentLocalData();
+          return {
+            'status': 200,
+            'state': 'approved',
+            'studentData': studentData,
+          };
+        }
+      }
+
+      // 3. Check for any pending join requests
+      final reqSnap = await firestore
+          .collection('joinRequests')
+          .where('student_uid', isEqualTo: uid)
+          .where('status', isEqualTo: 'pending')
+          .limit(1)
+          .get();
+
+      if (reqSnap.docs.isNotEmpty) {
+        final reqData = reqSnap.docs.first.data();
+        return {
+          'status': 200,
+          'state': 'pending',
+          'batchName': reqData['batch_name'] ?? 'Batch',
+          'teacherName': reqData['teacher_name'] ?? 'Teacher',
+        };
+      }
+
+      // 4. No relationship and no pending request -> needs to enter joining code
+      return {
+        'status': 200,
+        'state': 'needs_join',
+      };
+    } catch (e) {
+      log('Error resolving student state: $e');
+      return {
+        'status': 200,
+        'state': 'needs_join',
+      };
+    }
+  }
 
   static Future<String?> resolveTeacherDocumentId(String input) async {
     final value = input.trim();
@@ -59,8 +160,7 @@ class StudentLoginFeature {
           .get();
       if (directDoc.exists && directDoc.data() != null) {
         resolvedTeacherDocId = directDoc.id;
-        teacherDocName =
-            (directDoc.data()!["name"] ?? "").toString().trim();
+        teacherDocName = (directDoc.data()!["name"] ?? "").toString().trim();
       } else {
         // 2. Search collection('user') by teacher_id, id, email or doc.id
         final usersSnapshot = await firestore.collection("user").get();
@@ -94,8 +194,9 @@ class StudentLoginFeature {
 
       for (final doc in studentsSnapshot.docs) {
         final data = doc.data();
-        final sid =
-            (data["id"] ?? data["student_id"] ?? doc.id).toString().trim();
+        final sid = (data["id"] ?? data["student_id"] ?? doc.id)
+            .toString()
+            .trim();
 
         if (sid.toLowerCase() == trimmedStudentId.toLowerCase()) {
           studentData = StudentData.fromJson(data, docId: doc.id);
