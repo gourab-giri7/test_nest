@@ -48,30 +48,18 @@ class Publishexamcontroller extends ChangeNotifier {
       return;
     }
     // Re-read the students from Firestore before publishing. This prevents
-    // stale/legacy IDs from being written into assigned_student_ids.
+    // stale/legacy/removed IDs from being written into assigned_student_ids.
     final studentSnap = await teacherRefStudents(tData.id.trim()).get();
-    final validStudentIds = studentSnap.docs
-        .map(
-          (doc) => (doc.data()['id'] ?? doc.data()['student_id'] ?? doc.id)
-              .toString()
-              .trim(),
-        )
-        .where((id) => id.isNotEmpty)
-        .toSet();
+    final studentModels = studentSnap.docs
+        .map((doc) => StudentModel.fromJson(doc.data(), docId: doc.id))
+        .where((s) => s.isActive && s.id.isNotEmpty)
+        .toList();
 
-    final validBatchStudentIds = studentSnap.docs
-        .where(
-          (doc) => StudentModel.isSameBatch(
-            (doc.data()['batch'] ?? '').toString(),
-            details.batch,
-          ),
-        )
-        .map(
-          (doc) => (doc.data()['id'] ?? doc.data()['student_id'] ?? doc.id)
-              .toString()
-              .trim(),
-        )
-        .where((id) => id.isNotEmpty)
+    final validStudentIds = studentModels.map((s) => s.id).toSet();
+
+    final validBatchStudentIds = studentModels
+        .where((s) => StudentModel.isSameBatch(s.batch, details.batch))
+        .map((s) => s.id)
         .toSet();
 
     final assignedIds =

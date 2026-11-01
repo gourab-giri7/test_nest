@@ -59,191 +59,51 @@ class FileUploadController extends ChangeNotifier {
 
   Future<void> pickFile(BuildContext context, [QuestionController? qc]) async {
     try {
-      // ----------------------------------------------------------
-      // FILE PICKER 12.x API
-      // ----------------------------------------------------------
-
       final List<PlatformFile> files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx'],
       );
 
-      if (files.isEmpty) {
-        return;
-      }
+      if (files.isEmpty) return;
 
       final PlatformFile file = files.first;
-
       log('Selected file: ${file.name}');
 
-      // ----------------------------------------------------------
-      // READ FILE
-      // ----------------------------------------------------------
-
       final bytes = await file.readAsBytes();
-
       if (bytes.isEmpty) {
-        if (!context.mounted) return;
-
-        customSnackbar(
-          context: context,
-          message: 'Unable to read the selected Excel file.',
-          color: Colors.red,
-          ico: Icons.error,
-        );
-
+        if (context.mounted) _error(context, 'Unable to read the selected Excel file.');
         return;
       }
-
-      log('Excel file size: ${bytes.length} bytes');
-
-      // ----------------------------------------------------------
-      // DECODE EXCEL
-      // ----------------------------------------------------------
 
       final Excel excel = Excel.decodeBytes(bytes);
-
       if (excel.tables.isEmpty) {
-        if (!context.mounted) return;
-
-        customSnackbar(
-          context: context,
-          message: 'Excel file does not contain any sheet.',
-          color: Colors.red,
-          ico: Icons.error,
-        );
-
+        if (context.mounted) _error(context, 'Excel file does not contain any sheet.');
         return;
       }
 
-      // ----------------------------------------------------------
-      // GET FIRST SHEET
-      // ----------------------------------------------------------
-
-      final String sheetName = excel.tables.keys.first;
-
-      final Sheet? sheet = excel.tables[sheetName];
-
-      if (sheet == null) {
-        if (!context.mounted) return;
-
-        customSnackbar(
-          context: context,
-          message: 'Unable to read the Excel sheet.',
-          color: Colors.red,
-          ico: Icons.error,
-        );
-
-        return;
+      // Use the first sheet that actually contains the template headers
+      // (a teacher may have added extra sheets in front of it).
+      _Layout? layout;
+      Sheet? sheet;
+      for (final entry in excel.tables.entries) {
+        final candidate = entry.value;
+        final found = _findLayout(candidate);
+        if (found != null) {
+          layout = found;
+          sheet = candidate;
+          log('Template found on sheet "${entry.key}"');
+          break;
+        }
       }
 
-      log('Sheet name: $sheetName');
-      log('Rows: ${sheet.maxRows}');
-      log('Columns: ${sheet.maxColumns}');
-
-      // ==========================================================
-      // HEADER CHECK
-      // ==========================================================
-
-      // G2
-      final String questionHeader = _getCell(sheet, row: 1, column: 6);
-
-      // H2
-      final String optionHeader = _getCell(sheet, row: 1, column: 7);
-
-      // L2
-      final String answerHeader = _getCell(sheet, row: 1, column: 11);
-
-      log('Question Header = "$questionHeader"');
-      log('Option Header   = "$optionHeader"');
-      log('Answer Header   = "$answerHeader"');
-
-      // ----------------------------------------------------------
-      // QUESTIONS HEADER
-      // ----------------------------------------------------------
-
-      if (!_isSame(questionHeader, 'Questions')) {
-        if (!context.mounted) return;
-
-        customSnackbar(
-          context: context,
-          message: 'Invalid template: "Questions" header is missing.',
-          color: Colors.red,
-          ico: Icons.error,
-        );
-
-        return;
-      }
-
-      // ----------------------------------------------------------
-      // OPTIONS HEADER
-      // ----------------------------------------------------------
-
-      if (!_isSame(optionHeader, 'Options')) {
-        if (!context.mounted) return;
-
-        customSnackbar(
-          context: context,
-          message: 'Invalid template: "Options" header is missing.',
-          color: Colors.red,
-          ico: Icons.error,
-        );
-
-        return;
-      }
-
-      // ----------------------------------------------------------
-      // ANSWER HEADER
-      // ----------------------------------------------------------
-
-      if (!_isSame(answerHeader, 'Right option (A,B,C,D)')) {
-        if (!context.mounted) return;
-
-        customSnackbar(
-          context: context,
-          message:
-              'Invalid template: "Right option (A,B,C,D)" header is missing.',
-          color: Colors.red,
-          ico: Icons.error,
-        );
-
-        return;
-      }
-
-      // ==========================================================
-      // A B C D CHECK
-      // ==========================================================
-
-      // H3
-      final String optionA = _getCell(sheet, row: 2, column: 7);
-
-      // I3
-      final String optionB = _getCell(sheet, row: 2, column: 8);
-
-      // J3
-      final String optionC = _getCell(sheet, row: 2, column: 9);
-
-      // K3
-      final String optionD = _getCell(sheet, row: 2, column: 10);
-
-      log('Option A = "$optionA"');
-      log('Option B = "$optionB"');
-      log('Option C = "$optionC"');
-      log('Option D = "$optionD"');
-
-      if (!_isSame(optionA, 'A') ||
-          !_isSame(optionB, 'B') ||
-          !_isSame(optionC, 'C') ||
-          !_isSame(optionD, 'D')) {
-        if (!context.mounted) return;
-
-        customSnackbar(
-          context: context,
-          message: 'Invalid template: Options must be A, B, C and D.',
-          color: Colors.red,
-          ico: Icons.error,
-        );
-
+      if (layout == null || sheet == null) {
+        if (context.mounted) {
+          _error(
+            context,
+            'Template not recognised. Please use the downloaded template '
+            '(headers: "Questions", "Options" A–D, "Right option").',
+          );
+        }
         return;
       }
 
@@ -253,190 +113,78 @@ class FileUploadController extends ChangeNotifier {
 
       final List<QAModel> tempQuestions = [];
 
-      // Excel row 4 = Dart row index 3
-      for (int row = 3; row < sheet.maxRows; row++) {
-        // --------------------------------------------------------
-        // QUESTION - G
-        // --------------------------------------------------------
+      for (int row = layout.firstDataRow; row < sheet.maxRows; row++) {
+        final String question = _getCell(sheet, row, layout.questionCol);
+        final String a = _getCell(sheet, row, layout.optionCols[0]);
+        final String b = _getCell(sheet, row, layout.optionCols[1]);
+        final String c = _getCell(sheet, row, layout.optionCols[2]);
+        final String d = _getCell(sheet, row, layout.optionCols[3]);
+        final String ans = _getCell(sheet, row, layout.answerCol);
 
-        final String question = _getCell(sheet, row: row, column: 6);
-
-        // --------------------------------------------------------
-        // OPTION A - H
-        // --------------------------------------------------------
-
-        final String a = _getCell(sheet, row: row, column: 7);
-
-        // --------------------------------------------------------
-        // OPTION B - I
-        // --------------------------------------------------------
-
-        final String b = _getCell(sheet, row: row, column: 8);
-
-        // --------------------------------------------------------
-        // OPTION C - J
-        // --------------------------------------------------------
-
-        final String c = _getCell(sheet, row: row, column: 9);
-
-        // --------------------------------------------------------
-        // OPTION D - K
-        // --------------------------------------------------------
-
-        final String d = _getCell(sheet, row: row, column: 10);
-
-        // --------------------------------------------------------
-        // ANSWER - L
-        // --------------------------------------------------------
-
-        final String ans = _getCell(sheet, row: row, column: 11);
-
-        // --------------------------------------------------------
-        // IGNORE COMPLETELY EMPTY ROWS
-        // --------------------------------------------------------
-
-        if (question.isEmpty &&
-            a.isEmpty &&
-            b.isEmpty &&
-            c.isEmpty &&
-            d.isEmpty &&
-            ans.isEmpty) {
-          continue;
-        }
+        // Skip completely empty rows (also rows that only have formatting)
+        if ([question, a, b, c, d, ans].every((t) => t.isEmpty)) continue;
 
         final int excelRow = row + 1;
 
-        log(
-          'Row $excelRow => '
-          'Q="$question", '
-          'A="$a", '
-          'B="$b", '
-          'C="$c", '
-          'D="$d", '
-          'Ans="$ans"',
-        );
-
-        // ========================================================
-        // QUESTION VALIDATION
-        // ========================================================
+        if (_hasFormula(sheet, row, layout)) {
+          if (context.mounted) {
+            _error(
+              context,
+              'Row $excelRow contains a formula. Please paste the cells as '
+              'values (text) and upload again.',
+            );
+          }
+          return;
+        }
 
         if (question.isEmpty) {
-          if (!context.mounted) return;
-
-          customSnackbar(
-            context: context,
-            message: 'Question is empty at row $excelRow.',
-            color: Colors.red,
-            ico: Icons.error,
-          );
-
+          if (context.mounted) _error(context, 'Question is empty at row $excelRow.');
           return;
         }
-
-        // ========================================================
-        // OPTION VALIDATION
-        // ========================================================
 
         if (a.isEmpty || b.isEmpty || c.isEmpty || d.isEmpty) {
-          if (!context.mounted) return;
-
-          customSnackbar(
-            context: context,
-            message: 'All four options are required at row $excelRow.',
-            color: Colors.red,
-            ico: Icons.error,
-          );
-
+          if (context.mounted) {
+            _error(context, 'All four options are required at row $excelRow.');
+          }
           return;
         }
 
-        // ========================================================
-        // ANSWER VALIDATION
-        // ========================================================
-
-        final String correctAnswer = ans.trim().toUpperCase();
-
-        if (!['A', 'B', 'C', 'D'].contains(correctAnswer)) {
-          if (!context.mounted) return;
-
-          customSnackbar(
-            context: context,
-            message:
-                'Invalid answer at row $excelRow. '
-                'Use A, B, C or D.',
-            color: Colors.red,
-            ico: Icons.error,
-          );
-
+        final String? correct = _parseAnswer(ans, a, b, c, d);
+        if (correct == null) {
+          if (context.mounted) {
+            _error(
+              context,
+              'Invalid answer "$ans" at row $excelRow. Use A, B, C or D.',
+            );
+          }
           return;
         }
-
-        // ========================================================
-        // CREATE Q&A MODEL
-        // ========================================================
 
         tempQuestions.add(
-          QAModel(q: question, a: a, b: b, c: c, d: d, ans: correctAnswer),
+          QAModel(q: question, a: a, b: b, c: c, d: d, ans: correct),
         );
       }
-
-      // ==========================================================
-      // NO QUESTIONS
-      // ==========================================================
 
       if (tempQuestions.isEmpty) {
-        if (!context.mounted) return;
-
-        customSnackbar(
-          context: context,
-          message: 'No valid questions found in the Excel file.',
-          color: Colors.red,
-          ico: Icons.error,
-        );
-
+        if (context.mounted) {
+          _error(
+            context,
+            'No questions found. Add them from row ${layout.firstDataRow + 1} '
+            'of the template and try again.',
+          );
+        }
         return;
       }
-
-      // ==========================================================
-      // SAVE QUESTIONS
-      // ==========================================================
 
       slectedFileName = file.name;
       questions = tempQuestions;
       qc?.setFromExcel(tempQuestions, file.name);
 
-      log('==========================================');
-      log('Excel format is VALID');
-      log('File: ${file.name}');
-      log('Total Questions: ${questions.length}');
-      log('==========================================');
-
-      for (int i = 0; i < questions.length; i++) {
-        final QAModel question = questions[i];
-
-        log('''
-Question ${i + 1}: ${question.q}
-A: ${question.a}
-B: ${question.b}
-C: ${question.c}
-D: ${question.d}
-Answer: ${question.ans}
-------------------------------------------
-''');
-      }
-
-      // ==========================================================
-      // PROVIDER UPDATE
-      // ==========================================================
+      log('Excel import OK: ${file.name}, ${questions.length} questions');
 
       notifyListeners();
 
-      // ==========================================================
-      // SUCCESS
-      // ==========================================================
-
       if (!context.mounted) return;
-
       customSnackbar(
         context: context,
         message: '${questions.length} questions imported successfully.',
@@ -445,23 +193,137 @@ Answer: ${question.ans}
       );
     } catch (e, stackTrace) {
       log('Excel error', error: e, stackTrace: stackTrace);
-
-      if (!context.mounted) return;
-
-      customSnackbar(
-        context: context,
-        message: 'Something went wrong while reading the Excel file.',
-        color: Colors.red,
-        ico: Icons.error,
-      );
+      if (context.mounted) {
+        _error(context, 'Something went wrong while reading the Excel file.');
+      }
     }
+  }
+
+  void _error(BuildContext context, String message) {
+    customSnackbar(
+      context: context,
+      message: message,
+      color: Colors.red,
+      ico: Icons.error,
+    );
+  }
+
+  // ============================================================
+  // FIND TEMPLATE LAYOUT
+  //
+  // The template starts at column G, not A:
+  //
+  //   G1:L1  "Test Nest" (merged title)
+  //   G2:G3  "Questions"   H2:K2 "Options"   L2:L3 "Right option (A,B,C,D)"
+  //          row 3 has the letters  H3=A  I3=B  J3=C  K3=D
+  //   row 4+ the questions
+  //
+  // Instead of trusting fixed cell addresses, the headers are searched for,
+  // so the sheet still imports if columns or title rows are added or moved.
+  // ============================================================
+
+  _Layout? _findLayout(Sheet sheet) {
+    final int maxRow = sheet.maxRows < 30 ? sheet.maxRows : 30;
+    final int maxCol = sheet.maxColumns < 40 ? sheet.maxColumns : 40;
+
+    for (int row = 0; row < maxRow; row++) {
+      int? questionCol;
+      int? optionsCol;
+      int? answerCol;
+
+      for (int col = 0; col < maxCol; col++) {
+        final text = _normalize(_getCell(sheet, row, col));
+        if (text.isEmpty) continue;
+
+        if (questionCol == null && text.startsWith('question')) {
+          questionCol = col;
+        } else if (optionsCol == null && text.startsWith('option')) {
+          optionsCol = col;
+        } else if (answerCol == null &&
+            (text.contains('right') ||
+                text.contains('correct') ||
+                text.contains('answer'))) {
+          answerCol = col;
+        }
+      }
+
+      if (questionCol == null || optionsCol == null || answerCol == null) {
+        continue;
+      }
+
+      // Letters A, B, C, D sit in the header row or the one right below it
+      for (int letterRow = row; letterRow <= row + 2; letterRow++) {
+        final cols = <int>[];
+        for (final letter in ['a', 'b', 'c', 'd']) {
+          int? found;
+          for (int col = optionsCol; col < maxCol; col++) {
+            if (_normalize(_getCell(sheet, letterRow, col)) == letter) {
+              found = col;
+              break;
+            }
+          }
+          if (found == null) break;
+          cols.add(found);
+        }
+        if (cols.length == 4) {
+          return _Layout(
+            questionCol: questionCol,
+            optionCols: cols,
+            answerCol: answerCol,
+            firstDataRow: letterRow + 1,
+          );
+        }
+      }
+    }
+    return null;
+  }
+
+  // ============================================================
+  // ANSWER PARSING  (A / a / "A." / "(B)" / "Option C" / 1-4 / option text)
+  // ============================================================
+
+  String? _parseAnswer(String raw, String a, String b, String c, String d) {
+    final text = raw.trim();
+    if (text.isEmpty) return null;
+
+    final upper = text.toUpperCase();
+
+    if (upper.length == 1 && 'ABCD'.contains(upper)) return upper;
+
+    final match = RegExp(r'^\(?\s*(?:OPTION\s*)?([ABCD1-4])\s*[\).:\-]?$')
+        .firstMatch(upper);
+    if (match != null) {
+      const map = {'1': 'A', '2': 'B', '3': 'C', '4': 'D'};
+      final key = match.group(1)!;
+      return map[key] ?? key;
+    }
+
+    final n = _normalize(text);
+    final options = {'A': a, 'B': b, 'C': c, 'D': d};
+    final hits = options.entries
+        .where((e) => _normalize(e.value) == n)
+        .map((e) => e.key)
+        .toList();
+    return hits.length == 1 ? hits.first : null;
   }
 
   // ============================================================
   // GET CELL VALUE
   // ============================================================
 
-  String _getCell(Sheet sheet, {required int row, required int column}) {
+  bool _hasFormula(Sheet sheet, int row, _Layout layout) {
+    final cols = [layout.questionCol, ...layout.optionCols, layout.answerCol];
+    for (final col in cols) {
+      if (row >= sheet.maxRows || col >= sheet.maxColumns) continue;
+      final value = sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row))
+          .value;
+      if (value is FormulaCellValue) return true;
+    }
+    return false;
+  }
+
+  String _getCell(Sheet sheet, int row, int column) {
     if (row < 0 ||
         column < 0 ||
         row >= sheet.maxRows ||
@@ -469,94 +331,46 @@ Answer: ${question.ans}
       return '';
     }
 
-    final cell = sheet.cell(
-      CellIndex.indexByColumnRow(columnIndex: column, rowIndex: row),
-    );
+    final CellValue? value = sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: column, rowIndex: row))
+        .value;
 
-    final CellValue? value = cell.value;
+    if (value == null) return '';
 
-    if (value == null) {
-      return '';
-    }
-
-    // ----------------------------------------------------------
-    // TEXT CELL
-    // ----------------------------------------------------------
-
+    String text;
     if (value is TextCellValue) {
-      return value.value.toString().trim();
+      text = value.value.toString();
+    } else if (value is IntCellValue) {
+      text = value.value.toString();
+    } else if (value is DoubleCellValue) {
+      // 5.0 -> "5" so numeric options look the way the teacher typed them
+      final v = value.value;
+      text = v == v.truncateToDouble() ? v.toInt().toString() : v.toString();
+    } else if (value is BoolCellValue) {
+      text = value.value.toString();
+    } else if (value is FormulaCellValue) {
+      text = value.formula;
+    } else if (value is DateTimeCellValue) {
+      text = value.asDateTimeLocal().toString();
+    } else if (value is TimeCellValue) {
+      text = value.asDuration().toString();
+    } else {
+      text = value.toString();
     }
 
-    // ----------------------------------------------------------
-    // INTEGER CELL
-    // ----------------------------------------------------------
-
-    if (value is IntCellValue) {
-      return value.value.toString().trim();
-    }
-
-    // ----------------------------------------------------------
-    // DOUBLE CELL
-    // ----------------------------------------------------------
-
-    if (value is DoubleCellValue) {
-      return value.value.toString().trim();
-    }
-
-    // ----------------------------------------------------------
-    // BOOLEAN CELL
-    // ----------------------------------------------------------
-
-    if (value is BoolCellValue) {
-      return value.value.toString().trim();
-    }
-
-    // ----------------------------------------------------------
-    // FORMULA CELL
-    // ----------------------------------------------------------
-
-    if (value is FormulaCellValue) {
-      return value.formula.toString().trim();
-    }
-
-    // ----------------------------------------------------------
-    // DATE/TIME CELL
-    // ----------------------------------------------------------
-
-    if (value is DateTimeCellValue) {
-      return value.asDateTimeLocal().toString().trim();
-    }
-
-    // ----------------------------------------------------------
-    // TIME CELL
-    // ----------------------------------------------------------
-
-    if (value is TimeCellValue) {
-      return value.asDuration().toString().trim();
-    }
-
-    // ----------------------------------------------------------
-    // FALLBACK
-    // ----------------------------------------------------------
-
-    return value.toString().trim();
+    return text
+        .replaceAll('\uFEFF', '')
+        .replaceAll('\u00A0', ' ')
+        .trim();
   }
 
-  // ============================================================
-  // COMPARE CELL TEXT
-  // ============================================================
-
-  bool _isSame(String value, String expected) {
-    String normalize(String text) {
-      return text
-          .replaceAll('\uFEFF', '')
-          .replaceAll('\u00A0', ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim()
-          .toLowerCase();
-    }
-
-    return normalize(value) == normalize(expected);
+  String _normalize(String text) {
+    return text
+        .replaceAll('\uFEFF', '')
+        .replaceAll('\u00A0', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toLowerCase();
   }
 
   // ============================================================
@@ -569,4 +383,19 @@ Answer: ${question.ans}
 
     notifyListeners();
   }
+}
+
+/// Where each part of the template sits in the sheet (all indexes 0-based).
+class _Layout {
+  final int questionCol;
+  final List<int> optionCols; // A, B, C, D
+  final int answerCol;
+  final int firstDataRow;
+
+  const _Layout({
+    required this.questionCol,
+    required this.optionCols,
+    required this.answerCol,
+    required this.firstDataRow,
+  });
 }

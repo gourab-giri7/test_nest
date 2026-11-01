@@ -324,15 +324,20 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
                             ],
                           ),
                           const SizedBox(height: 14),
-                          _buildGuidelineItem('Column 1: Question text'),
                           _buildGuidelineItem(
-                            'Columns 2 to 5: Option A, Option B, Option C, Option D',
+                            'Download the template and fill it in as it is. Do not move the header rows.',
                           ),
                           _buildGuidelineItem(
-                            'Column 6: Correct Answer letter (A, B, C, or D)',
+                            'Questions column: one question per row, starting from row 4',
                           ),
                           _buildGuidelineItem(
-                            'Header row is skipped automatically',
+                            'Options columns: Option A, B, C and D are all required',
+                          ),
+                          _buildGuidelineItem(
+                            'Right option column: type A, B, C or D',
+                          ),
+                          _buildGuidelineItem(
+                            'Use plain text or numbers, not formulas',
                           ),
                         ],
                       ),

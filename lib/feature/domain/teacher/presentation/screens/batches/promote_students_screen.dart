@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:test_nest/core/services/batch_and_join_code_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
+import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/routes/app_routes.dart';
@@ -350,11 +351,16 @@ class _PromoteStudentsScreenState extends State<PromoteStudentsScreen> {
                 }
 
                 final allDocs = snapshot.data?.docs ?? [];
-                // Filter students matching the source batch name
+                // Filter active students matching the source batch
                 final batchStudents = allDocs.where((d) {
-                  final b = (d.data()['batch'] ?? '').toString().trim();
-                  return b.toLowerCase() ==
-                      widget.sourceBatch.name.toLowerCase();
+                  final s = StudentModel.fromJson(d.data(), docId: d.id);
+                  if (!s.isActive) return false;
+                  return StudentModel.isSameBatch(
+                        s.batch,
+                        widget.sourceBatch.name,
+                      ) ||
+                      (s.batchId != null &&
+                          s.batchId == widget.sourceBatch.id);
                 }).toList();
 
                 if (batchStudents.isEmpty) {

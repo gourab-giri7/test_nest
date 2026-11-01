@@ -512,17 +512,51 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
             ],
           );
 
-          final button = OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            icon: const Icon(Icons.person_add_alt_1, size: 16),
-            label: const Text('Add More'),
-            onPressed: () => _addStudents(context, ref, e),
-          );
+          final isExamEnded = e.status == 'Completed' ||
+              (e.examEnd != null && DateTime.now().isAfter(e.examEnd!));
+
+          final button = isExamEnded
+              ? Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceAlt,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.lock_clock_rounded,
+                        size: 15,
+                        color: AppColors.textSecondary,
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        'Assignment Locked (Exam Ended)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.person_add_alt_1, size: 16),
+                  label: const Text('Add More'),
+                  onPressed: () => _addStudents(context, ref, e),
+                );
 
           if (compact) {
             return Column(
@@ -1584,18 +1618,50 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
   ) async {
     final teacherId = teacherData?.id.trim();
     if (teacherId == null || teacherId.isEmpty) return;
+
+    // 1. Fetch fresh exam document to validate configured end time
+    final freshSnap = await ref.get();
+    final freshData = freshSnap.data() ?? {};
+    final rawEnd = freshData['exam_end'] ?? freshData['examEnd'];
+    DateTime? examEnd;
+    if (rawEnd is Timestamp) {
+      examEnd = rawEnd.toDate();
+    } else if (rawEnd is String && rawEnd.isNotEmpty) {
+      examEnd = DateTime.tryParse(rawEnd);
+    } else {
+      examEnd = e.examEnd;
+    }
+
+    if (examEnd != null && DateTime.now().isAfter(examEnd)) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Cannot add students. This exam ended on ${DateFormat('dd MMM yyyy, hh:mm a').format(examEnd)}.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final snap = await FirebaseFirestore.instance
         .collection('user')
         .doc(teacherId)
         .collection('students')
         .get();
-    final assigned = e.assignedStudentIds.toSet();
+
+    final freshAssigned = List<String>.from(
+      freshData['assigned_student_ids'] ?? e.assignedStudentIds,
+    ).map((id) => id.trim()).toSet();
+
     final available = snap.docs
         .map((d) => StudentModel.fromJson(d.data(), docId: d.id))
         .where(
           (s) =>
+              s.isActive &&
               StudentModel.isSameBatch(s.batch, e.batch) &&
-              !assigned.contains(s.id.trim()),
+              !freshAssigned.contains(s.id.trim()),
         )
         .toList();
     if (!context.mounted) return;
@@ -1659,7 +1725,43 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
       ),
     );
     if (result == null || result.isEmpty) return;
+
+    // 2. Validate exam end time again immediately before committing write
+    final preWriteSnap = await ref.get();
+    final preWriteData = preWriteSnap.data() ?? {};
+    final preWriteRawEnd =
+        preWriteData['exam_end'] ?? preWriteData['examEnd'];
+    DateTime? preWriteEnd;
+    if (preWriteRawEnd is Timestamp) {
+      preWriteEnd = preWriteRawEnd.toDate();
+    } else if (preWriteRawEnd is String && preWriteRawEnd.isNotEmpty) {
+      preWriteEnd = DateTime.tryParse(preWriteRawEnd);
+    } else {
+      preWriteEnd = e.examEnd;
+    }
+
+    if (preWriteEnd != null && DateTime.now().isAfter(preWriteEnd)) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to add students. The exam ended at ${DateFormat('dd MMM yyyy, hh:mm a').format(preWriteEnd)} before changes were submitted.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     await ref.update({'assigned_student_ids': FieldValue.arrayUnion(result)});
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${result.length} student(s) added successfully.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   Widget _option(String letter, String text, String answer) => Padding(

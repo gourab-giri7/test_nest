@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart';
 
 class StudentController extends ChangeNotifier {
   String dropDownvalue = "all";
@@ -15,25 +16,34 @@ class StudentController extends ChangeNotifier {
   List<QueryDocumentSnapshot<Map<String, dynamic>>> filterDocs(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) {
+    final search = searchValue.trim().toLowerCase();
+    final batchFilter = dropDownvalue.trim().toLowerCase();
+    final availableBatches = getBatchItems(
+      docs,
+    ).map((b) => b.trim().toLowerCase()).toSet();
+    final effectiveBatchFilter =
+        (batchFilter == "all" || availableBatches.contains(batchFilter))
+        ? batchFilter
+        : "all";
+
     return docs.where((doc) {
-      final data = doc.data();
-      final status = (data["status"] ?? "active").toString().toLowerCase();
-      if (status == "removed" || status == "removed_by_teacher") {
+      final student = StudentModel.fromJson(doc.data(), docId: doc.id);
+      if (!student.isActive) {
         return false;
       }
 
-      final name = (data["name"] ?? "").toString().toLowerCase();
-      final id = (data["id"] ?? "").toString().toLowerCase();
-      final batch = (data["batch"] ?? "").toString();
-
       final matchesSearch =
-          searchValue.isEmpty ||
-          name.contains(searchValue.toLowerCase()) ||
-          id.contains(searchValue.toLowerCase());
+          search.isEmpty ||
+          student.name.toLowerCase().contains(search) ||
+          student.id.toLowerCase().contains(search) ||
+          student.email.toLowerCase().contains(search) ||
+          student.batch.toLowerCase().contains(search);
 
       final matchesBatch =
-          dropDownvalue == "all" ||
-          batch.trim().toLowerCase() == dropDownvalue.trim().toLowerCase();
+          effectiveBatchFilter == "all" ||
+          student.batch.trim().toLowerCase() == effectiveBatchFilter ||
+          (student.batchId != null &&
+              student.batchId!.trim().toLowerCase() == effectiveBatchFilter);
 
       return matchesSearch && matchesBatch;
     }).toList();
@@ -60,11 +70,9 @@ class StudentController extends ChangeNotifier {
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) {
     final batches = docs
-        .map((doc) {
-          final data = doc.data();
-          return (data['batch'] ?? '').toString().trim();
-        })
-        .where((batch) => batch.isNotEmpty)
+        .map((doc) => StudentModel.fromJson(doc.data(), docId: doc.id))
+        .where((s) => s.isActive && s.batch.isNotEmpty)
+        .map((s) => s.batch)
         .toSet()
         .toList();
 

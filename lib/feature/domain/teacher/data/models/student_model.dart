@@ -38,6 +38,15 @@ class StudentModel {
     this.phone = '',
   });
 
+  /// Whether the student has an active enrollment and is not removed.
+  bool get isActive => !isRemoved;
+
+  /// Whether the student was removed by the teacher.
+  bool get isRemoved {
+    final s = status.trim().toLowerCase();
+    return s == 'removed' || s == 'removed_by_teacher';
+  }
+
   factory StudentModel.fromJson(Map<String, dynamic> json, {String? docId}) {
     final String resolvedId =
         (json['id'] != null && json['id'].toString().trim().isNotEmpty)
@@ -45,6 +54,9 @@ class StudentModel {
         : (json['student_id'] != null &&
               json['student_id'].toString().trim().isNotEmpty)
         ? json['student_id'].toString().trim()
+        : (json['studentId'] != null &&
+              json['studentId'].toString().trim().isNotEmpty)
+        ? json['studentId'].toString().trim()
         : (docId != null && docId.trim().isNotEmpty)
         ? docId.trim()
         : '';
@@ -63,10 +75,22 @@ class StudentModel {
     final rawPhone = (json['phone'] ?? json['mobile'] ?? '').toString().trim();
     final rawBatchId =
         (json['batch_id'] ?? json['batchId'] ?? '').toString().trim();
+    final rawName =
+        (json['name'] ??
+                json['student_name'] ??
+                json['studentName'] ??
+                json['fullName'] ??
+                '')
+            .toString()
+            .trim();
+    final rawBatch =
+        (json['batch'] ?? json['batch_name'] ?? json['batchName'] ?? '')
+            .toString()
+            .trim();
 
     return StudentModel(
-      name: (json['name'] ?? '').toString().trim(),
-      batch: (json['batch'] ?? '').toString().trim(),
+      name: rawName,
+      batch: rawBatch,
       batchId: rawBatchId.isNotEmpty ? rawBatchId : null,
       id: resolvedId,
       password: (json['password'] ?? '').toString(),

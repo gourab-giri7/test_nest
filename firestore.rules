@@ -152,7 +152,13 @@ service cloud.firestore {
       match /exams/{examId} {
         // Teacher can read/write exams; approved active members can read published or active exams
         allow read: if isTeacher(teacherId) || hasTeacherMembership(teacherId) || isAuthenticated();
-        allow write: if isTeacher(teacherId);
+        allow create, delete: if isTeacher(teacherId);
+        // On update: prevent modifying assigned_student_ids after the configured exam end time
+        allow update: if isTeacher(teacherId) && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['assigned_student_ids']) ||
+          resource.data.exam_end == null ||
+          request.time <= resource.data.exam_end
+        );
 
         // Questions — student can view questions only during exam; teacher can write
         match /questions/{questionId} {

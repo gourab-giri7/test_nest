@@ -125,7 +125,7 @@ class FeeManagementController extends ChangeNotifier {
 
       final students = studentsSnap.docs
           .map((d) => StudentModel.fromJson(d.data(), docId: d.id))
-          .where((s) => s.id.isNotEmpty)
+          .where((s) => s.id.isNotEmpty && s.isActive)
           .toList();
 
       // Collect available batches

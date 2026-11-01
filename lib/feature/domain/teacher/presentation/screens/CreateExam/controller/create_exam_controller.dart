@@ -47,7 +47,7 @@ class CreateExamController extends ChangeNotifier {
   ) {
     final nextStudents = docs
         .map((d) => StudentModel.fromJson(d.data(), docId: d.id))
-        .where((s) => s.id.trim().isNotEmpty)
+        .where((s) => s.id.trim().isNotEmpty && s.isActive)
         .toList(growable: false);
 
     _students = nextStudents;
@@ -105,7 +105,7 @@ class CreateExamController extends ChangeNotifier {
     List<String>? availableBatches,
     String? activeBatch,
   }) {
-    _students = students;
+    _students = students.where((s) => s.isActive).toList(growable: false);
     if (availableBatches != null && availableBatches.isNotEmpty) {
       classList = List<String>.from(availableBatches);
     }

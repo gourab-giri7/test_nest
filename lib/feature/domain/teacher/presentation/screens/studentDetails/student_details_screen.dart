@@ -1413,7 +1413,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                 if (success) {
                   customSnackbar(
                     context: context,
-                    message: 'Student deleted successfully.',
+                    message: 'Student removed from batch successfully.',
                     color: Colors.green,
                     ico: Icons.check_circle,
                   );
@@ -1421,7 +1421,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
                 } else {
                   customSnackbar(
                     context: context,
-                    message: 'Failed to delete student.',
+                    message: 'Failed to remove student from batch.',
                     color: Colors.red,
                     ico: Icons.error,
                   );
@@ -1429,7 +1429,7 @@ class _StudentDetailsScreenState extends State<StudentDetailsScreen> {
               }
             },
             child: const Text(
-              'Delete',
+              'Remove',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),

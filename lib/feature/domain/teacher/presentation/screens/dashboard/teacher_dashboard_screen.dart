@@ -342,7 +342,12 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _studentsStream,
       builder: (context, studentSnap) {
-        final studentCount = studentSnap.data?.docs.length ?? 0;
+        final studentDocs = studentSnap.data?.docs ?? [];
+        final activeStudents = studentDocs.where((d) {
+          final s = (d.data()['status'] ?? 'active').toString().toLowerCase();
+          return s != 'removed' && s != 'removed_by_teacher';
+        }).toList();
+        final studentCount = activeStudents.length;
 
         return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: _examsStream,
