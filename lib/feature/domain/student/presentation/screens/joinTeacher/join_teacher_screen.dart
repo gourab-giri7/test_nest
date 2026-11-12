@@ -3,9 +3,11 @@ import 'package:intl/intl.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:test_nest/core/services/batch_and_join_code_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:get/get.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/joinTeacher/controller/join_teacher_controller.dart';
 import 'package:test_nest/routes/app_routes.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 
@@ -21,7 +23,6 @@ class JoinTeacherScreen extends StatefulWidget {
 class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
   final _codeController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -29,82 +30,38 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
     super.dispose();
   }
 
-  Future<void> _submitCode() async {
-    if (!_formKey.currentState!.validate() || _isLoading) return;
-    setState(() => _isLoading = true);
+  Future<void> _submitCode(BuildContext context, JoinTeacherController controller) async {
+    if (!_formKey.currentState!.validate() || controller.isLoading) return;
 
     try {
       final code = _codeController.text.trim();
-      final codeModel = await BatchAndJoinCodeService.validateJoiningCode(code);
+      final request = await controller.submitCode(code);
 
-      if (codeModel == null) {
-        if (!mounted) return;
+      if (!context.mounted) return;
+      if (request != null) {
         customSnackbar(
           context: context,
-          message:
-              'Invalid, expired, or revoked joining code. Please check and try again.',
-          color: Colors.red,
-          ico: Icons.error_outline,
+          message: 'Join request sent successfully!',
+          color: Colors.green,
+          ico: Icons.check_circle_outline,
         );
-        setState(() => _isLoading = false);
-        return;
-      }
 
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        if (!mounted) return;
-        customSnackbar(
-          context: context,
-          message: 'Please log in again to continue.',
-          color: Colors.red,
-          ico: Icons.lock_outline,
+        Get.offNamed(
+          AppRoutes.studentRequestSent,
+          arguments: {
+            'batchName': request.batchName,
+            'teacherName': request.teacherName,
+          },
         );
-        setState(() => _isLoading = false);
-        return;
       }
-
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      final studentName =
-          (userDoc.data()?['name'] ?? user.displayName ?? 'Student').toString();
-      final studentEmail = user.email ?? '';
-      final studentPhone = userDoc.data()?['phone']?.toString();
-
-      final request = await BatchAndJoinCodeService.submitJoinRequest(
-        studentUid: user.uid,
-        studentName: studentName,
-        studentEmail: studentEmail,
-        studentPhone: studentPhone,
-        codeModel: codeModel,
-      );
-
-      if (!mounted) return;
-      customSnackbar(
-        context: context,
-        message: 'Join request sent successfully!',
-        color: Colors.green,
-        ico: Icons.check_circle_outline,
-      );
-
-      Get.offNamed(
-        AppRoutes.studentRequestSent,
-        arguments: {
-          'batchName': request.batchName,
-          'teacherName': request.teacherName,
-        },
-      );
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       customSnackbar(
         context: context,
         message: e is StateError ? e.message : 'Failed to submit request: $e',
         color: Colors.red,
         ico: Icons.info_outline,
       );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -119,7 +76,11 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
-    return Scaffold(
+    return ChangeNotifierProvider<JoinTeacherController>(
+      create: (_) => JoinTeacherController(),
+      child: Consumer<JoinTeacherController>(
+        builder: (context, controller, _) {
+          return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
@@ -287,16 +248,16 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
                                           ),
                                         ),
                                       ),
-                                      onPressed: _isLoading
+                                      onPressed: controller.isLoading
                                           ? null
-                                          : _submitCode,
-                                      icon: _isLoading
+                                          : () => _submitCode(context, controller),
+                                      icon: controller.isLoading
                                           ? const SizedBox.shrink()
                                           : const Icon(
                                               Icons.send_rounded,
                                               size: 18,
                                             ),
-                                      label: _isLoading
+                                      label: controller.isLoading
                                           ? const SizedBox(
                                               height: 22,
                                               width: 22,
@@ -517,6 +478,9 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
             ),
           ),
         ],
+      ),
+          );
+        },
       ),
     );
   }

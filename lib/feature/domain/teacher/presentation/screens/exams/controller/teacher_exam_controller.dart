@@ -7,6 +7,44 @@ class TeacherExamController extends ChangeNotifier {
   String selectedFilter = 'All';
   String selectedBatch = 'All Batches';
 
+  bool isSelectionMode = false;
+  final Set<String> selectedExamIds = {};
+  bool isDeleting = false;
+
+  void setDeleting(bool val) {
+    if (isDeleting == val) return;
+    isDeleting = val;
+    notifyListeners();
+  }
+
+  void toggleSelectionMode() {
+    isSelectionMode = !isSelectionMode;
+    if (!isSelectionMode) {
+      selectedExamIds.clear();
+    }
+    notifyListeners();
+  }
+
+  void toggleExamSelection(String examId) {
+    if (selectedExamIds.contains(examId)) {
+      selectedExamIds.remove(examId);
+    } else {
+      selectedExamIds.add(examId);
+    }
+    notifyListeners();
+  }
+
+  void selectAllExams(List<String> examIds) {
+    selectedExamIds.addAll(examIds);
+    notifyListeners();
+  }
+
+  void clearSelection() {
+    selectedExamIds.clear();
+    isSelectionMode = false;
+    notifyListeners();
+  }
+
   void setSearch(String value) {
     final newValue = value.trim();
 
@@ -48,7 +86,9 @@ class TeacherExamController extends ChangeNotifier {
 
     if (!validBatches.contains(selectedBatch)) {
       selectedBatch = 'All Batches';
-      notifyListeners();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     }
   }
 

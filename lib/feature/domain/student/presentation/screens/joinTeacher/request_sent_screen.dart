@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:get/get.dart';
 import 'package:test_nest/feature/auth/loginFeatureStudents/student_login_feature.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/joinTeacher/controller/join_teacher_controller.dart';
 import 'package:test_nest/routes/app_routes.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
 
@@ -24,26 +27,119 @@ class RequestSentScreen extends StatefulWidget {
 }
 
 class _RequestSentScreenState extends State<RequestSentScreen> {
-  bool _isChecking = false;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _requestsSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSub;
+  bool _hasNavigated = false;
 
-  Future<void> _checkApprovalStatus() async {
-    setState(() => _isChecking = true);
+  @override
+  void initState() {
+    super.initState();
+    _startApprovalListener();
+  }
+
+  @override
+  void dispose() {
+    _requestsSub?.cancel();
+    _userSub?.cancel();
+    super.dispose();
+  }
+
+  void _startApprovalListener() {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      if (mounted) setState(() => _isChecking = false);
-      return;
-    }
+    if (user == null) return;
 
+    // 1. Listen to student's joinRequests stream
+    _requestsSub = FirebaseFirestore.instance
+        .collection('joinRequests')
+        .where('student_uid', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snap) async {
+          if (_hasNavigated || !mounted) return;
+
+          bool anyApproved = false;
+          for (final doc in snap.docs) {
+            final status = (doc.data()['status'] ?? '')
+                .toString()
+                .toLowerCase();
+            if (status == 'approved') {
+              anyApproved = true;
+              break;
+            }
+          }
+
+          if (anyApproved) {
+            _hasNavigated = true;
+            await _onApproved(user.uid);
+          }
+        }, onError: (_) {});
+
+    // 2. Also listen to users/{uid} enrollments
+    _userSub = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .listen((docSnap) async {
+          if (_hasNavigated || !mounted) return;
+          if (!docSnap.exists || docSnap.data() == null) return;
+
+          final data = docSnap.data()!;
+          final enrollments = data['enrollments'];
+          if (enrollments is List && enrollments.isNotEmpty) {
+            final hasActive = enrollments.any((e) {
+              if (e is Map<String, dynamic>) {
+                return (e['status'] ?? '').toString().toLowerCase() == 'active';
+              }
+              return false;
+            });
+
+            if (hasActive) {
+              _hasNavigated = true;
+              await _onApproved(user.uid);
+            }
+          }
+        }, onError: (_) {});
+  }
+
+  Future<void> _onApproved(String uid) async {
     try {
-      final res = await StudentLoginFeature.resolveStudentState(user.uid);
+      final res = await StudentLoginFeature.resolveStudentState(uid);
       if (res['state'] == 'approved') {
         if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Your join request has been approved! Welcome to the dashboard.',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        Get.offAllNamed(AppRoutes.studentDashboard);
+      } else {
+        _hasNavigated = false;
+      }
+    } catch (_) {
+      _hasNavigated = false;
+    }
+  }
+
+  Future<void> _checkApprovalStatus(
+    BuildContext context,
+    RequestSentController controller,
+  ) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final res = await controller.checkApprovalStatus(user.uid);
+      if (res['state'] == 'approved') {
+        if (!context.mounted) return;
+        _hasNavigated = true;
         Get.offAllNamed(AppRoutes.studentDashboard);
         return;
       }
 
       if (res['state'] == 'needs_join') {
-        if (!mounted) return;
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -56,7 +152,7 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
         return;
       }
 
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -66,10 +162,7 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
           ),
         );
       }
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _isChecking = false);
-    }
+    } catch (_) {}
   }
 
   Future<void> _logout() async {
@@ -81,7 +174,11 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ChangeNotifierProvider<RequestSentController>(
+      create: (_) => RequestSentController(),
+      child: Consumer<RequestSentController>(
+        builder: (context, controller, _) {
+          return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
@@ -222,7 +319,7 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        icon: _isChecking
+                        icon: controller.isChecking
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
@@ -239,7 +336,9 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        onPressed: _isChecking ? null : _checkApprovalStatus,
+                        onPressed: controller.isChecking
+                            ? null
+                            : () => _checkApprovalStatus(context, controller),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -274,6 +373,9 @@ class _RequestSentScreenState extends State<RequestSentScreen> {
             ),
           ),
         ),
+      ),
+          );
+        },
       ),
     );
   }

@@ -311,126 +311,64 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   const SizedBox(height: 24),
 
-                                  // Optional Teacher ID field (only in legacy student login mode)
-                                  if (controller.isStudentLogin &&
-                                      controller.useLegacyStudentLogin) ...[
-                                    const _InputLabel(label: 'Teacher ID'),
-                                    const SizedBox(height: 6),
-                                    TextFormField(
-                                      controller: controller.teacherId,
-                                      validator: controller.fieldeValidation,
-                                      onTapOutside: (event) => FocusManager
-                                          .instance
-                                          .primaryFocus!
-                                          .unfocus(),
-                                      decoration: const InputDecoration(
-                                        hintText: 'Enter your Teacher ID',
-                                        prefixIcon: Icon(
-                                          Icons.supervisor_account_outlined,
-                                          size: 20,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                  ],
-
-                                  // User ID / Email Field
+                                  // User Email Field
                                   _InputLabel(
                                     label: controller.isStudentLogin
-                                        ? (controller.useLegacyStudentLogin
-                                              ? 'Student ID'
-                                              : 'Email Address')
-                                        : 'Email or Teacher ID',
+                                        ? 'Student Email'
+                                        : 'Teacher Email or ID',
                                   ),
                                   const SizedBox(height: 6),
                                   TextFormField(
                                     controller: controller.id,
                                     validator: controller.fieldeValidation,
+                                    keyboardType: TextInputType.emailAddress,
                                     onTapOutside: (event) => FocusManager
                                         .instance
                                         .primaryFocus!
                                         .unfocus(),
                                     decoration: InputDecoration(
                                       hintText: controller.isStudentLogin
-                                          ? (controller.useLegacyStudentLogin
-                                                ? 'Enter your Student ID'
-                                                : 'student@example.com')
+                                          ? 'student@example.com'
                                           : 'teacher@institute.com',
-                                      prefixIcon: Icon(
-                                        (controller.isStudentLogin &&
-                                                controller
-                                                    .useLegacyStudentLogin)
-                                            ? Icons.badge_outlined
-                                            : Icons.alternate_email_rounded,
+                                      prefixIcon: const Icon(
+                                        Icons.alternate_email_rounded,
                                         size: 20,
                                       ),
                                     ),
                                   ),
                                   const SizedBox(height: 16),
 
-                                  // Password Field — shown for teacher and standard student login
-                                  if (!controller.isStudentLogin ||
-                                      !controller.useLegacyStudentLogin) ...[
-                                    const _InputLabel(label: 'Password'),
-                                    const SizedBox(height: 6),
-                                    TextFormField(
-                                      keyboardType:
-                                          TextInputType.visiblePassword,
-                                      controller: controller.password,
-                                      validator: controller.fieldeValidation,
-                                      onTapOutside: (event) => FocusManager
-                                          .instance
-                                          .primaryFocus!
-                                          .unfocus(),
-                                      obscureText: controller.obscurePassword,
-                                      decoration: InputDecoration(
-                                        hintText: '••••••••',
-                                        prefixIcon: const Icon(
-                                          Icons.lock_outline_rounded,
+                                  // Password Field
+                                  const _InputLabel(label: 'Password'),
+                                  const SizedBox(height: 6),
+                                  TextFormField(
+                                    keyboardType: TextInputType.visiblePassword,
+                                    controller: controller.password,
+                                    validator: controller.fieldeValidation,
+                                    onTapOutside: (event) => FocusManager
+                                        .instance
+                                        .primaryFocus!
+                                        .unfocus(),
+                                    obscureText: controller.obscurePassword,
+                                    decoration: InputDecoration(
+                                      hintText: '••••••••',
+                                      prefixIcon: const Icon(
+                                        Icons.lock_outline_rounded,
+                                        size: 20,
+                                      ),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          controller.obscurePassword
+                                              ? Icons.visibility_outlined
+                                              : Icons.visibility_off_outlined,
                                           size: 20,
                                         ),
-                                        suffixIcon: IconButton(
-                                          icon: Icon(
-                                            controller.obscurePassword
-                                                ? Icons.visibility_outlined
-                                                : Icons.visibility_off_outlined,
-                                            size: 20,
-                                          ),
-                                          onPressed: () {
-                                            controller.toggelObscurePassword();
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-
-                                  // Legacy student toggle button
-                                  if (controller.isStudentLogin)
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: TextButton.icon(
                                         onPressed: () {
-                                          controller.toggleLegacyStudentLogin();
+                                          controller.toggelObscurePassword();
                                         },
-                                        icon: Icon(
-                                          controller.useLegacyStudentLogin
-                                              ? Icons.email_outlined
-                                              : Icons.qr_code_rounded,
-                                          size: 15,
-                                          color: AppColors.secondary,
-                                        ),
-                                        label: Text(
-                                          controller.useLegacyStudentLogin
-                                              ? 'Use Email & Password'
-                                              : 'Have a Teacher ID & Student ID?',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: AppColors.secondary,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
                                       ),
                                     ),
+                                  ),
 
                                   // Forgot Password — only for teachers
                                   if (!controller.isStudentLogin)

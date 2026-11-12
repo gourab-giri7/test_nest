@@ -1,7 +1,6 @@
 import 'dart:developer';
 import 'dart:io';
-
-import 'package:excel/excel.dart';
+import 'package:excel_plus/excel_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -59,25 +58,30 @@ class FileUploadController extends ChangeNotifier {
 
   Future<void> pickFile(BuildContext context, [QuestionController? qc]) async {
     try {
-      final List<PlatformFile> files = await FilePicker.pickFiles(
+      // file_picker v12+ / v13 API: pickFile() returns PlatformFile?
+      // No FilePicker.platform, FilePickerResult, withData, or allowMultiple.
+      final PlatformFile? file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['xlsx'],
       );
 
-      if (files.isEmpty) return;
+      // The picker returns null when the user cancels.
+      if (file == null) return;
 
-      final PlatformFile file = files.first;
       log('Selected file: ${file.name}');
 
+      // Read the selected file using the current PlatformFile API.
       final bytes = await file.readAsBytes();
       if (bytes.isEmpty) {
-        if (context.mounted) _error(context, 'Unable to read the selected Excel file.');
+        if (context.mounted)
+          _error(context, 'Unable to read the selected Excel file.');
         return;
       }
 
       final Excel excel = Excel.decodeBytes(bytes);
       if (excel.tables.isEmpty) {
-        if (context.mounted) _error(context, 'Excel file does not contain any sheet.');
+        if (context.mounted)
+          _error(context, 'Excel file does not contain any sheet.');
         return;
       }
 
@@ -126,19 +130,9 @@ class FileUploadController extends ChangeNotifier {
 
         final int excelRow = row + 1;
 
-        if (_hasFormula(sheet, row, layout)) {
-          if (context.mounted) {
-            _error(
-              context,
-              'Row $excelRow contains a formula. Please paste the cells as '
-              'values (text) and upload again.',
-            );
-          }
-          return;
-        }
-
         if (question.isEmpty) {
-          if (context.mounted) _error(context, 'Question is empty at row $excelRow.');
+          if (context.mounted)
+            _error(context, 'Question is empty at row $excelRow.');
           return;
         }
 
@@ -192,9 +186,16 @@ class FileUploadController extends ChangeNotifier {
         ico: Icons.check_circle,
       );
     } catch (e, stackTrace) {
+      // Print the full exception and stack trace to the IDE debug console.
+      // This helps identify the exact line if a null-check error occurs.
+      debugPrint('========== EXCEL IMPORT ERROR ==========');
+      debugPrint('Error: $e');
+      debugPrint('Stack trace:\n$stackTrace');
+      debugPrint('========================================');
       log('Excel error', error: e, stackTrace: stackTrace);
+
       if (context.mounted) {
-        _error(context, 'Something went wrong while reading the Excel file.');
+        _error(context, 'Excel import failed. Check debug console.');
       }
     }
   }
@@ -223,59 +224,43 @@ class FileUploadController extends ChangeNotifier {
   // ============================================================
 
   _Layout? _findLayout(Sheet sheet) {
-    final int maxRow = sheet.maxRows < 30 ? sheet.maxRows : 30;
-    final int maxCol = sheet.maxColumns < 40 ? sheet.maxColumns : 40;
+    // Simple text-only validation for the Test Nest template.
+    // Columns G-L; headers are on row 2, option labels on row 3.
+    final questionHeader = _normalize(_getCell(sheet, 1, 6));
+    final optionsHeader = _normalize(_getCell(sheet, 1, 7));
+    final answerHeader = _normalize(_getCell(sheet, 1, 11));
 
-    for (int row = 0; row < maxRow; row++) {
-      int? questionCol;
-      int? optionsCol;
-      int? answerCol;
+    final optionA = _normalize(_getCell(sheet, 2, 7));
+    final optionB = _normalize(_getCell(sheet, 2, 8));
+    final optionC = _normalize(_getCell(sheet, 2, 9));
+    final optionD = _normalize(_getCell(sheet, 2, 10));
 
-      for (int col = 0; col < maxCol; col++) {
-        final text = _normalize(_getCell(sheet, row, col));
-        if (text.isEmpty) continue;
+    final validQuestionHeader =
+        questionHeader == 'questions' || questionHeader == 'question';
+    final validOptionsHeader =
+        optionsHeader == 'options' || optionsHeader == 'option';
+    final validAnswerHeader =
+        answerHeader.contains('right option') ||
+        answerHeader.contains('correct answer') ||
+        answerHeader == 'answer' ||
+        answerHeader.contains('right answer');
 
-        if (questionCol == null && text.startsWith('question')) {
-          questionCol = col;
-        } else if (optionsCol == null && text.startsWith('option')) {
-          optionsCol = col;
-        } else if (answerCol == null &&
-            (text.contains('right') ||
-                text.contains('correct') ||
-                text.contains('answer'))) {
-          answerCol = col;
-        }
-      }
-
-      if (questionCol == null || optionsCol == null || answerCol == null) {
-        continue;
-      }
-
-      // Letters A, B, C, D sit in the header row or the one right below it
-      for (int letterRow = row; letterRow <= row + 2; letterRow++) {
-        final cols = <int>[];
-        for (final letter in ['a', 'b', 'c', 'd']) {
-          int? found;
-          for (int col = optionsCol; col < maxCol; col++) {
-            if (_normalize(_getCell(sheet, letterRow, col)) == letter) {
-              found = col;
-              break;
-            }
-          }
-          if (found == null) break;
-          cols.add(found);
-        }
-        if (cols.length == 4) {
-          return _Layout(
-            questionCol: questionCol,
-            optionCols: cols,
-            answerCol: answerCol,
-            firstDataRow: letterRow + 1,
-          );
-        }
-      }
+    if (!validQuestionHeader ||
+        !validOptionsHeader ||
+        !validAnswerHeader ||
+        optionA != 'a' ||
+        optionB != 'b' ||
+        optionC != 'c' ||
+        optionD != 'd') {
+      return null;
     }
-    return null;
+
+    return const _Layout(
+      questionCol: 6, // G
+      optionCols: [7, 8, 9, 10], // H, I, J, K
+      answerCol: 11, // L
+      firstDataRow: 3, // Excel row 4
+    );
   }
 
   // ============================================================
@@ -290,8 +275,9 @@ class FileUploadController extends ChangeNotifier {
 
     if (upper.length == 1 && 'ABCD'.contains(upper)) return upper;
 
-    final match = RegExp(r'^\(?\s*(?:OPTION\s*)?([ABCD1-4])\s*[\).:\-]?$')
-        .firstMatch(upper);
+    final match = RegExp(
+      r'^\(?\s*(?:OPTION\s*)?([ABCD1-4])\s*[\).:\-]?$',
+    ).firstMatch(upper);
     if (match != null) {
       const map = {'1': 'A', '2': 'B', '3': 'C', '4': 'D'};
       final key = match.group(1)!;
@@ -310,18 +296,6 @@ class FileUploadController extends ChangeNotifier {
   // ============================================================
   // GET CELL VALUE
   // ============================================================
-
-  bool _hasFormula(Sheet sheet, int row, _Layout layout) {
-    final cols = [layout.questionCol, ...layout.optionCols, layout.answerCol];
-    for (final col in cols) {
-      if (row >= sheet.maxRows || col >= sheet.maxColumns) continue;
-      final value = sheet
-          .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row))
-          .value;
-      if (value is FormulaCellValue) return true;
-    }
-    return false;
-  }
 
   String _getCell(Sheet sheet, int row, int column) {
     if (row < 0 ||
@@ -358,10 +332,7 @@ class FileUploadController extends ChangeNotifier {
       text = value.toString();
     }
 
-    return text
-        .replaceAll('\uFEFF', '')
-        .replaceAll('\u00A0', ' ')
-        .trim();
+    return text.replaceAll('\uFEFF', '').replaceAll('\u00A0', ' ').trim();
   }
 
   String _normalize(String text) {

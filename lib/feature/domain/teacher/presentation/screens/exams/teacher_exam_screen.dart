@@ -1,15 +1,92 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/core/services/exam_firestore_service.dart';
+import 'package:test_nest/core/utils/theme/theme.dart';
+import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/exams/controller/teacher_exam_controller.dart';
 import 'package:test_nest/model/exam_model.dart';
 import 'package:test_nest/routes/app_routes.dart';
 
 class TeacherExamsScreen extends StatelessWidget {
-  const TeacherExamsScreen({super.key});
+  final Stream<QuerySnapshot<Map<String, dynamic>>>? examStream;
+  const TeacherExamsScreen({super.key, this.examStream});
+
+  Future<void> _deleteExams(
+    BuildContext context,
+    List<ExamModel> examsToDelete,
+  ) async {
+    final tData = teacherData;
+    final controller = context.read<TeacherExamController>();
+    if (tData == null || examsToDelete.isEmpty || controller.isDeleting) return;
+
+    final isSingle = examsToDelete.length == 1;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
+          isSingle ? 'Delete Exam' : 'Delete ${examsToDelete.length} Exams',
+        ),
+        content: Text(
+          isSingle
+              ? 'Are you sure you want to delete "${examsToDelete.first.examName}"?\n\nThis exam will be removed from your portal and student schedules. Completed historical attempts and results remain preserved.'
+              : 'Are you sure you want to delete these ${examsToDelete.length} exams?\n\nThey will be removed from your portal and student schedules. Completed historical attempts and results remain preserved.',
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () => Get.back(result: false),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+            onPressed: () => Get.back(result: true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    controller.setDeleting(true);
+
+    try {
+      await ExamFirestoreService.deleteExams(
+        teacherId: tData.id,
+        examIds: examsToDelete.map((e) => e.examId).toList(),
+      );
+
+      controller.clearSelection();
+      controller.setDeleting(false);
+
+      if (context.mounted) {
+        customSnackbar(
+          context: context,
+          message: isSingle
+              ? 'Exam deleted successfully.'
+              : '${examsToDelete.length} exams deleted successfully.',
+          color: Colors.green,
+          ico: Icons.delete_outline_rounded,
+        );
+      }
+    } catch (e) {
+      controller.setDeleting(false);
+      if (context.mounted) {
+        customSnackbar(
+          context: context,
+          message: 'Failed to delete exams: $e',
+          color: Colors.red,
+          ico: Icons.error,
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,62 +96,114 @@ class TeacherExamsScreen extends StatelessWidget {
         body: Center(child: Text('Teacher session not found')),
       );
     }
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Exams',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: AppColors.text,
-              ),
+    return Consumer<TeacherExamController>(
+      builder: (context, controller, _) {
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.background,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            leading: controller.isSelectionMode
+                ? IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => controller.clearSelection(),
+                  )
+                : null,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  controller.isSelectionMode
+                      ? '${controller.selectedExamIds.length} Selected'
+                      : 'Exams',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.text,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  controller.isSelectionMode
+                      ? 'Select exams to delete'
+                      : 'Manage your exams',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 2),
-            Text(
-              'Manage your exams',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: IconButton(
-              onPressed: () => Get.toNamed(AppRoutes.teacherCreateExam),
-              style: IconButton.styleFrom(backgroundColor: AppColors.primary),
-              icon: const Icon(Icons.add, color: Colors.white),
-            ),
+            actions: [
+              if (controller.isSelectionMode) ...[
+                if (controller.selectedExamIds.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: IconButton(
+                      tooltip: 'Delete Selected',
+                      onPressed: controller.isDeleting
+                          ? null
+                          : () {
+                              // Handled via stream builder visible exams
+                            },
+                      icon: controller.isDeleting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFFEF4444),
+                              ),
+                            )
+                          : const Icon(
+                              Icons.delete_forever_rounded,
+                              color: Color(0xFFEF4444),
+                            ),
+                    ),
+                  ),
+              ] else ...[
+                IconButton(
+                  tooltip: 'Select Exams',
+                  icon: const Icon(Icons.checklist_rounded),
+                  onPressed: () => controller.toggleSelectionMode(),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: IconButton(
+                    tooltip: 'Create Exam',
+                    onPressed: () => Get.toNamed(AppRoutes.teacherCreateExam),
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                    ),
+                    icon: const Icon(Icons.add, color: Colors.white),
+                  ),
+                ),
+              ],
+            ],
           ),
-        ],
-      ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance
-            .collection('user')
-            .doc(tData.id.trim())
-            .collection('exams')
-            .orderBy('exam_id', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError)
-            return const Center(
-              child: Text('Something went wrong loading exams'),
-            );
-          if (snapshot.connectionState == ConnectionState.waiting)
-            return const Center(child: CircularProgressIndicator());
-          final exams = (snapshot.data?.docs ?? [])
-              .map((d) => ExamModel.fromJson(d.data()))
-              .toList(growable: false);
-          return Consumer<TeacherExamController>(
-            builder: (context, controller, _) {
-              final search = controller.search.toLowerCase();
+          body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: examStream ??
+                FirebaseFirestore.instance
+                    .collection('user')
+                    .doc(tData.id.trim())
+                    .collection('exams')
+                    .orderBy('exam_id', descending: true)
+                    .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Center(
+                  child: Text('Something went wrong loading exams'),
+                );
+              }
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final exams = (snapshot.data?.docs ?? [])
+                  .map((d) => ExamModel.fromJson(d.data()))
+                  .toList(growable: false);
 
+              final search = controller.search.toLowerCase();
               final activeBatch = controller.selectedBatch;
 
               final visibleExams = exams
@@ -97,6 +226,12 @@ class TeacherExamsScreen extends StatelessWidget {
                   })
                   .toList(growable: false);
 
+              final allSelected =
+                  visibleExams.isNotEmpty &&
+                  visibleExams.every(
+                    (e) => controller.selectedExamIds.contains(e.examId),
+                  );
+
               return LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth >= 700;
@@ -111,24 +246,107 @@ class TeacherExamsScreen extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        _buildSummary(exams, isWide: isWide),
-
-                        const SizedBox(height: 16),
-
-                        _buildSearch(controller),
-
-                        const SizedBox(height: 12),
-
-                        _buildFilters(controller),
-
-                        const SizedBox(height: 10),
-
-                        _buildBatchFilter(tData.batch, activeBatch, controller),
-
-                        const SizedBox(height: 16),
+                        if (controller.isSelectionMode) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFFC7D2FE),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Checkbox(
+                                  value: allSelected,
+                                  activeColor: AppColors.primary,
+                                  onChanged: (v) {
+                                    if (v == true) {
+                                      controller.selectAllExams(
+                                        visibleExams
+                                            .map((e) => e.examId)
+                                            .toList(),
+                                      );
+                                    } else {
+                                      controller.clearSelection();
+                                      controller.toggleSelectionMode();
+                                    }
+                                  },
+                                ),
+                                const Text(
+                                  'Select All',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (controller.selectedExamIds.isNotEmpty)
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFEF4444),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    onPressed: controller.isDeleting
+                                        ? null
+                                        : () {
+                                            final selectedExams = visibleExams
+                                                .where(
+                                                  (e) => controller
+                                                      .selectedExamIds
+                                                      .contains(e.examId),
+                                                )
+                                                .toList();
+                                            _deleteExams(
+                                              context,
+                                              selectedExams,
+                                            );
+                                          },
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 16,
+                                    ),
+                                    label: Text(
+                                      'Delete (${controller.selectedExamIds.length})',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ] else ...[
+                          _buildSummary(exams, isWide: isWide),
+                          const SizedBox(height: 16),
+                          _buildSearch(controller),
+                          const SizedBox(height: 12),
+                          _buildFilters(controller),
+                          const SizedBox(height: 10),
+                          _buildBatchFilter(
+                            tData.batch,
+                            activeBatch,
+                            controller,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
 
                         Expanded(
-                          child: _buildExamList(visibleExams, isWide: isWide),
+                          child: _buildExamList(
+                            visibleExams,
+                            controller,
+                            isWide: isWide,
+                          ),
                         ),
                       ],
                     ),
@@ -136,9 +354,9 @@ class TeacherExamsScreen extends StatelessWidget {
                 },
               );
             },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -161,18 +379,23 @@ class TeacherExamsScreen extends StatelessWidget {
 
     if (isWide) {
       return Row(
-        children: [
-          Expanded(child: cards[0]),
-          const SizedBox(width: 12),
-          Expanded(child: cards[1]),
-        ],
+        children: cards
+            .map(
+              (c) => Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: c,
+                ),
+              ),
+            )
+            .toList(),
       );
     }
 
     return Row(
       children: [
         Expanded(child: cards[0]),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(child: cards[1]),
       ],
     );
@@ -189,44 +412,46 @@ class TeacherExamsScreen extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            height: 40,
-            width: 40,
+            padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
               color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: AppColors.primary, size: 20),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.text,
-                  ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
                 ),
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.text,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -234,74 +459,80 @@ class TeacherExamsScreen extends StatelessWidget {
   }
 
   Widget _buildSearch(TeacherExamController controller) {
-    return TextField(
-      controller: controller.searchController,
-      onChanged: controller.setSearch,
-      decoration: InputDecoration(
-        hintText: 'Search exam by name or ID',
-        prefixIcon: const Icon(Icons.search_rounded),
-        suffixIcon: controller.search.isNotEmpty
-            ? IconButton(
-                onPressed: controller.clearSearch,
-                icon: const Icon(Icons.close),
-              )
-            : null,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF93C5FD), width: 1.4),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 13,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: TextField(
+        controller: controller.searchController,
+        onChanged: controller.setSearch,
+        decoration: InputDecoration(
+          hintText: "Search exams by name or ID...",
+          hintStyle: const TextStyle(
+            fontSize: 13,
+            color: AppColors.textSecondary,
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            size: 20,
+            color: AppColors.textSecondary,
+          ),
+          suffixIcon: controller.search.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPressed: controller.clearSearch,
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
         ),
       ),
     );
   }
 
   Widget _buildFilters(TeacherExamController controller) {
-    final filters = ["All", "Active", "Upcoming", "Completed"];
+    final filters = ['All', 'Active', 'Upcoming', 'Completed'];
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
       child: Row(
-        children: filters.map((filter) {
-          final selected = controller.selectedFilter == filter;
+        children: filters.map((f) {
+          final isSelected = controller.selectedFilter == f;
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () {
-                controller.setFilter(filter);
-              },
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => controller.setFilter(f),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 9,
+                  horizontal: 14,
+                  vertical: 7,
                 ),
                 decoration: BoxDecoration(
-                  color: selected ? AppColors.primary : Colors.white,
+                  color: isSelected ? AppColors.primary : Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: selected ? AppColors.primary : AppColors.border,
+                    color: isSelected ? AppColors.primary : AppColors.border,
                   ),
                 ),
                 child: Text(
-                  filter,
+                  f,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? Colors.white : const Color(0xFF475569),
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected ? Colors.white : AppColors.textSecondary,
                   ),
                 ),
               ),
@@ -317,53 +548,92 @@ class TeacherExamsScreen extends StatelessWidget {
     String activeBatch,
     TeacherExamController controller,
   ) {
-    final items = <String>{
+    controller.normalizeBatch(batches);
+
+    final all = [
       'All Batches',
       ...batches.map((e) => e.trim()).where((e) => e.isNotEmpty),
-    }.toList();
+    ];
 
-    return DropdownButtonFormField<String>(
-      value: items.contains(activeBatch) ? activeBatch : 'All Batches',
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: 'Batch',
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: all.map((batch) {
+          final isSelected = activeBatch == batch;
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => controller.setBatch(batch),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primarySoft
+                      : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected ? AppColors.primary : AppColors.border,
+                  ),
+                ),
+                child: Text(
+                  batch,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
-      items: items
-          .map(
-            (batch) =>
-                DropdownMenuItem<String>(value: batch, child: Text(batch)),
-          )
-          .toList(),
-      onChanged: (value) {
-        if (value != null) {
-          controller.setBatch(value);
-        }
-      },
     );
   }
 
-  Widget _buildExamList(List<ExamModel> exams, {required bool isWide}) {
+  Widget _buildExamList(
+    List<ExamModel> exams,
+    TeacherExamController controller, {
+    required bool isWide,
+  }) {
     if (exams.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.assignment_outlined,
-              size: 50,
-              color: AppColors.textMuted,
-            ),
-            SizedBox(height: 12),
-            Text(
-              'No exams found',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF475569),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
               ),
+              child: const Icon(
+                Icons.assignment_outlined,
+                size: 38,
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              "No Exams Found",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.text,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              "No exams match your current filter",
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -374,15 +644,15 @@ class TeacherExamsScreen extends StatelessWidget {
       return GridView.builder(
         padding: const EdgeInsets.only(bottom: 12),
         physics: const BouncingScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 560,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 1.65,
+          mainAxisExtent: 320,
         ),
         itemCount: exams.length,
         itemBuilder: (context, index) {
-          return _buildExamCard(exams[index], context);
+          return _buildExamCard(exams[index], controller, context);
         },
       );
     }
@@ -393,141 +663,231 @@ class TeacherExamsScreen extends StatelessWidget {
       itemCount: exams.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        return _buildExamCard(exams[index], context);
+        return _buildExamCard(exams[index], controller, context);
       },
     );
   }
 
-  Widget _buildExamCard(ExamModel exam, BuildContext context) {
+  Widget _buildExamCard(
+    ExamModel exam,
+    TeacherExamController controller,
+    BuildContext context,
+  ) {
     final status = exam.status;
+    final isSelected = controller.selectedExamIds.contains(exam.examId);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A0F172A),
-            blurRadius: 10,
-            offset: Offset(0, 3),
+    return InkWell(
+      onLongPress: () {
+        if (!controller.isSelectionMode) {
+          controller.toggleSelectionMode();
+        }
+        controller.toggleExamSelection(exam.examId);
+      },
+      onTap: () {
+        if (controller.isSelectionMode) {
+          controller.toggleExamSelection(exam.examId);
+        }
+      },
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+            width: isSelected ? 2 : 1,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: 44,
-                width: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A0F172A),
+              blurRadius: 10,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (controller.isSelectionMode) ...[
+                  Checkbox(
+                    value: isSelected,
+                    activeColor: AppColors.primary,
+                    onChanged: (_) =>
+                        controller.toggleExamSelection(exam.examId),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Container(
+                  height: 44,
+                  width: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.assignment_rounded,
+                    color: AppColors.primary,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.assignment_rounded,
-                  color: AppColors.primary,
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        exam.examName.isNotEmpty
+                            ? exam.examName
+                            : "Untitled Exam",
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          height: 1.2,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.text,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        exam.examId,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: 8),
+                _statusBadge(status),
+                if (!controller.isSelectionMode)
+                  PopupMenuButton<String>(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    icon: const Icon(
+                      Icons.more_vert,
+                      size: 20,
+                      color: Color(0xFF64748B),
+                    ),
+                    onSelected: (val) {
+                      if (val == 'details') {
+                        Get.toNamed(
+                          AppRoutes.teacherExamDetails,
+                          arguments: exam,
+                        );
+                      } else if (val == 'delete') {
+                        _deleteExams(context, [exam]);
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(
+                        value: 'details',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 18,
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(width: 8),
+                            Text('View Details'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete_outline,
+                              size: 18,
+                              color: Color(0xFFEF4444),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Delete Exam',
+                              style: TextStyle(
+                                color: Color(0xFFEF4444),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 13),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            const SizedBox(height: 12),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _compactInfoChip(Icons.calendar_today_outlined, exam.examDate),
+                _compactInfoChip(
+                  Icons.access_time_rounded,
+                  "${exam.startTime} - ${exam.endTime}",
+                ),
+                _compactInfoChip(Icons.groups_outlined, exam.batch),
+                _compactInfoChip(
+                  Icons.quiz_outlined,
+                  "${exam.questionCount} Questions",
+                ),
+                _compactInfoChip(
+                  Icons.star_outline_rounded,
+                  "${exam.fullMarks} Marks",
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 13),
+
+            SizedBox(
+              width: double.infinity,
+              height: 42,
+              child: OutlinedButton(
+                onPressed: () {
+                  Get.toNamed(AppRoutes.teacherExamDetails, arguments: exam);
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  backgroundColor: const Color(0xFFFAFCFF),
+                  side: const BorderSide(color: Color(0xFFC7D2FE)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      exam.examName.isNotEmpty
-                          ? exam.examName
-                          : "Untitled Exam",
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        height: 1.2,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.text,
+                      "View Details",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      exam.examId,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: AppColors.textMuted,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    SizedBox(width: 6),
+                    Icon(Icons.arrow_forward_rounded, size: 17),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              _statusBadge(status),
-            ],
-          ),
-
-          const SizedBox(height: 13),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 12),
-
-          // Compact information grid. UI-only; values are unchanged.
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _compactInfoChip(Icons.calendar_today_outlined, exam.examDate),
-              _compactInfoChip(
-                Icons.access_time_rounded,
-                "${exam.startTime} - ${exam.endTime}",
-              ),
-              _compactInfoChip(Icons.groups_outlined, exam.batch),
-              _compactInfoChip(
-                Icons.quiz_outlined,
-                "${exam.questionCount} Questions",
-              ),
-              _compactInfoChip(
-                Icons.star_outline_rounded,
-                "${exam.fullMarks} Marks",
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 13),
-
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: OutlinedButton(
-              onPressed: () {
-                Get.toNamed(AppRoutes.teacherExamDetails, arguments: exam);
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                backgroundColor: const Color(0xFFFAFCFF),
-                side: const BorderSide(color: Color(0xFFC7D2FE)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(11),
-                ),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "View Details",
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                  ),
-                  SizedBox(width: 6),
-                  Icon(Icons.arrow_forward_rounded, size: 17),
-                ],
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -582,33 +942,22 @@ class TeacherExamsScreen extends StatelessWidget {
         break;
       default:
         bgColor = const Color(0xFFF1F5F9);
-        textColor = AppColors.textSecondary;
+        textColor = const Color(0xFF64748B);
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: textColor),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            status,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: textColor,
-            ),
-          ),
-        ],
+      child: Text(
+        status,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: textColor,
+        ),
       ),
     );
   }

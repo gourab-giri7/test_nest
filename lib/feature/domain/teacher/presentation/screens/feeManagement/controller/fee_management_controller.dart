@@ -313,3 +313,50 @@ class FeeManagementController extends ChangeNotifier {
     );
   }
 }
+
+class StudentFeeSheetController extends ChangeNotifier {
+  final FeeManagementController feeController;
+  final String studentId;
+
+  List<PaymentEntry> payments = [];
+  bool loadingPayments = true;
+  bool showPaymentForm = false;
+  bool isSubmitting = false;
+  String selectedMethod = 'cash';
+  DateTime selectedDate = DateTime.now();
+
+  StudentFeeSheetController({
+    required this.feeController,
+    required this.studentId,
+  }) {
+    loadPayments();
+  }
+
+  Future<void> loadPayments() async {
+    loadingPayments = true;
+    notifyListeners();
+    payments = await feeController.loadPaymentsForStudent(studentId);
+    loadingPayments = false;
+    notifyListeners();
+  }
+
+  void setShowPaymentForm(bool show) {
+    showPaymentForm = show;
+    notifyListeners();
+  }
+
+  void setSelectedMethod(String method) {
+    selectedMethod = method;
+    notifyListeners();
+  }
+
+  void setSelectedDate(DateTime date) {
+    selectedDate = date;
+    notifyListeners();
+  }
+
+  void setSubmitting(bool submitting) {
+    isSubmitting = submitting;
+    notifyListeners();
+  }
+}

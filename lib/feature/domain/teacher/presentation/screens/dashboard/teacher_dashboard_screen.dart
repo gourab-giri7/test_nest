@@ -10,6 +10,7 @@ import 'package:test_nest/feature/domain/common/presentation/screen/login/contro
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/allStudents/all_students_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/batches/my_batches_screen.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/dashboard/controller/dasboard_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/exams/teacher_exam_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/feeManagement/controller/fee_management_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/feeManagement/fee_management_screen.dart';
@@ -47,7 +48,6 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
   static const double _maxContentWidth = 680;
 
-  int _currentNavIndex = 0;
   late final PageController _pageController;
 
   Stream<QuerySnapshot<Map<String, dynamic>>>? _studentsStream;
@@ -86,7 +86,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _currentNavIndex);
+    _pageController = PageController();
 
     if (teacherData == null) {
       final teacherString = pref.getString("teacherData");
@@ -111,8 +111,9 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
   /// Smoothly slides the PageView to the selected bottom-nav tab.
   void _switchTab(int index) {
-    if (_currentNavIndex == index) return;
-    setState(() => _currentNavIndex = index);
+    final controller = context.read<DasboardController>();
+    if (controller.currentNavIndex == index) return;
+    controller.switchTab(index);
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 280),
@@ -128,11 +129,12 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     }
 
     final isFeeEnabled = tData.feeTrackingEnabled != false;
+    final currentNavIndex = context.watch<DasboardController>().currentNavIndex;
 
     return PopScope(
-      canPop: _currentNavIndex == 0,
+      canPop: currentNavIndex == 0,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _currentNavIndex != 0) {
+        if (!didPop && currentNavIndex != 0) {
           _switchTab(0);
         }
       },
@@ -142,8 +144,9 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           controller: _pageController,
           physics: const BouncingScrollPhysics(),
           onPageChanged: (index) {
-            if (_currentNavIndex != index) {
-              setState(() => _currentNavIndex = index);
+            final controller = context.read<DasboardController>();
+            if (controller.currentNavIndex != index) {
+              controller.switchTab(index);
             }
           },
           children: [
@@ -170,7 +173,11 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
             ),
           ],
         ),
-        bottomNavigationBar: _buildBottomNav(context, isFeeEnabled),
+        bottomNavigationBar: _buildBottomNav(
+          context,
+          isFeeEnabled,
+          currentNavIndex,
+        ),
       ),
     );
   }
@@ -311,6 +318,24 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              IconButton(
+                tooltip: 'Profile',
+                onPressed: () => Get.toNamed(AppRoutes.teacherProfile),
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  minimumSize: const Size(34, 34),
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                icon: const Icon(
+                  Icons.person_outline_rounded,
+                  size: 19,
+                  color: _ink,
+                ),
+              ),
+              const SizedBox(width: 6),
               IconButton(
                 tooltip: 'Create Exam',
                 onPressed: () => Get.toNamed(AppRoutes.teacherCreateExam),
@@ -512,12 +537,17 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
               children: [
                 Icon(icon, size: 12.5, color: Colors.white.withOpacity(0.85)),
                 const SizedBox(width: 4),
-                Text(
-                  '$value',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '$value',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -927,7 +957,11 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
   // ── Persistent Sliding Bottom Navigation Bar ─────────────────────────────
 
-  Widget _buildBottomNav(BuildContext context, bool isFeeEnabled) {
+  Widget _buildBottomNav(
+    BuildContext context,
+    bool isFeeEnabled,
+    int currentNavIndex,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: _surface,
@@ -947,18 +981,21 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
             children: [
               _navItem(
                 index: 0,
+                currentNavIndex: currentNavIndex,
                 icon: Icons.dashboard_rounded,
                 label: 'Home',
                 onTap: () => _switchTab(0),
               ),
               _navItem(
                 index: 1,
+                currentNavIndex: currentNavIndex,
                 icon: Icons.people_alt_rounded,
                 label: 'Students',
                 onTap: () => _switchTab(1),
               ),
               _navItem(
                 index: 2,
+                currentNavIndex: currentNavIndex,
                 icon: Icons.assignment_rounded,
                 label: 'Exams',
                 onTap: () => _switchTab(2),
@@ -966,6 +1003,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
               if (isFeeEnabled)
                 _navItem(
                   index: 3,
+                  currentNavIndex: currentNavIndex,
                   icon: Icons.account_balance_wallet_rounded,
                   label: 'Fees',
                   onTap: () => _switchTab(3),
@@ -973,16 +1011,18 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
               else
                 _navItem(
                   index: 3,
+                  currentNavIndex: currentNavIndex,
                   icon: Icons.groups_rounded,
                   label: 'Batches',
                   onTap: () => _switchTab(3),
                 ),
               _navItem(
                 index: 4,
-                icon: Icons.logout_rounded,
-                label: 'Sign Out',
+                currentNavIndex: currentNavIndex,
+                icon: Icons.person_rounded,
+                label: 'Profile',
                 isAction: true,
-                onTap: () => _showLogoutDialog(context),
+                onTap: () => Get.toNamed(AppRoutes.teacherProfile),
               ),
             ],
           ),
@@ -993,12 +1033,13 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
   Widget _navItem({
     required int index,
+    required int currentNavIndex,
     required IconData icon,
     required String label,
     required VoidCallback onTap,
     bool isAction = false,
   }) {
-    final isSelected = !isAction && _currentNavIndex == index;
+    final isSelected = !isAction && currentNavIndex == index;
     final activeColor = isAction ? AppColors.danger : AppColors.primary;
 
     return Expanded(

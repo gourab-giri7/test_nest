@@ -3,6 +3,8 @@ abstract class AppRoutes {
   static const splash = '/';
   static const roleSelection = '/role-selection';
   static const login = '/login';
+  static const aboutApp = '/about-app';
+  static const privacyPolicy = '/privacy-policy';
 
   // Student Auth & Onboarding
   static const studentSignup = '/student/signup';
@@ -11,6 +13,7 @@ abstract class AppRoutes {
 
   // Student Main
   static const studentDashboard = '/student/dashboard';
+  static const studentProfile = '/student/profile';
   static const studentExamHistory = '/student/exam-history';
   static const studentExamDetails = '/student/exam-details';
   static const studentTakeExam = '/student/take-exam';
@@ -22,6 +25,7 @@ abstract class AppRoutes {
 
   // Teacher Main
   static const teacherDashboard = '/teacher/dashboard';
+  static const teacherProfile = '/teacher/profile';
   static const teacherAllStudents = '/teacher/students';
   static const teacherAddStudent = '/teacher/add-student';
   static const teacherStudentDetails = '/teacher/student-details';

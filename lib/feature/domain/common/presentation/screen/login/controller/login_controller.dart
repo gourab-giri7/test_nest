@@ -133,104 +133,57 @@ class LoginController extends ChangeNotifier {
           );
         }
       } else {
-        // Student login
-        final teacherid = teacherId.text.trim();
+        // Student login via Firebase Authentication (Email and Password only)
+        final res = await StudentLoginFeature.studentEmailLogin(
+          userId,
+          userpassword,
+        );
+        if (!context.mounted) return;
 
-        // If user is explicitly using legacy student code without password
-        if (useLegacyStudentLogin ||
-            (teacherid.isNotEmpty && userpassword.isEmpty)) {
-          final result = await StudentLoginFeature.studentlogin(
-            teacherid,
-            userId,
-          );
-          if (!context.mounted) return;
+        final status = res['status'] as int;
+        if (status == 200) {
+          final state = res['state'] as String;
+          ispressed = false;
+          notifyListeners();
 
-          if (result == 200) {
-            final resolvedTeacherId =
-                (studentData?.teacherId.isNotEmpty == true)
-                ? studentData!.teacherId
-                : teacherid;
-            await saveStudentSession(resolvedTeacherId, userId);
+          if (state == 'approved') {
             isLogined = true;
             role = "student";
-            ispressed = false;
             notifyListeners();
             customSnackbar(
               context: context,
-              message: "Login successful",
+              message: "Welcome back!",
               color: Colors.green,
               ico: Icons.login,
             );
             Get.offAllNamed(AppRoutes.studentDashboard);
-            return;
-          } else if (result == 404) {
-            customSnackbar(
-              context: context,
-              message: "Teacher ID or Student ID not found",
-              color: Colors.red,
-              ico: Icons.error,
+          } else if (state == 'pending') {
+            Get.offAllNamed(
+              AppRoutes.studentRequestSent,
+              arguments: {
+                'batchName': res['batchName'] ?? 'Your Batch',
+                'teacherName': res['teacherName'] ?? 'Your Teacher',
+              },
             );
           } else {
-            customSnackbar(
-              context: context,
-              message: "Something went wrong, please try again later",
-              color: Colors.orange,
-              ico: Icons.info,
-            );
+            // 'needs_join'
+            Get.offAllNamed(AppRoutes.studentJoinTeacher);
           }
-        } else {
-          // Standard student login via Firebase Authentication (email & password)
-          final res = await StudentLoginFeature.studentEmailLogin(
-            userId,
-            userpassword,
+          return;
+        } else if (status == 404) {
+          customSnackbar(
+            context: context,
+            message: res['message'] ?? "Invalid email or password",
+            color: Colors.red,
+            ico: Icons.error,
           );
-          if (!context.mounted) return;
-
-          final status = res['status'] as int;
-          if (status == 200) {
-            final state = res['state'] as String;
-            ispressed = false;
-            notifyListeners();
-
-            if (state == 'approved') {
-              isLogined = true;
-              role = "student";
-              notifyListeners();
-              customSnackbar(
-                context: context,
-                message: "Welcome back!",
-                color: Colors.green,
-                ico: Icons.login,
-              );
-              Get.offAllNamed(AppRoutes.studentDashboard);
-            } else if (state == 'pending') {
-              Get.offAllNamed(
-                AppRoutes.studentRequestSent,
-                arguments: {
-                  'batchName': res['batchName'] ?? 'Your Batch',
-                  'teacherName': res['teacherName'] ?? 'Your Teacher',
-                },
-              );
-            } else {
-              // 'needs_join'
-              Get.offAllNamed(AppRoutes.studentJoinTeacher);
-            }
-            return;
-          } else if (status == 404) {
-            customSnackbar(
-              context: context,
-              message: res['message'] ?? "Invalid email or password",
-              color: Colors.red,
-              ico: Icons.error,
-            );
-          } else {
-            customSnackbar(
-              context: context,
-              message: res['message'] ?? "Login failed. Please try again.",
-              color: Colors.red,
-              ico: Icons.error,
-            );
-          }
+        } else {
+          customSnackbar(
+            context: context,
+            message: res['message'] ?? "Login failed. Please try again.",
+            color: Colors.red,
+            ico: Icons.error,
+          );
         }
       }
     } catch (e) {

@@ -545,23 +545,10 @@ class _StudentFeeBottomSheet extends StatefulWidget {
 }
 
 class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
-  List<PaymentEntry> _payments = [];
-  bool _loadingPayments = true;
-  bool _showPaymentForm = false;
-  bool _isSubmitting = false;
-
   // Payment form controllers
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   final _receiptController = TextEditingController();
-  String _selectedMethod = 'cash';
-  DateTime _selectedDate = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPayments();
-  }
 
   @override
   void dispose() {
@@ -571,75 +558,78 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
     super.dispose();
   }
 
-  Future<void> _loadPayments() async {
-    setState(() => _loadingPayments = true);
-    _payments = await widget.controller.loadPaymentsForStudent(
-      widget.status.student.id,
-    );
-    if (mounted) setState(() => _loadingPayments = false);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      maxChildSize: 0.95,
-      minChildSize: 0.4,
-      builder: (_, sc) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              // Handle
-              Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 4),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
+    return ChangeNotifierProvider<StudentFeeSheetController>(
+      create: (_) => StudentFeeSheetController(
+        feeController: widget.controller,
+        studentId: widget.status.student.id,
+      ),
+      child: Consumer<StudentFeeSheetController>(
+        builder: (context, sheetCtrl, _) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            maxChildSize: 0.95,
+            minChildSize: 0.4,
+            builder: (_, sc) {
+              return Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
-              ),
-              Expanded(
-                child: ListView(
-                  controller: sc,
-                  padding: const EdgeInsets.all(20),
+                child: Column(
                   children: [
-                    _buildHeader(),
-                    const SizedBox(height: 16),
-                    _buildFeeOverview(),
-                    const SizedBox(height: 16),
-                    if (_showPaymentForm) _buildPaymentForm(),
-                    if (!_showPaymentForm)
-                      ElevatedButton.icon(
-                        onPressed: () =>
-                            setState(() => _showPaymentForm = true),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Record Payment'),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(46),
-                        ),
-                      ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Payment History',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                    // Handle
+                    Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 4),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    _buildPaymentHistory(),
+                    Expanded(
+                      child: ListView(
+                        controller: sc,
+                        padding: const EdgeInsets.all(20),
+                        children: [
+                          _buildHeader(),
+                          const SizedBox(height: 16),
+                          _buildFeeOverview(),
+                          const SizedBox(height: 16),
+                          if (sheetCtrl.showPaymentForm)
+                            _buildPaymentForm(context, sheetCtrl),
+                          if (!sheetCtrl.showPaymentForm)
+                            ElevatedButton.icon(
+                              onPressed: () =>
+                                  sheetCtrl.setShowPaymentForm(true),
+                              icon: const Icon(Icons.add),
+                              label: const Text('Record Payment'),
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(46),
+                              ),
+                            ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Payment History',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          _buildPaymentHistory(sheetCtrl),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -758,7 +748,10 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
     );
   }
 
-  Widget _buildPaymentForm() {
+  Widget _buildPaymentForm(
+    BuildContext context,
+    StudentFeeSheetController sheetCtrl,
+  ) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -794,11 +787,11 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
             onTap: () async {
               final picked = await showDatePicker(
                 context: context,
-                initialDate: _selectedDate,
+                initialDate: sheetCtrl.selectedDate,
                 firstDate: DateTime(2020),
                 lastDate: DateTime.now(),
               );
-              if (picked != null) setState(() => _selectedDate = picked);
+              if (picked != null) sheetCtrl.setSelectedDate(picked);
             },
             child: InputDecorator(
               decoration: const InputDecoration(
@@ -806,7 +799,7 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
                 prefixIcon: Icon(Icons.calendar_today, size: 18),
               ),
               child: Text(
-                '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                '${sheetCtrl.selectedDate.day}/${sheetCtrl.selectedDate.month}/${sheetCtrl.selectedDate.year}',
                 style: const TextStyle(fontSize: 14),
               ),
             ),
@@ -815,7 +808,7 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
 
           // Method
           DropdownButtonFormField<String>(
-            value: _selectedMethod,
+            value: sheetCtrl.selectedMethod,
             decoration: const InputDecoration(labelText: 'Payment Method'),
             items: PaymentEntry.methodOptions
                 .map(
@@ -826,7 +819,7 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
                 )
                 .toList(),
             onChanged: (v) {
-              if (v != null) setState(() => _selectedMethod = v);
+              if (v != null) sheetCtrl.setSelectedMethod(v);
             },
           ),
           const SizedBox(height: 10),
@@ -855,17 +848,19 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _isSubmitting
+                  onPressed: sheetCtrl.isSubmitting
                       ? null
-                      : () => setState(() => _showPaymentForm = false),
+                      : () => sheetCtrl.setShowPaymentForm(false),
                   child: const Text('Cancel'),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submitPayment,
-                  child: _isSubmitting
+                  onPressed: sheetCtrl.isSubmitting
+                      ? null
+                      : () => _submitPayment(context, sheetCtrl),
+                  child: sheetCtrl.isSubmitting
                       ? const SizedBox(
                           width: 20,
                           height: 20,
@@ -884,7 +879,10 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
     );
   }
 
-  Future<void> _submitPayment() async {
+  Future<void> _submitPayment(
+    BuildContext context,
+    StudentFeeSheetController sheetCtrl,
+  ) async {
     final amountText = _amountController.text.trim();
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
@@ -892,14 +890,14 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    sheetCtrl.setSubmitting(true);
 
     final success = await widget.controller.recordPayment(
       studentId: widget.status.student.id,
       studentName: widget.status.student.name,
       amount: amount,
-      paidAt: _selectedDate,
-      method: _selectedMethod,
+      paidAt: sheetCtrl.selectedDate,
+      method: sheetCtrl.selectedMethod,
       note: _noteController.text.trim().isNotEmpty
           ? _noteController.text.trim()
           : null,
@@ -909,18 +907,22 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
       amountDue: widget.status.amountDue,
     );
 
-    if (!mounted) return;
-    setState(() => _isSubmitting = false);
+    sheetCtrl.setSubmitting(false);
 
     if (success) {
       widget.onPaymentRecorded();
+      await sheetCtrl.loadPayments();
+      sheetCtrl.setShowPaymentForm(false);
+      _amountController.clear();
+      _noteController.clear();
+      _receiptController.clear();
     } else {
       widget.onError('Failed to record payment. Please try again.');
     }
   }
 
-  Widget _buildPaymentHistory() {
-    if (_loadingPayments) {
+  Widget _buildPaymentHistory(StudentFeeSheetController sheetCtrl) {
+    if (sheetCtrl.loadingPayments) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(16),
@@ -929,7 +931,7 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
       );
     }
 
-    if (_payments.isEmpty) {
+    if (sheetCtrl.payments.isEmpty) {
       return const Center(
         child: Text(
           'No payments recorded for this month.',
@@ -939,7 +941,9 @@ class _StudentFeeBottomSheetState extends State<_StudentFeeBottomSheet> {
     }
 
     return Column(
-      children: _payments.map((p) => _PaymentEntryCard(payment: p)).toList(),
+      children: sheetCtrl.payments
+          .map((p) => _PaymentEntryCard(payment: p))
+          .toList(),
     );
   }
 

@@ -8,7 +8,7 @@ import 'package:test_nest/feature/domain/teacher/presentation/screens/studentDet
 import 'package:test_nest/model/Q&A_model.dart';
 import 'package:test_nest/model/exam_model.dart';
 
-class StudentExamDetailsScreen extends StatefulWidget {
+class StudentExamDetailsScreen extends StatelessWidget {
   final StudentModel student;
   final StudentExamSubmissionSummary summary;
   final String? teacherId;
@@ -20,152 +20,106 @@ class StudentExamDetailsScreen extends StatefulWidget {
     this.teacherId,
   });
 
-  @override
-  State<StudentExamDetailsScreen> createState() =>
-      _StudentExamDetailsScreenState();
-}
+  Future<ExamModel> _loadExamDetails() async {
+    final tid =
+        teacherId ??
+        (teacherData?.id.trim().isNotEmpty == true
+            ? teacherData!.id.trim()
+            : '');
 
-class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
-  ExamModel? _examModel;
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.summary.examModel != null) {
-      _examModel = widget.summary.examModel;
-    } else {
-      _loadExamDetails();
+    if (tid.isEmpty) {
+      throw Exception('Teacher session is missing.');
     }
-  }
 
-  Future<void> _loadExamDetails() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    final doc = await FirebaseFirestore.instance
+        .collection('user')
+        .doc(tid)
+        .collection('exams')
+        .doc(summary.examId)
+        .get();
 
-    try {
-      final tid =
-          widget.teacherId ??
-          (teacherData?.id.trim().isNotEmpty == true
-              ? teacherData!.id.trim()
-              : '');
-
-      if (tid.isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Teacher session is missing.';
-        });
-        return;
-      }
-
-      final doc = await FirebaseFirestore.instance
-          .collection('user')
-          .doc(tid)
-          .collection('exams')
-          .doc(widget.summary.examId)
-          .get();
-
-      if (!doc.exists || doc.data() == null) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Exam details not found.';
-        });
-        return;
-      }
-
-      final parsed = ExamModel.fromJson(doc.data()!);
-      if (mounted) {
-        setState(() {
-          _examModel = parsed;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Unable to load exam questions.';
-        });
-      }
+    if (!doc.exists || doc.data() == null) {
+      throw Exception('Exam details not found.');
     }
+
+    return ExamModel.fromJson(doc.data()!);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        appBar: _buildAppBar(),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(color: Color(0xFF4F46E5)),
-              const SizedBox(height: 16),
-              Text(
-                'Loading exam questions...',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[700],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+    if (summary.examModel != null) {
+      return _buildContent(context, summary.examModel!);
     }
 
-    if (_errorMessage != null || _examModel == null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        appBar: _buildAppBar(),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.error_outline_rounded,
-                  size: 48,
-                  color: Color(0xFFEF4444),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _errorMessage ?? 'Unable to display exam.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _loadExamDetails,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4F46E5),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+    return FutureBuilder<ExamModel>(
+      future: _loadExamDetails(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFF8FAFC),
+            appBar: _buildAppBar(),
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(color: Color(0xFF4F46E5)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading exam questions...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
                     ),
                   ),
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('Try Again'),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ),
-      );
-    }
+          );
+        }
 
-    final exam = _examModel!;
-    final summary = widget.summary;
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFF8FAFC),
+            appBar: _buildAppBar(),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      size: 48,
+                      color: Color(0xFFEF4444),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      snapshot.error?.toString().replaceAll(
+                            'Exception: ',
+                            '',
+                          ) ??
+                          'Unable to display exam.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return _buildContent(context, snapshot.data!);
+      },
+    );
+  }
+
+  Widget _buildContent(BuildContext context, ExamModel exam) {
     final subData = summary.submissionData;
     final questions = exam.questions;
 
@@ -354,7 +308,7 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
             children: [
               Expanded(
                 child: Text(
-                  widget.summary.examName,
+                  summary.examName,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -381,7 +335,7 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      widget.summary.status,
+                      summary.status,
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -395,7 +349,7 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Exam ID: ${widget.summary.examId}',
+            'Exam ID: ${summary.examId}',
             style: TextStyle(
               fontSize: 13,
               color: Colors.white.withValues(alpha: 0.85),
@@ -418,7 +372,7 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
                     ),
                   ),
                   Text(
-                    widget.student.name,
+                    student.name,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -438,7 +392,7 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
                     ),
                   ),
                   Text(
-                    '${widget.summary.score} / ${widget.summary.fullMarks}',
+                    '${summary.score} / ${summary.fullMarks}',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
@@ -482,21 +436,16 @@ class _StudentExamDetailsScreenState extends State<StudentExamDetailsScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          _infoRow('Date', widget.summary.examDate),
-          _infoRow(
-            'Time',
-            '${widget.summary.startTime} - ${widget.summary.endTime}',
-          ),
+          _infoRow('Date', summary.examDate),
+          _infoRow('Time', '${summary.startTime} - ${summary.endTime}'),
           _infoRow(
             'Batch',
-            widget.summary.batch.isEmpty
-                ? widget.student.batch
-                : widget.summary.batch,
+            summary.batch.isEmpty ? student.batch : summary.batch,
           ),
-          _infoRow('Full Marks', widget.summary.fullMarks),
-          _infoRow('Score Obtained', widget.summary.score),
+          _infoRow('Full Marks', summary.fullMarks),
+          _infoRow('Score Obtained', summary.score),
           _infoRow('Submission Time', submissionDateStr),
-          _infoRow('Status', widget.summary.status, isStatus: true),
+          _infoRow('Status', summary.status, isStatus: true),
         ],
       ),
     );

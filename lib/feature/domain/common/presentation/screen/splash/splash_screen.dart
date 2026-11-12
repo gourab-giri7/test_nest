@@ -21,6 +21,8 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
 
+  bool _viewingAbout = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,9 +55,24 @@ class _SplashScreenState extends State<SplashScreen>
 
     _animController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        _navigateNext();
+        if (!_viewingAbout) {
+          _navigateNext();
+        }
       }
     });
+  }
+
+  void _openAbout() async {
+    _viewingAbout = true;
+    _animController.stop();
+    await Get.toNamed(AppRoutes.aboutApp);
+    _viewingAbout = false;
+    if (!mounted) return;
+    if (_animController.isCompleted) {
+      _navigateNext();
+    } else {
+      _animController.forward();
+    }
   }
 
   void _navigateNext() {
@@ -144,6 +161,31 @@ class _SplashScreenState extends State<SplashScreen>
               child: _FloatingBadge(
                 icon: Icons.auto_stories_rounded,
                 angle: -0.15,
+              ),
+            ),
+
+            // Top-right Info / About Button
+            Positioned(
+              top: 48,
+              right: 20,
+              child: SafeArea(
+                child: IconButton(
+                  tooltip: 'About App',
+                  icon: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withOpacity(0.12)),
+                    ),
+                    child: const Icon(
+                      Icons.info_outline_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  onPressed: _openAbout,
+                ),
               ),
             ),
             Positioned(

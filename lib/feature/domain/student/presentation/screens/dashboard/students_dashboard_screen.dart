@@ -10,19 +10,15 @@ import 'package:test_nest/core/services/exam_firestore_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/login/controller/login_controller.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/dashboard/controller/student_dashboard_controller.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/examHistory/controller/exam_controller.dart';
 import 'package:test_nest/main.dart';
 import 'package:test_nest/model/exam_model.dart';
 import 'package:test_nest/routes/app_routes.dart';
 
-class StudentDashboardScreen extends StatefulWidget {
+class StudentDashboardScreen extends StatelessWidget {
   const StudentDashboardScreen({super.key});
 
-  @override
-  State<StudentDashboardScreen> createState() => _StudentDashboardScreenState();
-}
-
-class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   // ── Modern Compact Design Tokens ─────────────────────────────────────────
   static const Color _ink = Color(0xFF0F172A);
   static const Color _muted = Color(0xFF64748B);
@@ -35,45 +31,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   static const Color _off = Color(0xFF94A3B8);
 
   static const double _maxContentWidth = 640;
-
-  Stream<List<ExamModel>>? _examStream;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadStudentData();
-    _openExamStream();
-  }
-
-  void _openExamStream() {
-    try {
-      if (studentData != null) {
-        final active = studentData!.activeEnrollments;
-        if (active.isNotEmpty) {
-          _examStream = ExamFirestoreService.getMultiTeacherExamsStream(
-            enrollments: active,
-          );
-        } else {
-          _examStream = Stream.value(const <ExamModel>[]);
-        }
-      }
-    } catch (e) {
-      log('Could not open exam stream: $e');
-    }
-  }
-
-  void _loadStudentData() {
-    if (studentData == null) {
-      final data = pref.getString("studentData");
-      if (data != null && data.isNotEmpty) {
-        try {
-          studentData = StudentData.fromJson(jsonDecode(data));
-        } catch (e) {
-          log('Error parsing studentData: $e');
-        }
-      }
-    }
-  }
 
   // ── Navigation ───────────────────────────────────────────────────────────
 
@@ -103,11 +60,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       );
     }
 
+    final dashboardController = context.watch<StudentDashboardController>();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: StreamBuilder<List<ExamModel>>(
-          stream: _examStream,
+          stream: dashboardController.examStream,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               log('Dashboard exam stream error: ${snapshot.error}');
@@ -160,7 +119,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
                   children: [
-                    _buildHeader(sData),
+                    _buildHeader(context, sData),
                     const SizedBox(height: 14),
                     if (loading)
                       _skeleton(116, 18)
@@ -198,7 +157,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                         title: 'Exams didn’t load',
                         body: 'Check your connection and try again.',
                         action: TextButton(
-                          onPressed: () => setState(_openExamStream),
+                          onPressed: () => context
+                              .read<StudentDashboardController>()
+                              .retryExamStream(),
                           child: const Text('Try again'),
                         ),
                       )
@@ -243,7 +204,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
   // ── Compact Header ───────────────────────────────────────────────────────
 
-  Widget _buildHeader(StudentData sData) {
+  Widget _buildHeader(BuildContext context, StudentData sData) {
     final name = sData.name.trim();
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'S';
 
@@ -373,7 +334,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             ),
           ),
           IconButton(
-            onPressed: () => _showProfileSheet(context),
+            onPressed: () => Get.toNamed(AppRoutes.studentProfile),
+            tooltip: 'Profile',
             style: IconButton.styleFrom(
               backgroundColor: const Color(0xFFF8FAFC),
               minimumSize: const Size(36, 36),
@@ -707,9 +669,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       _QuickAction(
         icon: Icons.person_rounded,
         title: 'My profile',
-        subtitle: 'Account & logout',
+        subtitle: 'Account & settings',
         color: _warn,
-        onTap: () => _showProfileSheet(context),
+        onTap: () => Get.toNamed(AppRoutes.studentProfile),
       ),
       _QuickAction(
         icon: Icons.group_add_rounded,

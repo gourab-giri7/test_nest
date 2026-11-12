@@ -104,12 +104,31 @@ class StudentData {
   StudentEnrollment? getEnrollmentForTeacher(String? targetTeacherId) {
     final clean = targetTeacherId?.trim() ?? '';
     if (clean.isEmpty) {
-      return activeEnrollments.isNotEmpty ? activeEnrollments.first : null;
+      if (activeEnrollments.isNotEmpty) return activeEnrollments.first;
+      if (teacherId.trim().isNotEmpty) {
+        return StudentEnrollment(
+          teacherId: teacherId.trim(),
+          teacherName: teacherName.trim(),
+          batchId: batch.trim(),
+          batchName: batch.trim(),
+          studentId: id.trim(),
+        );
+      }
+      return null;
     }
     for (final e in enrollments) {
       if (e.teacherId.trim() == clean) {
         return e;
       }
+    }
+    if (teacherId.trim() == clean) {
+      return StudentEnrollment(
+        teacherId: teacherId.trim(),
+        teacherName: teacherName.trim(),
+        batchId: batch.trim(),
+        batchName: batch.trim(),
+        studentId: id.trim(),
+      );
     }
     return null;
   }

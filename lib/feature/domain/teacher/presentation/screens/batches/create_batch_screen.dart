@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 import 'package:test_nest/core/services/batch_and_join_code_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/batches/controller/batch_management_controller.dart';
 import 'package:test_nest/model/batch_model.dart';
 
 class CreateBatchScreen extends StatefulWidget {
@@ -23,10 +25,6 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
   final _descriptionController = TextEditingController();
   final _feeController = TextEditingController();
 
-  bool _feeTrackingEnabled = true;
-  bool _isLoading = false;
-  BatchModel? _createdBatch;
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -38,7 +36,7 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
     super.dispose();
   }
 
-  Future<void> _submitBatch() async {
+  Future<void> _submitBatch(BuildContext context, CreateBatchController controller) async {
     final tData = teacherData;
     if (tData == null) {
       customSnackbar(
@@ -50,8 +48,8 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
       return;
     }
 
-    if (!_formKey.currentState!.validate() || _isLoading) return;
-    setState(() => _isLoading = true);
+    if (!_formKey.currentState!.validate() || controller.isLoading) return;
+    controller.setLoading(true);
 
     try {
       final monthlyFee = double.tryParse(_feeController.text.trim()) ?? 0.0;
@@ -72,14 +70,12 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
             ? _descriptionController.text.trim()
             : null,
         monthlyFee: monthlyFee,
-        feeTrackingEnabled: _feeTrackingEnabled,
+        feeTrackingEnabled: controller.feeTrackingEnabled,
       );
 
-      setState(() {
-        _createdBatch = batch;
-      });
+      controller.setCreatedBatch(batch);
 
-      if (!mounted) return;
+      if (!context.mounted) return;
       customSnackbar(
         context: context,
         message: 'Batch created! Joining code: ${batch.activeJoinCode}',
@@ -87,7 +83,7 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
         ico: Icons.check_circle,
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       customSnackbar(
         context: context,
         message: 'Failed to create batch: $e',
@@ -95,11 +91,11 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
         ico: Icons.error,
       );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      controller.setLoading(false);
     }
   }
 
-  void _copyJoinCode(String code) {
+  void _copyJoinCode(BuildContext context, String code) {
     Clipboard.setData(ClipboardData(text: code));
     customSnackbar(
       context: context,
@@ -111,32 +107,39 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Create Batch'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded),
-          onPressed: () => Get.back(),
-        ),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: _createdBatch != null
-                  ? _buildSuccessView(_createdBatch!)
-                  : _buildCreateForm(),
+    return ChangeNotifierProvider<CreateBatchController>(
+      create: (_) => CreateBatchController(),
+      child: Consumer<CreateBatchController>(
+        builder: (context, controller, _) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            appBar: AppBar(
+              title: const Text('Create Batch'),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_rounded),
+                onPressed: () => Get.back(),
+              ),
             ),
-          ),
-        ),
+            body: SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: controller.createdBatch != null
+                        ? _buildSuccessView(controller.createdBatch as BatchModel)
+                        : _buildCreateForm(context, controller),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildCreateForm() {
+  Widget _buildCreateForm(BuildContext context, CreateBatchController controller) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -286,10 +289,10 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                   'Record student payments and track monthly dues',
                   style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                 ),
-                value: _feeTrackingEnabled,
+                value: controller.feeTrackingEnabled,
                 activeColor: const Color(0xFF4F46E5),
                 onChanged: (val) {
-                  setState(() => _feeTrackingEnabled = val);
+                  controller.setFeeTracking(val);
                 },
               ),
               const SizedBox(height: 24),
@@ -304,8 +307,8 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                onPressed: _isLoading ? null : _submitBatch,
-                child: _isLoading
+                onPressed: controller.isLoading ? null : () => _submitBatch(context, controller),
+                child: controller.isLoading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
@@ -414,7 +417,7 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                     ),
                     icon: const Icon(Icons.copy_rounded, size: 18),
                     label: const Text('Copy Joining Code'),
-                    onPressed: () => _copyJoinCode(batch.activeJoinCode),
+                    onPressed: () => _copyJoinCode(context, batch.activeJoinCode),
                   ),
                 ],
               ),

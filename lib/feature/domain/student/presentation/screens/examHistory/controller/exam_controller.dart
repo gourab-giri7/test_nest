@@ -388,7 +388,196 @@ class ExamController extends ChangeNotifier {
     _cachedStream = null;
     _cachedMultiStream = null;
     _cachedTeacherId = '';
+    searchQuery = '';
+    selectedTeacher = 'All Teachers';
+    profileErrorMessage = null;
+    isInitializing = true;
+    submissionStreams.clear();
     notifyListeners();
+  }
+
+  bool isInitializing = true;
+  StudentData? currentStudent;
+  Stream<List<ExamModel>>? historyStream;
+  String? profileErrorMessage;
+  String searchQuery = '';
+  String get selectedTeacher => _selectedTeacherFilter;
+  set selectedTeacher(String teacher) => setSelectedTeacher(teacher);
+  final Map<String, Stream<DocumentSnapshot<Map<String, dynamic>>>?> submissionStreams = {};
+
+  void setSearchQuery(String q) {
+    if (searchQuery != q) {
+      searchQuery = q;
+      notifyListeners();
+    }
+  }
+
+  void setSelectedTeacher(String teacher) {
+    if (_selectedTeacherFilter != teacher) {
+      _selectedTeacherFilter = teacher;
+      notifyListeners();
+    }
+  }
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>>? getSubmissionStream({
+    required String teacherId,
+    required String examId,
+    required String studentId,
+  }) {
+    final key = '${teacherId}_${examId}_$studentId';
+    return submissionStreams.putIfAbsent(
+      key,
+      () => ExamFirestoreService.submission(
+        teacherId,
+        examId,
+        studentId,
+      ).snapshots(),
+    );
+  }
+
+  Future<void> loadProfileAndStream({
+    StudentData? initialStudentData,
+    Stream<dynamic>? overrideStream,
+    bool forceRefresh = false,
+  }) async {
+    isInitializing = true;
+    profileErrorMessage = null;
+    submissionStreams.clear();
+    notifyListeners();
+
+    try {
+      StudentData? resolvedStudent = initialStudentData ?? studentData;
+
+      if (resolvedStudent == null ||
+          (resolvedStudent.teacherId.trim().isEmpty &&
+              resolvedStudent.enrollments.isEmpty)) {
+        resolvedStudent = await StudentData.restoreFromPreferences();
+      }
+
+      final hasTeacherOrEnrollment = resolvedStudent != null &&
+          ((resolvedStudent.id.trim().isNotEmpty &&
+                  resolvedStudent.teacherId.trim().isNotEmpty) ||
+              resolvedStudent.enrollments.isNotEmpty);
+
+      if (!hasTeacherOrEnrollment) {
+        currentStudent = null;
+        historyStream = null;
+        profileErrorMessage =
+            'Student profile or enrolled teacher was not found. '
+            'Please log in again to access your exam history.';
+        isInitializing = false;
+        notifyListeners();
+        return;
+      }
+
+      if (forceRefresh) {
+        refreshStream(teacherId: resolvedStudent.teacherId);
+      }
+
+      Stream<List<ExamModel>> rawStream;
+      if (overrideStream != null) {
+        rawStream = overrideStream.asyncMap((event) async {
+          if (event is QuerySnapshot<Map<String, dynamic>>) {
+            return event.docs.map((d) {
+              final data = Map<String, dynamic>.from(d.data());
+              if (!data.containsKey('exam_id') ||
+                  (data['exam_id']?.toString().trim().isEmpty ?? true)) {
+                try {
+                  data['exam_id'] = d.id;
+                } catch (_) {}
+              }
+              String? parentTeacherId;
+              try {
+                parentTeacherId = d.reference.parent.parent?.id;
+              } catch (_) {}
+              return ExamModel.fromJson(
+                data,
+                teacherId: parentTeacherId ?? (resolvedStudent?.teacherId ?? ''),
+                teacherName: resolvedStudent?.teacherName ?? '',
+              );
+            }).toList();
+          } else if (event is List<ExamModel>) {
+            return event;
+          }
+          return <ExamModel>[];
+        });
+      } else {
+        final enrollments = resolvedStudent.activeEnrollments.isNotEmpty
+            ? resolvedStudent.activeEnrollments
+            : (resolvedStudent.enrollments.isNotEmpty
+                ? resolvedStudent.enrollments
+                : [
+                    StudentEnrollment(
+                      teacherId: resolvedStudent.teacherId,
+                      teacherName: resolvedStudent.teacherName,
+                      batchId: resolvedStudent.batch,
+                      batchName: resolvedStudent.batch,
+                      studentId: resolvedStudent.id,
+                    ),
+                  ]);
+        rawStream = ExamFirestoreService.getMultiTeacherExamsStream(
+          enrollments: enrollments,
+        );
+      }
+
+      historyStream = _withInitialTimeout(
+        rawStream,
+        const Duration(seconds: 8),
+      );
+
+      currentStudent = resolvedStudent;
+      profileErrorMessage = null;
+      isInitializing = false;
+      notifyListeners();
+    } catch (e, stack) {
+      log('Error initializing ExamHistory: $e', stackTrace: stack);
+      profileErrorMessage =
+          'Failed to load student session. Please try logging in again.';
+      isInitializing = false;
+      notifyListeners();
+    }
+  }
+
+  static Stream<T> _withInitialTimeout<T>(Stream<T> source, Duration limit) {
+    late StreamController<T> controller;
+    StreamSubscription<T>? sub;
+    Timer? timer;
+
+    controller = StreamController<T>(
+      onListen: () {
+        timer = Timer(limit, () {
+          controller.addError(
+            TimeoutException(
+              'Loading exams took longer than expected. '
+              'Please check your internet connection or tap Refresh.',
+            ),
+          );
+        });
+        sub = source.listen(
+          (event) {
+            timer?.cancel();
+            timer = null;
+            controller.add(event);
+          },
+          onError: (e, s) {
+            timer?.cancel();
+            timer = null;
+            controller.addError(e, s);
+          },
+          onDone: () {
+            timer?.cancel();
+            timer = null;
+            controller.close();
+          },
+        );
+      },
+      onCancel: () {
+        timer?.cancel();
+        sub?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   @override

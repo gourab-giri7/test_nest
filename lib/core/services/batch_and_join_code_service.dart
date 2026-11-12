@@ -209,6 +209,125 @@ class BatchAndJoinCodeService {
     await batch.commit();
   }
 
+  /// Deletes a single batch or multiple batches permanently for a teacher.
+  /// - Revokes associated join codes
+  /// - Marks enrolled student records in users/{studentUid}/enrollments as removed
+  /// - Marks teacher students collection records for that batch as removed
+  /// - Removes the batch document from user/{teacherId}/batches/{batchId}
+  /// - Cleans up the teacherData.batch array
+  /// - Preserves historical exam submissions and fee payment records.
+  static Future<void> deleteBatches({
+    required String teacherId,
+    required List<BatchModel> batchesToDelete,
+  }) async {
+    if (batchesToDelete.isEmpty) return;
+
+    final teacherRef = _db.collection('user').doc(teacherId.trim());
+
+    for (final batchModel in batchesToDelete) {
+      final batchId = batchModel.id.trim();
+      final batchName = batchModel.name.trim();
+
+      // 1. Revoke active join code if present
+      if (batchModel.activeJoinCode.isNotEmpty) {
+        try {
+          await _db.collection('joinCodes').doc(batchModel.activeJoinCode.trim()).delete();
+        } catch (_) {}
+      }
+
+      // Also query any joinCodes pointing to this batchId
+      try {
+        final codesSnap = await _db
+            .collection('joinCodes')
+            .where('teacher_id', isEqualTo: teacherId)
+            .where('batch_id', isEqualTo: batchId)
+            .get();
+        for (final doc in codesSnap.docs) {
+          await doc.reference.delete();
+        }
+      } catch (_) {}
+
+      // 2. Find enrolled students in this teacher's student collection with this batch/batchId
+      try {
+        final studentsSnap = await teacherRef.collection('students').get();
+        final writeBatch = _db.batch();
+        int opCount = 0;
+
+        for (final doc in studentsSnap.docs) {
+          final data = doc.data();
+          final bId = (data['batch_id'] ?? '').toString().trim();
+          final bName = (data['batch'] ?? '').toString().trim();
+          final authUid = (data['auth_uid'] ?? '').toString().trim();
+
+          if (bId == batchId || bName.toLowerCase() == batchName.toLowerCase()) {
+            writeBatch.update(doc.reference, {
+              'status': 'removed',
+              'removed_at': FieldValue.serverTimestamp(),
+              'batch_deleted': true,
+            });
+            opCount++;
+
+            // Also update student root enrollment in users/{authUid}/enrollments/{teacherId_batchId}
+            if (authUid.isNotEmpty) {
+              final studentEnrollmentRef = _db
+                  .collection('users')
+                  .doc(authUid)
+                  .collection('enrollments')
+                  .doc('${teacherId}_$batchId');
+              writeBatch.set(studentEnrollmentRef, {
+                'status': 'removed',
+                'removed_at': FieldValue.serverTimestamp(),
+                'batch_deleted': true,
+              }, SetOptions(merge: true));
+              opCount++;
+            }
+
+            if (opCount >= 400) {
+              await writeBatch.commit();
+              opCount = 0;
+            }
+          }
+        }
+        if (opCount > 0) {
+          await writeBatch.commit();
+        }
+      } catch (_) {}
+
+      // 3. Update pending join requests for this batch
+      try {
+        final reqSnap = await _db
+            .collection('joinRequests')
+            .where('teacher_id', isEqualTo: teacherId)
+            .where('batch_id', isEqualTo: batchId)
+            .get();
+        final reqBatch = _db.batch();
+        for (final doc in reqSnap.docs) {
+          reqBatch.update(doc.reference, {
+            'status': 'removed_by_teacher',
+            'removed_at': FieldValue.serverTimestamp(),
+          });
+        }
+        await reqBatch.commit();
+      } catch (_) {}
+
+      // 4. Delete the batch doc itself
+      await teacherRef.collection('batches').doc(batchId).delete();
+
+      // 5. Remove batchName from teacher's root 'batch' array
+      await teacherRef.update({
+        'batch': FieldValue.arrayRemove([batchName]),
+      });
+
+      // Update in-memory teacherData if active
+      if (teacherData != null && teacherData!.id == teacherId) {
+        teacherData!.batch.removeWhere(
+          (b) => b.trim().toLowerCase() == batchName.toLowerCase(),
+        );
+        await TeacherData.updateTeacherLocalData();
+      }
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Joining Code Validation & Request Submission
   // ---------------------------------------------------------------------------

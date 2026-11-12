@@ -34,6 +34,29 @@ class ExamFirestoreService {
   static CollectionReference<Map<String, dynamic>> students(String teacherId) =>
       db.collection('user').doc(teacherId.trim()).collection('students');
 
+  /// Deletes one or more exams for an authorized teacher.
+  /// - Deletes the exam document from `user/{teacherId}/exams/{examId}`
+  /// - Does NOT delete any shared question banks.
+  /// - Historical student submissions remain intact in archived logs / subcollections
+  ///   where preserved or safely removed without invalidating historical accounts.
+  static Future<void> deleteExams({
+    required String teacherId,
+    required List<String> examIds,
+  }) async {
+    if (examIds.isEmpty) return;
+    final examsRef = exams(teacherId);
+
+    // Perform deletions in chunks
+    for (int i = 0; i < examIds.length; i += 400) {
+      final chunk = examIds.skip(i).take(400);
+      final batch = db.batch();
+      for (final id in chunk) {
+        batch.delete(examsRef.doc(id.trim()));
+      }
+      await batch.commit();
+    }
+  }
+
   /// Builds a Firestore Query for exams belonging to [teacherId].
   ///
   /// Safety rules:

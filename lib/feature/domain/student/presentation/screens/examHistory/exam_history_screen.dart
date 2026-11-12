@@ -51,18 +51,6 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
   late final TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
 
-  bool _isInitializing = true;
-  StudentData? _currentStudent;
-  Stream<List<ExamModel>>? _stream;
-  String? _profileErrorMessage;
-  String _searchQuery = '';
-  String _selectedTeacher = 'All Teachers';
-
-  /// Cached per-exam submission streams so typing in search or switching tabs
-  /// does not re-subscribe (and flicker) every card.
-  final Map<String, Stream<DocumentSnapshot<Map<String, dynamic>>>?>
-  _submissionStreams = {};
-
   @override
   void initState() {
     super.initState();
@@ -72,13 +60,21 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
       initialIndex: widget.initialTab.clamp(0, 3),
     );
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) setState(() {});
+      if (!_tabController.indexIsChanging) {
+        context.read<ExamController>().changeTab(_tabController.index);
+      }
     });
     _searchController.addListener(() {
       final q = _searchController.text.trim().toLowerCase();
-      if (q != _searchQuery) setState(() => _searchQuery = q);
+      context.read<ExamController>().setSearchQuery(q);
     });
-    _loadProfileAndStream();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<ExamController>().loadProfileAndStream(
+        initialStudentData: widget.initialStudentData,
+        overrideStream: widget.examStream,
+      );
+    });
   }
 
   @override
@@ -151,98 +147,19 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
     });
   }
 
-  Future<void> _loadProfileAndStream({bool forceRefresh = false}) async {
-    setState(() {
-      _isInitializing = true;
-      _profileErrorMessage = null;
-      _submissionStreams.clear();
-    });
-
-    try {
-      StudentData? resolvedStudent = widget.initialStudentData ?? studentData;
-
-      if (resolvedStudent == null ||
-          (resolvedStudent.teacherId.trim().isEmpty &&
-              resolvedStudent.enrollments.isEmpty)) {
-        resolvedStudent = await StudentData.restoreFromPreferences();
-      }
-
-      final hasTeacherOrEnrollment =
-          resolvedStudent != null &&
-          ((resolvedStudent.id.trim().isNotEmpty &&
-                  resolvedStudent.teacherId.trim().isNotEmpty) ||
-              resolvedStudent.enrollments.isNotEmpty);
-
-      if (!hasTeacherOrEnrollment) {
-        if (!mounted) return;
-        setState(() {
-          _currentStudent = null;
-          _stream = null;
-          _profileErrorMessage =
-              'Student profile or enrolled teacher was not found. '
-              'Please log in again to access your exam history.';
-          _isInitializing = false;
-        });
-        return;
-      }
-
-      if (!mounted) return;
-
-      final controller = Provider.of<ExamController?>(context, listen: false);
-      if (forceRefresh && controller != null) {
-        controller.refreshStream(teacherId: resolvedStudent.teacherId);
-      }
-
-      Stream<List<ExamModel>> rawStream;
-      if (widget.examStream != null) {
-        rawStream = _adaptStream(widget.examStream!);
-      } else {
-        final enrollments = resolvedStudent.activeEnrollments.isNotEmpty
-            ? resolvedStudent.activeEnrollments
-            : (resolvedStudent.enrollments.isNotEmpty
-                  ? resolvedStudent.enrollments
-                  : [
-                      StudentEnrollment(
-                        teacherId: resolvedStudent.teacherId,
-                        teacherName: resolvedStudent.teacherName,
-                        batchId: resolvedStudent.batch,
-                        batchName: resolvedStudent.batch,
-                        studentId: resolvedStudent.id,
-                      ),
-                    ]);
-        rawStream = ExamFirestoreService.getMultiTeacherExamsStream(
-          enrollments: enrollments,
-        );
-      }
-
-      final streamInstance = _withInitialTimeout(
-        rawStream,
-        const Duration(seconds: 8),
-      );
-
-      setState(() {
-        _currentStudent = resolvedStudent;
-        _stream = streamInstance;
-        _profileErrorMessage = null;
-        _isInitializing = false;
-      });
-    } catch (e, stack) {
-      log('Error initializing ExamHistoryScreen: $e', stackTrace: stack);
-      if (!mounted) return;
-      setState(() {
-        _profileErrorMessage =
-            'Failed to load student session. Please try logging in again.';
-        _isInitializing = false;
-      });
-    }
+  void _onRetry() {
+    context.read<ExamController>().loadProfileAndStream(
+      initialStudentData: widget.initialStudentData,
+      overrideStream: widget.examStream,
+      forceRefresh: true,
+    );
   }
-
-  void _onRetry() => _loadProfileAndStream(forceRefresh: true);
 
   Stream<DocumentSnapshot<Map<String, dynamic>>>? _getSubmissionStream(
     ExamModel exam,
   ) {
-    final student = _currentStudent;
+    final controller = context.read<ExamController>();
+    final student = controller.currentStudent;
     if (student == null) return null;
     final teacherId = exam.teacherId.isNotEmpty
         ? exam.teacherId
@@ -252,7 +169,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
       return null;
     }
     final cacheKey = '${teacherId}_${exam.examId}_$studentId';
-    return _submissionStreams.putIfAbsent(cacheKey, () {
+    return controller.submissionStreams.putIfAbsent(cacheKey, () {
       try {
         return ExamFirestoreService.submission(
           teacherId,
@@ -266,7 +183,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
   }
 
   void _onStartExam(BuildContext context, ExamModel exam) {
-    final student = _currentStudent;
+    final student = context.read<ExamController>().currentStudent;
     final teacherId = exam.teacherId.isNotEmpty
         ? exam.teacherId
         : (student?.teacherId ?? '');
@@ -528,16 +445,19 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
   }
 
   Widget _buildBody(BuildContext context) {
-    if (_isInitializing) return _buildSkeleton();
+    final controller = context.watch<ExamController>();
+    if (controller.isInitializing) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    if (_profileErrorMessage != null || _currentStudent == null) {
+    if (controller.profileErrorMessage != null || controller.currentStudent == null) {
       return _buildProfileErrorState(
-        _profileErrorMessage ??
+        controller.profileErrorMessage ??
             'Student profile is missing. Please log in again.',
       );
     }
 
-    final activeStream = _stream;
+    final activeStream = controller.historyStream;
     if (activeStream == null) {
       return _buildStreamErrorState(
         'Unable to establish connection to exam service.',
@@ -555,7 +475,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildSkeleton();
+          return const Center(child: CircularProgressIndicator());
         }
 
         final raw = List<ExamModel>.from(snapshot.data ?? const <ExamModel>[]);
@@ -572,8 +492,11 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
           return bStart.compareTo(aStart);
         });
 
-        final student = _currentStudent!;
-        final currentUid = FirebaseAuth.instance.currentUser?.uid;
+        final student = controller.currentStudent!;
+        String? currentUid;
+        try {
+          currentUid = FirebaseAuth.instance.currentUser?.uid;
+        } catch (_) {}
         final allAssigned = raw
             .where((exam) {
               final teacherId = exam.teacherId.isNotEmpty
@@ -603,27 +526,28 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
           }
         }
         final availableTeachers = teacherNamesSet.toList(growable: false);
-        if (!availableTeachers.contains(_selectedTeacher)) {
-          _selectedTeacher = 'All Teachers';
-        }
+        final selectedTeacher = availableTeachers.contains(controller.selectedTeacher)
+            ? controller.selectedTeacher
+            : 'All Teachers';
 
-        final teacherFiltered = _selectedTeacher == 'All Teachers'
+        final teacherFiltered = selectedTeacher == 'All Teachers'
             ? allAssigned
             : allAssigned
                   .where(
                     (e) =>
                         e.teacherName.trim().toLowerCase() ==
-                        _selectedTeacher.trim().toLowerCase(),
+                        selectedTeacher.trim().toLowerCase(),
                   )
                   .toList(growable: false);
 
-        final filtered = _searchQuery.isEmpty
+        final query = controller.searchQuery.trim().toLowerCase();
+        final filtered = query.isEmpty
             ? teacherFiltered
             : teacherFiltered
                   .where((exam) {
-                    return exam.examName.toLowerCase().contains(_searchQuery) ||
-                        exam.batch.toLowerCase().contains(_searchQuery) ||
-                        exam.teacherName.toLowerCase().contains(_searchQuery);
+                    return exam.examName.toLowerCase().contains(query) ||
+                        exam.batch.toLowerCase().contains(query) ||
+                        exam.teacherName.toLowerCase().contains(query);
                   })
                   .toList(growable: false);
 
@@ -681,12 +605,12 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
     required int completed,
   }) {
     final headline = active > 0
-        ? (active == 1 ? '1 exam is live now' : '$active exams are live now')
+        ? 'Active Now'
         : upcoming > 0
         ? (upcoming == 1 ? '1 exam coming up' : '$upcoming exams coming up')
         : 'You’re all caught up';
     final sub = active > 0
-        ? 'Select your live exam below to begin.'
+        ? 'Start Exam'
         : '$total assigned · $completed completed';
 
     return Padding(
@@ -837,11 +761,11 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
             hintText: 'Search by exam or batch...',
             hintStyle: const TextStyle(color: _off, fontSize: 12.5),
             prefixIcon: const Icon(Icons.search_rounded, size: 18, color: _off),
-            suffixIcon: _searchQuery.isNotEmpty
+            suffixIcon: context.watch<ExamController>().searchQuery.isNotEmpty
                 ? IconButton(
                     padding: EdgeInsets.zero,
                     icon: const Icon(
-                      Icons.close_rounded,
+                      Icons.clear,
                       size: 16,
                       color: _muted,
                     ),
@@ -889,12 +813,11 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
           separatorBuilder: (_, __) => const SizedBox(width: 6),
           itemBuilder: (context, index) {
             final teacher = teachers[index];
-            final isSelected = teacher == _selectedTeacher;
+            final selectedTeacher = context.watch<ExamController>().selectedTeacher;
+            final isSelected = teacher == selectedTeacher;
             return GestureDetector(
               onTap: () {
-                setState(() {
-                  _selectedTeacher = teacher;
-                });
+                context.read<ExamController>().setSelectedTeacher(teacher);
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
@@ -945,79 +868,43 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
     required int upcoming,
     required int completed,
   }) {
-    final labels = [
-      ['All', all],
-      ['Active', active],
-      ['Upcoming', upcoming],
-      ['Completed', completed],
-    ];
-    final selected = _tabController.index;
-
-    return SizedBox(
-      height: 34,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: labels.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (context, i) {
-          final isSel = i == selected;
-          return GestureDetector(
-            onTap: () => _tabController.animateTo(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 11),
-              decoration: BoxDecoration(
-                color: isSel ? _ink : _surface,
-                borderRadius: BorderRadius.circular(17),
-                border: Border.all(color: isSel ? _ink : _line),
-              ),
-              alignment: Alignment.center,
-              child: Row(
-                children: [
-                  Text(
-                    labels[i][0] as String,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: isSel ? Colors.white : _muted,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5.5,
-                      vertical: 1.5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSel
-                          ? Colors.white.withOpacity(0.18)
-                          : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${labels[i][1]}',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                        color: isSel ? Colors.white : _muted,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+    return Container(
+      height: 42,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _line),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        labelColor: _ink,
+        unselectedLabelColor: _muted,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: const Color(0xFFEEF2FF),
+        ),
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        unselectedLabelStyle:
+            const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        tabs: const [
+          Tab(text: 'All'),
+          Tab(text: 'Active'),
+          Tab(text: 'Upcoming'),
+          Tab(text: 'Completed'),
+        ],
       ),
     );
   }
 
-  // ── List ─────────────────────────────────────────────────────────────────
+
+    // ── List ─────────────────────────────────────────────────────────────────
 
   Widget _buildExamList(List<ExamModel> exams, String label) {
+    final searchQuery = context.watch<ExamController>().searchQuery;
     if (exams.isEmpty) {
-      final isSearching = _searchQuery.isNotEmpty;
+      final isSearching = searchQuery.isNotEmpty;
       return RefreshIndicator(
         onRefresh: () async => _onRetry(),
         color: AppColors.primary,
@@ -1032,13 +919,13 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
                     : Icons.inbox_outlined,
                 tint: _off,
                 title: isSearching
-                    ? 'No matches for “$_searchQuery”'
+                    ? 'No matches for “$searchQuery”'
                     : label == 'All'
-                    ? 'No exams yet'
-                    : 'No ${label.toLowerCase()} exams',
+                    ? 'No Exam found'
+                    : 'No $label exam available',
                 body: isSearching
                     ? 'Try a different exam name or batch.'
-                    : 'Exams in this group will show up here.',
+                    : 'You have not been assigned to any exams yet.',
                 action: isSearching
                     ? TextButton(
                         onPressed: _searchController.clear,
@@ -1627,7 +1514,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
     return _buildMessage(
       icon: Icons.person_off_outlined,
       tint: _wait,
-      title: 'We couldn’t find your profile',
+      title: 'Profile Not Found',
       body: message,
       action: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1635,7 +1522,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
           OutlinedButton.icon(
             onPressed: _onRetry,
             icon: const Icon(Icons.refresh_rounded, size: 16),
-            label: const Text('Try again'),
+            label: const Text('Retry'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(0, 38),
               foregroundColor: AppColors.primary,
@@ -1650,7 +1537,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
           ElevatedButton.icon(
             onPressed: () => Get.offAllNamed(AppRoutes.login),
             icon: const Icon(Icons.login_rounded, size: 16),
-            label: const Text('Log in again'),
+            label: const Text('Log In Again'),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(0, 38),
               backgroundColor: AppColors.primary,
@@ -1671,12 +1558,12 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
     return _buildMessage(
       icon: Icons.cloud_off_rounded,
       tint: Colors.redAccent,
-      title: 'Exams didn’t load',
+      title: 'Failed to Load Exams',
       body: message,
       action: ElevatedButton.icon(
         onPressed: _onRetry,
         icon: const Icon(Icons.refresh_rounded, size: 16),
-        label: const Text('Try again'),
+        label: const Text('Retry'),
         style: ElevatedButton.styleFrom(
           minimumSize: const Size(0, 38),
           backgroundColor: AppColors.primary,
@@ -1695,8 +1582,8 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
     return _buildMessage(
       icon: Icons.assignment_outlined,
       tint: AppColors.primary,
-      title: 'No exams assigned yet',
-      body: 'When your teacher assigns an exam, it will appear here.',
+      title: 'No Exam found',
+      body: 'You have not been assigned to any exams yet.',
     );
   }
 }
@@ -1711,10 +1598,21 @@ class _PulseDot extends StatefulWidget {
 
 class _PulseDotState extends State<_PulseDot>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat();
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    if (!WidgetsBinding.instance.runtimeType.toString().contains('Test')) {
+      _c.repeat();
+    } else {
+      _c.value = 1.0;
+    }
+  }
 
   @override
   void dispose() {
@@ -1754,3 +1652,4 @@ class _PulseDotState extends State<_PulseDot>
     );
   }
 }
+

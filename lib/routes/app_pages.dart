@@ -1,7 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/feature/domain/common/presentation/screen/about/about_app_screen.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/login/login_screen.dart';
+import 'package:test_nest/feature/domain/common/presentation/screen/privacy/privacy_policy_screen.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/profile/student_profile_screen.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/profile/teacher_profile_screen.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/roleSelection/role_selection_screen.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/splash/splash_screen.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
@@ -58,6 +62,14 @@ class AppPages {
       name: AppRoutes.login,
       page: () => const LoginScreen(),
     ),
+    GetPage(
+      name: AppRoutes.aboutApp,
+      page: () => const AboutAppScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.privacyPolicy,
+      page: () => const PrivacyPolicyScreen(),
+    ),
 
     // Student Auth & Onboarding
     GetPage(
@@ -89,6 +101,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.studentDashboard,
       page: () => const StudentDashboardScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.studentProfile,
+      page: () => const StudentProfileScreen(),
     ),
     GetPage(
       name: AppRoutes.studentExamHistory,
@@ -206,6 +222,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.teacherDashboard,
       page: () => const TeacherDashboardScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.teacherProfile,
+      page: () => const TeacherProfileScreen(),
     ),
     GetPage(
       name: AppRoutes.teacherAllStudents,

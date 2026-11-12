@@ -15,12 +15,14 @@ import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/login/controller/login_controller.dart';
 
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/dashboard/controller/student_dashboard_controller.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/examHistory/controller/exam_controller.dart';
 
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/CreateExam/controller/create_exam_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/addStudents/controller/add_student_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/allStudents/controller/student_controller.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/dashboard/controller/dasboard_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/exams/controller/teacher_exam_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/fileUpload/controller/file_upload_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/reviewPublishExam/controller/publishExamController.dart';
@@ -148,8 +150,16 @@ Future<void> main() async {
           create: (_) => TeacherExamController(),
         ),
 
+        ChangeNotifierProvider<DasboardController>(
+          create: (_) => DasboardController(),
+        ),
+
         ChangeNotifierProvider<StudentController>(
           create: (_) => StudentController(),
+        ),
+
+        ChangeNotifierProvider<StudentDashboardController>(
+          create: (_) => StudentDashboardController(),
         ),
 
         ChangeNotifierProvider<ExamController>(create: (_) => ExamController()),
