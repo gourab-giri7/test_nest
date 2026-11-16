@@ -1,13 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/core/services/batch_and_join_code_service.dart';
+import 'package:test_nest/core/services/batch_qr_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/batches/controller/batch_management_controller.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/batches/widgets/batch_qr_code_dialog.dart';
 import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/routes/app_routes.dart';
 
@@ -15,77 +16,11 @@ class MyBatchesScreen extends StatelessWidget {
   const MyBatchesScreen({super.key});
 
   void _copyCode(BuildContext context, String code) {
-    Clipboard.setData(ClipboardData(text: code));
-    customSnackbar(
-      context: context,
-      message: 'Code $code copied to clipboard!',
-      color: Colors.green,
-      ico: Icons.copy_rounded,
-    );
+    BatchQrService.copyJoiningCode(context, code);
   }
 
   void _showJoiningCodeDialog(BuildContext context, BatchModel batch) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          batch.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Reusable Joining Code',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF64748B),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF2FF),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFC7D2FE)),
-              ),
-              child: Text(
-                batch.activeJoinCode.isNotEmpty
-                    ? batch.activeJoinCode
-                    : 'No Active Code',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                  color: Color(0xFF4F46E5),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'Share this code with your students. Anyone with this code can request to join this batch.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            ),
-          ],
-        ),
-        actions: [
-          if (batch.activeJoinCode.isNotEmpty)
-            TextButton.icon(
-              icon: const Icon(Icons.copy_rounded, size: 16),
-              label: const Text('Copy Code'),
-              onPressed: () {
-                Get.back();
-                _copyCode(context, batch.activeJoinCode);
-              },
-            ),
-          TextButton(child: const Text('Close'), onPressed: () => Get.back()),
-        ],
-      ),
-    );
+    BatchQrCodeDialog.show(context, batch);
   }
 
   Future<void> _archiveBatch(BuildContext context, BatchModel batch) async {
@@ -655,12 +590,12 @@ class MyBatchesScreen extends StatelessWidget {
                         child: Row(
                           children: [
                             Icon(
-                              Icons.vpn_key_rounded,
+                              Icons.qr_code_2_rounded,
                               size: 18,
                               color: Color(0xFF4F46E5),
                             ),
                             SizedBox(width: 10),
-                            Text('View Joining Code'),
+                            Text('View Code & QR Pass'),
                           ],
                         ),
                       ),
@@ -818,6 +753,41 @@ class MyBatchesScreen extends StatelessWidget {
                           ),
                         ],
                       ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () => _showJoiningCodeDialog(context, batch),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFC7D2FE)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.qr_code_rounded,
+                          size: 16,
+                          color: Color(0xFF4F46E5),
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'QR',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF4F46E5),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

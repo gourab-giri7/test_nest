@@ -15,6 +15,7 @@ import 'package:test_nest/feature/domain/student/presentation/screens/examHistor
 import 'package:test_nest/feature/domain/student/presentation/screens/examResult/exam_result_review_screen.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/examSubmited/exam_submited_screen.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/joinTeacher/join_teacher_screen.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/joinTeacher/qr_scanner_screen.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/joinTeacher/request_sent_screen.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/signup/student_signup_screen.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/takeExam/take_exam_screen.dart';
@@ -79,6 +80,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.studentJoinTeacher,
       page: () => const JoinTeacherScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.studentScanQr,
+      page: () => const StudentQrScannerScreen(),
     ),
     GetPage(
       name: AppRoutes.studentRequestSent,

@@ -30,6 +30,24 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
     super.dispose();
   }
 
+  Future<void> _openQrScanner() async {
+    final scannedCode = await Get.toNamed(AppRoutes.studentScanQr);
+    if (scannedCode != null &&
+        scannedCode is String &&
+        scannedCode.trim().isNotEmpty) {
+      final cleanCode = BatchAndJoinCodeService.normalizeCode(scannedCode);
+      _codeController.text = cleanCode;
+      if (mounted) {
+        customSnackbar(
+          context: context,
+          message: 'Code $cleanCode scanned! Review and submit your request.',
+          color: Colors.green,
+          ico: Icons.qr_code_scanner_rounded,
+        );
+      }
+    }
+  }
+
   Future<void> _submitCode(BuildContext context, JoinTeacherController controller) async {
     if (!_formKey.currentState!.validate() || controller.isLoading) return;
 
@@ -221,9 +239,17 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
                                       color: AppColors.primary,
                                     ),
                                     textAlign: TextAlign.center,
-                                    decoration: const InputDecoration(
+                                    decoration: InputDecoration(
                                       hintText: 'TN-XXXXX',
-                                      prefixIcon: Icon(Icons.vpn_key_rounded),
+                                      prefixIcon: const Icon(Icons.vpn_key_rounded),
+                                      suffixIcon: IconButton(
+                                        icon: const Icon(
+                                          Icons.qr_code_scanner_rounded,
+                                          color: AppColors.secondary,
+                                        ),
+                                        tooltip: 'Scan QR Code',
+                                        onPressed: controller.isLoading ? null : _openQrScanner,
+                                      ),
                                     ),
                                     validator: (val) {
                                       if (val == null || val.trim().isEmpty) {
@@ -235,7 +261,37 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
                                       return null;
                                     },
                                   ),
-                                  const SizedBox(height: 20),
+                                  const SizedBox(height: 14),
+                                  // Prominent "Scan QR Code" button near input
+                                  SizedBox(
+                                    height: 50,
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xFF4F46E5),
+                                        side: const BorderSide(
+                                          color: Color(0xFFC7D2FE),
+                                          width: 1.5,
+                                        ),
+                                        backgroundColor: const Color(0xFFEEF2FF),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.qr_code_scanner_rounded,
+                                        size: 20,
+                                      ),
+                                      label: const Text(
+                                        'Scan QR Code',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      onPressed: controller.isLoading ? null : _openQrScanner,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 18),
                                   SizedBox(
                                     height: 54,
                                     child: ElevatedButton.icon(

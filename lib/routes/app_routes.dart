@@ -9,6 +9,7 @@ abstract class AppRoutes {
   // Student Auth & Onboarding
   static const studentSignup = '/student/signup';
   static const studentJoinTeacher = '/student/join-teacher';
+  static const studentScanQr = '/student/scan-qr';
   static const studentRequestSent = '/student/request-sent';
 
   // Student Main
