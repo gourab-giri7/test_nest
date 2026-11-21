@@ -6,6 +6,8 @@ class QAModel {
   String c;
   String d;
   String ans;
+  String? subject;
+  String? chapter;
 
   QAModel({
     this.id = '',
@@ -15,6 +17,8 @@ class QAModel {
     required this.c,
     required this.d,
     required this.ans,
+    this.subject,
+    this.chapter,
   });
 
   factory QAModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +30,8 @@ class QAModel {
       c: json['c']?.toString() ?? '',
       d: json['d']?.toString() ?? '',
       ans: json['ans']?.toString() ?? '',
+      subject: json['subject']?.toString() ?? json['subject_name']?.toString(),
+      chapter: json['chapter']?.toString() ?? json['chapter_name']?.toString(),
     );
   }
 
@@ -38,6 +44,8 @@ class QAModel {
       'c': c,
       'd': d,
       'ans': ans,
+      if (subject != null && subject!.isNotEmpty) 'subject': subject,
+      if (chapter != null && chapter!.isNotEmpty) 'chapter': chapter,
     };
   }
 }

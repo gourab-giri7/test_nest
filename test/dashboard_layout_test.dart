@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/dashboard/controller/dasboard_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/dashboard/teacher_dashboard_screen.dart';
 import 'package:test_nest/main.dart';
 
@@ -33,31 +35,29 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: TeacherDashboardScreen(
-            studentsStream: Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
-            examsStream: Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
-            recentExamsStream:
-                Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
+          home: ChangeNotifierProvider<DasboardController>(
+            create: (_) => DasboardController(),
+            child: TeacherDashboardScreen(
+              studentsStream:
+                  Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
+              examsStream: Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
+              recentExamsStream:
+                  Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
+            ),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Quick Actions'), findsOneWidget);
-      expect(find.text('Fee Records'), findsOneWidget);
-      expect(find.text('Good Morning,'), findsOneWidget);
+      expect(find.text('Command center'), findsOneWidget);
+      expect(find.text('Fee Ledger'), findsOneWidget);
+      expect(find.text('Educator workspace'), findsOneWidget);
 
       // Verify scrolling down and up
-      await tester.drag(
-        find.byType(SingleChildScrollView),
-        const Offset(0, -300),
-      );
+      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
       await tester.pumpAndSettle();
 
-      await tester.drag(
-        find.byType(SingleChildScrollView),
-        const Offset(0, 300),
-      );
+      await tester.drag(find.byType(ListView).first, const Offset(0, 300));
       await tester.pumpAndSettle();
     },
   );
@@ -71,18 +71,22 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: TeacherDashboardScreen(
-            studentsStream: Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
-            examsStream: Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
-            recentExamsStream:
-                Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
+          home: ChangeNotifierProvider<DasboardController>(
+            create: (_) => DasboardController(),
+            child: TeacherDashboardScreen(
+              studentsStream:
+                  Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
+              examsStream: Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
+              recentExamsStream:
+                  Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
+            ),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Quick Actions'), findsOneWidget);
-      expect(find.text('Fee Records'), findsOneWidget);
+      expect(find.text('Command center'), findsOneWidget);
+      expect(find.text('Fee Ledger'), findsOneWidget);
     },
   );
 
@@ -108,20 +112,24 @@ void main() {
                     );
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
-                        builder: (_) => TeacherDashboardScreen(
-                          studentsStream:
-                              Stream<
-                                QuerySnapshot<Map<String, dynamic>>
-                              >.empty(),
-                          examsStream:
-                              Stream<
-                                QuerySnapshot<Map<String, dynamic>>
-                              >.empty(),
-                          recentExamsStream:
-                              Stream<
-                                QuerySnapshot<Map<String, dynamic>>
-                              >.empty(),
-                        ),
+                        builder: (_) =>
+                            ChangeNotifierProvider<DasboardController>(
+                              create: (_) => DasboardController(),
+                              child: TeacherDashboardScreen(
+                                studentsStream:
+                                    Stream<
+                                      QuerySnapshot<Map<String, dynamic>>
+                                    >.empty(),
+                                examsStream:
+                                    Stream<
+                                      QuerySnapshot<Map<String, dynamic>>
+                                    >.empty(),
+                                recentExamsStream:
+                                    Stream<
+                                      QuerySnapshot<Map<String, dynamic>>
+                                    >.empty(),
+                              ),
+                            ),
                       ),
                       (route) => false,
                     );
@@ -142,7 +150,7 @@ void main() {
 
       // Verify TeacherDashboardScreen is successfully mounted and visible
       expect(find.byType(TeacherDashboardScreen), findsOneWidget);
-      expect(find.text('Quick Actions'), findsOneWidget);
+      expect(find.text('Command center'), findsOneWidget);
       expect(find.text('Students'), findsWidgets);
     },
   );

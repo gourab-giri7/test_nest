@@ -22,7 +22,9 @@ class JoinTeacherController extends ChangeNotifier {
     try {
       final codeModel = await BatchAndJoinCodeService.validateJoiningCode(code);
       if (codeModel == null) {
-        throw StateError('Invalid, expired, or revoked joining code. Please check and try again.');
+        throw StateError(
+          'Invalid, expired, or revoked joining code. Please check and try again.',
+        );
       }
 
       final user = FirebaseAuth.instance.currentUser;

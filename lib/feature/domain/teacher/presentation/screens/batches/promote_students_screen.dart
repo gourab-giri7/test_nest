@@ -201,7 +201,8 @@ class PromoteStudentsScreen extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'Current Batch',
@@ -232,59 +233,65 @@ class PromoteStudentsScreen extends StatelessWidget {
                                 ),
                               ),
                               Expanded(
-                                child: StreamBuilder<
-                                    QuerySnapshot<Map<String, dynamic>>>(
-                                  stream: FirebaseFirestore.instance
-                                      .collection('user')
-                                      .doc(tData.id)
-                                      .collection('batches')
-                                      .snapshots(),
-                                  builder: (context, snapshot) {
-                                    final docs = snapshot.data?.docs ?? [];
-                                    final batches = docs
-                                        .map((d) {
-                                          final data = d.data();
-                                          data['id'] = d.id;
-                                          return BatchModel.fromJson(data);
-                                        })
-                                        .where((b) =>
-                                            !b.isArchived &&
-                                            b.id != sourceBatch.id)
-                                        .toList();
+                                child:
+                                    StreamBuilder<
+                                      QuerySnapshot<Map<String, dynamic>>
+                                    >(
+                                      stream: FirebaseFirestore.instance
+                                          .collection('user')
+                                          .doc(tData.id)
+                                          .collection('batches')
+                                          .snapshots(),
+                                      builder: (context, snapshot) {
+                                        final docs = snapshot.data?.docs ?? [];
+                                        final batches = docs
+                                            .map((d) {
+                                              final data = d.data();
+                                              data['id'] = d.id;
+                                              return BatchModel.fromJson(data);
+                                            })
+                                            .where(
+                                              (b) =>
+                                                  !b.isArchived &&
+                                                  b.id != sourceBatch.id,
+                                            )
+                                            .toList();
 
-                                    return DropdownButtonFormField<BatchModel>(
-                                      decoration: InputDecoration(
-                                        labelText: 'Target Batch',
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 8,
-                                        ),
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                      value: targetBatch,
-                                      hint: const Text('Select batch'),
-                                      items: batches.map((b) {
-                                        return DropdownMenuItem<BatchModel>(
-                                          value: b,
-                                          child: Text(
-                                            b.name,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
+                                        return DropdownButtonFormField<
+                                          BatchModel
+                                        >(
+                                          decoration: InputDecoration(
+                                            labelText: 'Target Batch',
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 8,
+                                                ),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                           ),
+                                          value: targetBatch,
+                                          hint: const Text('Select batch'),
+                                          items: batches.map((b) {
+                                            return DropdownMenuItem<BatchModel>(
+                                              value: b,
+                                              child: Text(
+                                                b.name,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                          onChanged: (val) {
+                                            controller.setTargetBatch(val);
+                                          },
                                         );
-                                      }).toList(),
-                                      onChanged: (val) {
-                                        controller.setTargetBatch(val);
                                       },
-                                    );
-                                  },
-                                ),
+                                    ),
                               ),
                             ],
                           ),
@@ -302,8 +309,7 @@ class PromoteStudentsScreen extends StatelessWidget {
                         .collection('students')
                         .snapshots(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState ==
-                          ConnectionState.waiting) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(
                           child: Padding(
                             padding: EdgeInsets.all(24.0),
@@ -317,8 +323,9 @@ class PromoteStudentsScreen extends StatelessWidget {
                         final data = d.data();
                         final batch = data['batch']?.toString() ?? '';
                         final batchId = data['batch_id']?.toString() ?? '';
-                        final status =
-                            (data['status'] ?? 'active').toString().toLowerCase();
+                        final status = (data['status'] ?? 'active')
+                            .toString()
+                            .toLowerCase();
                         if (status == 'removed' ||
                             status == 'removed_by_teacher') {
                           return false;
@@ -333,8 +340,7 @@ class PromoteStudentsScreen extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(18),
-                            border:
-                                Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
                           child: const Center(
                             child: Text(

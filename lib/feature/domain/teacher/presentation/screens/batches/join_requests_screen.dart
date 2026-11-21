@@ -154,7 +154,9 @@ class JoinRequestsScreen extends StatelessWidget {
 
                 final docs = snapshot.data?.docs ?? [];
                 final requests = docs
-                    .map((d) => JoinRequestModel.fromJson(d.data(), docId: d.id))
+                    .map(
+                      (d) => JoinRequestModel.fromJson(d.data(), docId: d.id),
+                    )
                     .toList();
 
                 if (requests.isEmpty) {
@@ -239,7 +241,8 @@ class JoinRequestsScreen extends StatelessWidget {
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         req.studentName,
@@ -334,7 +337,8 @@ class JoinRequestsScreen extends StatelessWidget {
                                     ),
                                     onPressed: isProcessing
                                         ? null
-                                        : () => _reject(context, controller, req),
+                                        : () =>
+                                              _reject(context, controller, req),
                                     child: const Text('Reject'),
                                   ),
                                 ),
@@ -350,7 +354,11 @@ class JoinRequestsScreen extends StatelessWidget {
                                     ),
                                     onPressed: isProcessing
                                         ? null
-                                        : () => _approve(context, controller, req),
+                                        : () => _approve(
+                                            context,
+                                            controller,
+                                            req,
+                                          ),
                                     child: isProcessing
                                         ? const SizedBox(
                                             height: 18,

@@ -69,7 +69,8 @@ class BatchQrService {
       return;
     }
 
-    final message = '''
+    final message =
+        '''
 Test Nest - Batch Invitation
 Batch: $batchName
 Joining Code: $cleanCode
@@ -81,10 +82,7 @@ Instructions:
 ''';
 
     try {
-      await Share.share(
-        message,
-        subject: 'Join $batchName on Test Nest',
-      );
+      await Share.share(message, subject: 'Join $batchName on Test Nest');
     } catch (e) {
       if (context.mounted) {
         customSnackbar(
@@ -121,11 +119,14 @@ Instructions:
 
       // 1. Try to capture from RepaintBoundary if rendered and attached
       if (repaintBoundaryKey?.currentContext != null) {
-        final boundary = repaintBoundaryKey!.currentContext!.findRenderObject()
-            as RenderRepaintBoundary?;
+        final boundary =
+            repaintBoundaryKey!.currentContext!.findRenderObject()
+                as RenderRepaintBoundary?;
         if (boundary != null) {
           final image = await boundary.toImage(pixelRatio: 3.0);
-          final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+          final byteData = await image.toByteData(
+            format: ui.ImageByteFormat.png,
+          );
           if (byteData != null) {
             pngBytes = byteData.buffer.asUint8List();
           }
@@ -145,13 +146,18 @@ Instructions:
       final tempDir = await getTemporaryDirectory();
       _cleanupOldQrImages(tempDir);
 
-      final fileName = 'testnest_qr_${batch.id}_${DateTime.now().millisecondsSinceEpoch}.png';
+      final fileName =
+          'testnest_qr_${batch.id}_${DateTime.now().millisecondsSinceEpoch}.png';
       final file = File('${tempDir.path}/$fileName');
       await file.writeAsBytes(pngBytes, flush: true);
 
       // 4. Share via SharePlus
-      final box = context.mounted ? context.findRenderObject() as RenderBox? : null;
-      final originRect = box != null ? box.localToGlobal(Offset.zero) & box.size : null;
+      final box = context.mounted
+          ? context.findRenderObject() as RenderBox?
+          : null;
+      final originRect = box != null
+          ? box.localToGlobal(Offset.zero) & box.size
+          : null;
 
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'image/png')],
@@ -232,7 +238,10 @@ Instructions:
       ),
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: width - 120);
-    appTextPainter.paint(canvas, Offset((width - appTextPainter.width) / 2, 75));
+    appTextPainter.paint(
+      canvas,
+      Offset((width - appTextPainter.width) / 2, 75),
+    );
 
     final subHeaderPainter = TextPainter(
       text: const TextSpan(
@@ -246,7 +255,10 @@ Instructions:
       ),
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: width - 120);
-    subHeaderPainter.paint(canvas, Offset((width - subHeaderPainter.width) / 2, 130));
+    subHeaderPainter.paint(
+      canvas,
+      Offset((width - subHeaderPainter.width) / 2, 130),
+    );
 
     // Batch Name
     final batchTextPainter = TextPainter(
@@ -262,7 +274,10 @@ Instructions:
       textDirection: TextDirection.ltr,
       maxLines: 2,
     )..layout(maxWidth: width - 140);
-    batchTextPainter.paint(canvas, Offset((width - batchTextPainter.width) / 2, 230));
+    batchTextPainter.paint(
+      canvas,
+      Offset((width - batchTextPainter.width) / 2, 230),
+    );
 
     // QR Code rendering
     final qrPainter = QrPainter(
@@ -283,7 +298,12 @@ Instructions:
 
     // QR Frame background
     final qrBoxRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(qrOffset.dx - 20, qrOffset.dy - 20, qrSize + 40, qrSize + 40),
+      Rect.fromLTWH(
+        qrOffset.dx - 20,
+        qrOffset.dy - 20,
+        qrSize + 40,
+        qrSize + 40,
+      ),
       const Radius.circular(24),
     );
     final qrBoxBorder = Paint()
@@ -330,13 +350,17 @@ Instructions:
     )..layout();
     codeTextPainter.paint(
       canvas,
-      Offset((width - codeTextPainter.width) / 2, 780 + (80 - codeTextPainter.height) / 2),
+      Offset(
+        (width - codeTextPainter.width) / 2,
+        780 + (80 - codeTextPainter.height) / 2,
+      ),
     );
 
     // Bottom instructions
     final hintPainter = TextPainter(
       text: const TextSpan(
-        text: 'Scan with Test Nest app or enter code manually to request access',
+        text:
+            'Scan with Test Nest app or enter code manually to request access',
         style: TextStyle(
           color: Color(0xFF64748B),
           fontSize: 16,
@@ -391,7 +415,10 @@ Instructions:
     } catch (_) {}
 
     // Check for standard TN- prefix pattern (e.g. TN-7K9P2 or tn-7k9p2)
-    final match = RegExp(r'TN-[A-Za-z0-9]{4,10}', caseSensitive: false).firstMatch(trimmed);
+    final match = RegExp(
+      r'TN-[A-Za-z0-9]{4,10}',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
     if (match != null) {
       return BatchAndJoinCodeService.normalizeCode(match.group(0)!);
     }

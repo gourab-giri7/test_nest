@@ -7,10 +7,7 @@ import 'package:test_nest/model/batch_model.dart';
 class BatchQrCodeDialog extends StatefulWidget {
   final BatchModel batch;
 
-  const BatchQrCodeDialog({
-    super.key,
-    required this.batch,
-  });
+  const BatchQrCodeDialog({super.key, required this.batch});
 
   static Future<void> show(BuildContext context, BatchModel batch) {
     return showDialog<void>(
@@ -70,9 +67,7 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28),
                   ),
-                  border: Border(
-                    bottom: BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
+                  border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
                 ),
                 child: Row(
                   children: [
@@ -106,20 +101,26 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                           const SizedBox(height: 2),
                           Text(
                             [
-                              if (batch.classLevel != null && batch.classLevel!.isNotEmpty)
-                                batch.classLevel!,
-                              if (batch.subject != null && batch.subject!.isNotEmpty)
-                                batch.subject!,
-                              if (batch.academicYear != null && batch.academicYear!.isNotEmpty)
-                                batch.academicYear!,
-                            ].isEmpty
+                                  if (batch.classLevel != null &&
+                                      batch.classLevel!.isNotEmpty)
+                                    batch.classLevel!,
+                                  if (batch.subject != null &&
+                                      batch.subject!.isNotEmpty)
+                                    batch.subject!,
+                                  if (batch.academicYear != null &&
+                                      batch.academicYear!.isNotEmpty)
+                                    batch.academicYear!,
+                                ].isEmpty
                                 ? 'Batch Joining Pass'
                                 : [
-                                    if (batch.classLevel != null && batch.classLevel!.isNotEmpty)
+                                    if (batch.classLevel != null &&
+                                        batch.classLevel!.isNotEmpty)
                                       batch.classLevel!,
-                                    if (batch.subject != null && batch.subject!.isNotEmpty)
+                                    if (batch.subject != null &&
+                                        batch.subject!.isNotEmpty)
                                       batch.subject!,
-                                    if (batch.academicYear != null && batch.academicYear!.isNotEmpty)
+                                    if (batch.academicYear != null &&
+                                        batch.academicYear!.isNotEmpty)
                                       batch.academicYear!,
                                   ].join(' • '),
                             style: const TextStyle(
@@ -132,7 +133,10 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Color(0xFF94A3B8),
+                      ),
                       tooltip: 'Close',
                       onPressed: () => Get.back(),
                     ),
@@ -154,7 +158,9 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.04),
@@ -209,11 +215,16 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                           // Large joining code display pill
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEEF2FF),
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFFC7D2FE)),
+                              border: Border.all(
+                                color: const Color(0xFFC7D2FE),
+                              ),
                             ),
                             child: Row(
                               children: [
@@ -225,7 +236,8 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'ACTIVE JOINING CODE',
@@ -257,7 +269,10 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                                   ),
                                   tooltip: 'Copy Code',
                                   onPressed: () =>
-                                      BatchQrService.copyJoiningCode(context, joinCode),
+                                      BatchQrService.copyJoiningCode(
+                                        context,
+                                        joinCode,
+                                      ),
                                 ),
                               ],
                             ),
@@ -284,20 +299,33 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                               Expanded(
                                 child: OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    side: const BorderSide(color: Color(0xFFC7D2FE)),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    side: const BorderSide(
+                                      color: Color(0xFFC7D2FE),
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
                                     ),
                                     foregroundColor: const Color(0xFF4F46E5),
                                   ),
-                                  icon: const Icon(Icons.copy_rounded, size: 16),
+                                  icon: const Icon(
+                                    Icons.copy_rounded,
+                                    size: 16,
+                                  ),
                                   label: const Text(
                                     'Copy Code',
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   onPressed: () =>
-                                      BatchQrService.copyJoiningCode(context, joinCode),
+                                      BatchQrService.copyJoiningCode(
+                                        context,
+                                        joinCode,
+                                      ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -306,23 +334,34 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                               Expanded(
                                 child: OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    side: const BorderSide(color: Color(0xFFC7D2FE)),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    side: const BorderSide(
+                                      color: Color(0xFFC7D2FE),
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
                                     ),
                                     foregroundColor: const Color(0xFF4F46E5),
                                   ),
-                                  icon: const Icon(Icons.share_rounded, size: 16),
+                                  icon: const Icon(
+                                    Icons.share_rounded,
+                                    size: 16,
+                                  ),
                                   label: const Text(
                                     'Share Code',
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                  onPressed: () => BatchQrService.shareJoiningCodeText(
-                                    context: context,
-                                    batchName: batch.name,
-                                    joinCode: joinCode,
-                                  ),
+                                  onPressed: () =>
+                                      BatchQrService.shareJoiningCodeText(
+                                        context: context,
+                                        batchName: batch.name,
+                                        joinCode: joinCode,
+                                      ),
                                 ),
                               ),
                             ],
@@ -337,7 +376,9 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF4F46E5),
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 13),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 13,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
@@ -352,9 +393,14 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                                         color: Colors.white,
                                       ),
                                     )
-                                  : const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                                  : const Icon(
+                                      Icons.qr_code_scanner_rounded,
+                                      size: 18,
+                                    ),
                               label: Text(
-                                _isSharingQr ? 'Generating QR...' : 'Share QR Image',
+                                _isSharingQr
+                                    ? 'Generating QR...'
+                                    : 'Share QR Image',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -372,9 +418,14 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                             child: TextButton(
                               style: TextButton.styleFrom(
                                 foregroundColor: const Color(0xFF64748B),
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
                               ),
-                              child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w600)),
+                              child: const Text(
+                                'Close',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
                               onPressed: () => Get.back(),
                             ),
                           ),
@@ -400,7 +451,10 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                           const Text(
                             'This batch currently does not have an active joining code. You can generate or rotate a code from batch settings.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
                           const SizedBox(height: 20),
                           SizedBox(

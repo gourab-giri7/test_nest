@@ -403,7 +403,8 @@ class ExamController extends ChangeNotifier {
   String searchQuery = '';
   String get selectedTeacher => _selectedTeacherFilter;
   set selectedTeacher(String teacher) => setSelectedTeacher(teacher);
-  final Map<String, Stream<DocumentSnapshot<Map<String, dynamic>>>?> submissionStreams = {};
+  final Map<String, Stream<DocumentSnapshot<Map<String, dynamic>>>?>
+  submissionStreams = {};
 
   void setSearchQuery(String q) {
     if (searchQuery != q) {
@@ -454,7 +455,8 @@ class ExamController extends ChangeNotifier {
         resolvedStudent = await StudentData.restoreFromPreferences();
       }
 
-      final hasTeacherOrEnrollment = resolvedStudent != null &&
+      final hasTeacherOrEnrollment =
+          resolvedStudent != null &&
           ((resolvedStudent.id.trim().isNotEmpty &&
                   resolvedStudent.teacherId.trim().isNotEmpty) ||
               resolvedStudent.enrollments.isNotEmpty);
@@ -492,7 +494,8 @@ class ExamController extends ChangeNotifier {
               } catch (_) {}
               return ExamModel.fromJson(
                 data,
-                teacherId: parentTeacherId ?? (resolvedStudent?.teacherId ?? ''),
+                teacherId:
+                    parentTeacherId ?? (resolvedStudent?.teacherId ?? ''),
                 teacherName: resolvedStudent?.teacherName ?? '',
               );
             }).toList();
@@ -505,16 +508,16 @@ class ExamController extends ChangeNotifier {
         final enrollments = resolvedStudent.activeEnrollments.isNotEmpty
             ? resolvedStudent.activeEnrollments
             : (resolvedStudent.enrollments.isNotEmpty
-                ? resolvedStudent.enrollments
-                : [
-                    StudentEnrollment(
-                      teacherId: resolvedStudent.teacherId,
-                      teacherName: resolvedStudent.teacherName,
-                      batchId: resolvedStudent.batch,
-                      batchName: resolvedStudent.batch,
-                      studentId: resolvedStudent.id,
-                    ),
-                  ]);
+                  ? resolvedStudent.enrollments
+                  : [
+                      StudentEnrollment(
+                        teacherId: resolvedStudent.teacherId,
+                        teacherName: resolvedStudent.teacherName,
+                        batchId: resolvedStudent.batch,
+                        batchName: resolvedStudent.batch,
+                        studentId: resolvedStudent.id,
+                      ),
+                    ]);
         rawStream = ExamFirestoreService.getMultiTeacherExamsStream(
           enrollments: enrollments,
         );

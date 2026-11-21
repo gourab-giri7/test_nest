@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/core/context/active_tenant_context.dart';
 import 'package:test_nest/feature/auth/loginFeatureStudents/student_login_feature.dart';
 import 'package:test_nest/feature/auth/loginFeatureTeacher/teacher_login_feature.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
@@ -105,6 +106,22 @@ class LoginController extends ChangeNotifier {
 
         if (result == 200) {
           await saveTeacherSession();
+          if (context.mounted) {
+            try {
+              final tenantCtx = context.read<ActiveTenantContext>();
+              final uid =
+                  FirebaseAuth.instance.currentUser?.uid ??
+                  teacherData?.id ??
+                  '';
+              await tenantCtx.init(
+                uid,
+                fallbackName: teacherData?.name,
+                fallbackEmail: teacherData?.email,
+              );
+            } catch (e) {
+              log('Failed to init tenant context on login: $e');
+            }
+          }
           isLogined = true;
           role = "teacher";
           ispressed = false;
@@ -225,6 +242,7 @@ class LoginController extends ChangeNotifier {
     // Reset shared controllers if mounted
     try {
       if (context.mounted) {
+        context.read<ActiveTenantContext>().clear();
         context.read<StudentController>().reset();
         context.read<TeacherExamController>().clearSearch();
         context.read<CreateExamController>().clearAll();

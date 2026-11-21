@@ -2,10 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/core/context/active_tenant_context.dart';
 import 'package:test_nest/core/services/batch_and_join_code_service.dart';
 import 'package:test_nest/core/services/batch_qr_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/batch_teacher_assignment_screen.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/batches/controller/batch_management_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/batches/widgets/batch_qr_code_dialog.dart';
@@ -463,6 +465,13 @@ class MyBatchesScreen extends StatelessWidget {
     BatchManagementController controller,
     BatchModel batch,
   ) {
+    ActiveTenantContext? tenantCtx;
+    try {
+      tenantCtx = context.watch<ActiveTenantContext>();
+    } catch (_) {
+      tenantCtx = null;
+    }
+
     final isSelected = controller.selectedBatchIds.contains(batch.id);
 
     return InkWell(
@@ -567,8 +576,27 @@ class MyBatchesScreen extends StatelessWidget {
                     onSelected: (val) {
                       if (val == 'view_code') {
                         _showJoiningCodeDialog(context, batch);
+                      } else if (val == 'assign_teachers') {
+                        final orgId = tenantCtx?.activeOrgId ?? '';
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BatchTeacherAssignmentScreen(
+                              orgId: orgId,
+                              batch: batch,
+                            ),
+                          ),
+                        );
                       } else if (val == 'view_students') {
                         Get.toNamed(AppRoutes.teacherAllStudents);
+                      } else if (val == 'attendance') {
+                        Get.toNamed(
+                          AppRoutes.batchAttendance,
+                          arguments: {
+                            'batchId': batch.id,
+                            'teacherId': batch.teacherId,
+                          },
+                        );
                       } else if (val == 'promote') {
                         Get.toNamed(
                           AppRoutes.teacherPromoteStudents,
@@ -585,6 +613,23 @@ class MyBatchesScreen extends StatelessWidget {
                       }
                     },
                     itemBuilder: (ctx) => [
+                      if (tenantCtx != null &&
+                          tenantCtx.isInstitute &&
+                          tenantCtx.isAdmin)
+                        const PopupMenuItem(
+                          value: 'assign_teachers',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.person_add_alt_1_rounded,
+                                size: 18,
+                                color: Color(0xFF2563EB),
+                              ),
+                              SizedBox(width: 10),
+                              Text('Assign Teachers'),
+                            ],
+                          ),
+                        ),
                       const PopupMenuItem(
                         value: 'view_code',
                         child: Row(
@@ -610,6 +655,20 @@ class MyBatchesScreen extends StatelessWidget {
                             ),
                             SizedBox(width: 10),
                             Text('View Students'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'attendance',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.how_to_reg_rounded,
+                              size: 18,
+                              color: Color(0xFF0284C7),
+                            ),
+                            SizedBox(width: 10),
+                            Text('Mark Attendance'),
                           ],
                         ),
                       ),

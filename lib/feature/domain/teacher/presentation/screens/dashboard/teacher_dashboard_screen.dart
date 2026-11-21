@@ -5,8 +5,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/core/context/active_tenant_context.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/login/controller/login_controller.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/institute_admin_dashboard_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/institute_teacher_dashboard_screen.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/allStudents/all_students_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/batches/my_batches_screen.dart';
@@ -131,6 +134,22 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     final isFeeEnabled = tData.feeTrackingEnabled != false;
     final currentNavIndex = context.watch<DasboardController>().currentNavIndex;
 
+    ActiveTenantContext? tenantCtx;
+    try {
+      tenantCtx = context.watch<ActiveTenantContext>();
+    } catch (_) {
+      tenantCtx = null;
+    }
+
+    Widget homeView;
+    if (tenantCtx != null && tenantCtx.isInstitute && tenantCtx.isAdmin) {
+      homeView = const InstituteAdminDashboardScreen();
+    } else if (tenantCtx != null && tenantCtx.isInstitute) {
+      homeView = const InstituteTeacherDashboardScreen();
+    } else {
+      homeView = _buildHomeTab(context, tData);
+    }
+
     return PopScope(
       canPop: currentNavIndex == 0,
       onPopInvokedWithResult: (didPop, _) {
@@ -150,8 +169,8 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
             }
           },
           children: [
-            // Tab 0: Home Overview
-            _KeepAliveTab(child: _buildHomeTab(context, tData)),
+            // Tab 0: Home Overview (Adaptive: Single Teacher, Institute Admin, Institute Teacher)
+            _KeepAliveTab(child: homeView),
 
             // Tab 1: Students Directory
             const _KeepAliveTab(child: AllStudentsScreen()),
@@ -219,6 +238,11 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     final name = tData.name.trim();
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'T';
 
+    ActiveTenantContext? tenantCtx;
+    try {
+      tenantCtx = Provider.of<ActiveTenantContext>(context);
+    } catch (_) {}
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -268,17 +292,22 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
                   children: [
-                    const Text(
-                      'Educator workspace',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: _muted,
-                        fontWeight: FontWeight.w600,
+                    InkWell(
+                      onTap: () => Get.toNamed(AppRoutes.organizationSwitcher),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Text(
+                        tenantCtx?.activeOrg?.name ?? 'Educator workspace',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: _muted,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 7,
@@ -658,6 +687,14 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     final tData = teacherData;
     final isFeeEnabled = tData?.feeTrackingEnabled != false;
 
+    ActiveTenantContext? tenantCtx;
+    try {
+      tenantCtx = Provider.of<ActiveTenantContext>(context);
+    } catch (_) {}
+
+    final isInstAdmin =
+        tenantCtx != null && tenantCtx.isInstitute && tenantCtx.isAdmin;
+
     final actions = <_TeacherAction>[
       _TeacherAction(
         icon: Icons.people_alt_rounded,
@@ -693,6 +730,51 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
         subtitle: 'Approve students',
         color: const Color(0xFF0284C7),
         onTap: () => Get.toNamed(AppRoutes.teacherJoinRequests),
+      ),
+      _TeacherAction(
+        icon: Icons.how_to_reg_rounded,
+        title: 'Attendance',
+        subtitle: 'Mark & track',
+        color: const Color(0xFF0D9488),
+        onTap: () => Get.toNamed(
+          AppRoutes.batchAttendance,
+          arguments: {'teacherId': tData?.id},
+        ),
+      ),
+      _TeacherAction(
+        icon: Icons.campaign_rounded,
+        title: 'Notices',
+        subtitle: 'Announcements',
+        color: const Color(0xFFE11D48),
+        onTap: () => Get.toNamed(
+          AppRoutes.noticeList,
+          arguments: {'teacherId': tData?.id},
+        ),
+      ),
+      _TeacherAction(
+        icon: Icons.insights_rounded,
+        title: 'Performance',
+        subtitle: 'Analytics & Trends',
+        color: const Color(0xFF8B5CF6),
+        onTap: () => Get.toNamed(
+          AppRoutes.performanceAnalytics,
+          arguments: {'teacherId': tData?.id},
+        ),
+      ),
+      if (isInstAdmin)
+        _TeacherAction(
+          icon: Icons.person_add_rounded,
+          title: 'Teacher Invites',
+          subtitle: 'Invite & manage',
+          color: const Color(0xFF8B5CF6),
+          onTap: () => Get.toNamed(AppRoutes.manageInvitations),
+        ),
+      _TeacherAction(
+        icon: Icons.domain_rounded,
+        title: 'Workspaces',
+        subtitle: 'Switch or create',
+        color: const Color(0xFF6366F1),
+        onTap: () => Get.toNamed(AppRoutes.organizationSwitcher),
       ),
       if (isFeeEnabled)
         _TeacherAction(
@@ -796,7 +878,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _sectionTitle('Recent assessments'),
+        Expanded(child: _sectionTitle('Recent assessments')),
         TextButton(
           onPressed: () => _switchTab(2),
           style: TextButton.styleFrom(

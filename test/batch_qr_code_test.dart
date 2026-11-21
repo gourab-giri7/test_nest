@@ -19,7 +19,9 @@ void main() {
 
     test('extractJoiningCode parses URL query parameters', () {
       expect(
-        BatchQrService.extractJoiningCode('https://testnest.app/join?code=TN-8X1Y3'),
+        BatchQrService.extractJoiningCode(
+          'https://testnest.app/join?code=TN-8X1Y3',
+        ),
         'TN-8X1Y3',
       );
       expect(
@@ -27,14 +29,18 @@ void main() {
         'TN-9Z2A4',
       );
       expect(
-        BatchQrService.extractJoiningCode('https://example.com/batch?code=tn-4k8p1&ref=qr'),
+        BatchQrService.extractJoiningCode(
+          'https://example.com/batch?code=tn-4k8p1&ref=qr',
+        ),
         'TN-4K8P1',
       );
     });
 
     test('extractJoiningCode finds embedded TN pattern in text', () {
       expect(
-        BatchQrService.extractJoiningCode('Join our Physics batch: TN-5R2W9 now!'),
+        BatchQrService.extractJoiningCode(
+          'Join our Physics batch: TN-5R2W9 now!',
+        ),
         'TN-5R2W9',
       );
     });
@@ -47,9 +53,15 @@ void main() {
       expect(BatchQrService.extractJoiningCode('ab'), isNull); // Too short
     });
 
-    test('BatchAndJoinCodeService.normalizeCode trims and uppercases properly', () {
-      expect(BatchAndJoinCodeService.normalizeCode(' tn-7k 9p2 '), 'TN-7K9P2');
-    });
+    test(
+      'BatchAndJoinCodeService.normalizeCode trims and uppercases properly',
+      () {
+        expect(
+          BatchAndJoinCodeService.normalizeCode(' tn-7k 9p2 '),
+          'TN-7K9P2',
+        );
+      },
+    );
   });
 
   group('BatchQrCodeDialog UI Widget Tests', () {
@@ -63,12 +75,12 @@ void main() {
       academicYear: '2026-2027',
     );
 
-    testWidgets('Renders batch details, QR image view, and action buttons', (tester) async {
+    testWidgets('Renders batch details, QR image view, and action buttons', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         GetMaterialApp(
-          home: Scaffold(
-            body: BatchQrCodeDialog(batch: testBatch),
-          ),
+          home: Scaffold(body: BatchQrCodeDialog(batch: testBatch)),
         ),
       );
       await tester.pumpAndSettle();
@@ -88,7 +100,9 @@ void main() {
       expect(find.text('Close'), findsOneWidget);
     });
 
-    testWidgets('Renders friendly fallback when activeJoinCode is empty', (tester) async {
+    testWidgets('Renders friendly fallback when activeJoinCode is empty', (
+      tester,
+    ) async {
       final emptyCodeBatch = BatchModel(
         id: 'batch_empty',
         name: 'Class 12 Chemistry',
@@ -98,9 +112,7 @@ void main() {
 
       await tester.pumpWidget(
         GetMaterialApp(
-          home: Scaffold(
-            body: BatchQrCodeDialog(batch: emptyCodeBatch),
-          ),
+          home: Scaffold(body: BatchQrCodeDialog(batch: emptyCodeBatch)),
         ),
       );
       await tester.pumpAndSettle();
@@ -112,20 +124,21 @@ void main() {
   });
 
   group('StudentQrScannerScreen UI & Fallback Tests', () {
-    testWidgets('Renders scanner overlay, flashlight, back, and manual entry buttons', (tester) async {
-      await tester.pumpWidget(
-        const GetMaterialApp(
-          home: StudentQrScannerScreen(),
-        ),
-      );
-      await tester.pump();
+    testWidgets(
+      'Renders scanner overlay, flashlight, back, and manual entry buttons',
+      (tester) async {
+        await tester.pumpWidget(
+          const GetMaterialApp(home: StudentQrScannerScreen()),
+        );
+        await tester.pump();
 
-      // Title & instruction elements
-      expect(find.text('Scan Batch QR'), findsOneWidget);
-      expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.keyboard_rounded), findsWidgets);
-      expect(find.text('Enter Code Manually'), findsWidgets);
-    });
+        // Title & instruction elements
+        expect(find.text('Scan Batch QR'), findsOneWidget);
+        expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.keyboard_rounded), findsWidgets);
+        expect(find.text('Enter Code Manually'), findsWidgets);
+      },
+    );
   });
 
   group('Join Code Security & Validation Logic Tests', () {
@@ -181,8 +194,14 @@ void main() {
       );
 
       expect(batch1.activeJoinCode, isNot(equals(batch2.activeJoinCode)));
-      expect(BatchQrService.extractJoiningCode(batch1.activeJoinCode), 'TN-MATH1');
-      expect(BatchQrService.extractJoiningCode(batch2.activeJoinCode), 'TN-PHYS2');
+      expect(
+        BatchQrService.extractJoiningCode(batch1.activeJoinCode),
+        'TN-MATH1',
+      );
+      expect(
+        BatchQrService.extractJoiningCode(batch2.activeJoinCode),
+        'TN-PHYS2',
+      );
     });
 
     test('Copy joining code returns false for empty code', () async {

@@ -33,7 +33,10 @@ class StudentProfileScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -64,7 +67,11 @@ class StudentProfileScreen extends StatelessWidget {
     final sData = studentData;
     final currentUser = FirebaseAuth.instance.currentUser;
     final name = sData?.name.trim() ?? currentUser?.displayName ?? 'Student';
-    final email = currentUser?.email ?? (sData != null ? '${sData.id.toLowerCase()}@testnest.app' : 'student@testnest.app');
+    final email =
+        currentUser?.email ??
+        (sData != null
+            ? '${sData.id.toLowerCase()}@testnest.app'
+            : 'student@testnest.app');
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'S';
 
     return Scaffold(
@@ -119,7 +126,9 @@ class StudentProfileScreen extends StatelessWidget {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF6366F1).withOpacity(0.35),
+                                color: const Color(
+                                  0xFF6366F1,
+                                ).withOpacity(0.35),
                                 blurRadius: 14,
                                 offset: const Offset(0, 5),
                               ),
@@ -205,21 +214,28 @@ class StudentProfileScreen extends StatelessWidget {
                         _infoItem(
                           icon: Icons.badge_outlined,
                           label: 'Student ID',
-                          value: sData?.id.isNotEmpty == true ? sData!.id : 'Assigned per batch',
+                          value: sData?.id.isNotEmpty == true
+                              ? sData!.id
+                              : 'Assigned per batch',
                         ),
                         const Divider(height: 20, color: AppColors.border),
                         _infoItem(
                           icon: Icons.groups_outlined,
                           label: 'Primary Batch',
-                          value: sData?.batch.isNotEmpty == true ? sData!.batch : 'Not enrolled',
+                          value: sData?.batch.isNotEmpty == true
+                              ? sData!.batch
+                              : 'Not enrolled',
                         ),
                         const Divider(height: 20, color: AppColors.border),
                         _infoItem(
                           icon: Icons.school_outlined,
                           label: 'Educator / Teacher',
-                          value: sData?.teacherName.isNotEmpty == true ? sData!.teacherName : 'Direct',
+                          value: sData?.teacherName.isNotEmpty == true
+                              ? sData!.teacherName
+                              : 'Direct',
                         ),
-                        if (sData != null && sData.activeEnrollments.length > 1) ...[
+                        if (sData != null &&
+                            sData.activeEnrollments.length > 1) ...[
                           const Divider(height: 20, color: AppColors.border),
                           _infoItem(
                             icon: Icons.account_balance_outlined,
@@ -276,7 +292,11 @@ class StudentProfileScreen extends StatelessWidget {
                           ),
                           onTap: () => Get.toNamed(AppRoutes.aboutApp),
                         ),
-                        const Divider(height: 1, indent: 56, color: AppColors.border),
+                        const Divider(
+                          height: 1,
+                          indent: 56,
+                          color: AppColors.border,
+                        ),
                         ListTile(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -321,7 +341,9 @@ class StudentProfileScreen extends StatelessWidget {
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.danger,
-                        side: BorderSide(color: AppColors.danger.withOpacity(0.4)),
+                        side: BorderSide(
+                          color: AppColors.danger.withOpacity(0.4),
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -330,7 +352,10 @@ class StudentProfileScreen extends StatelessWidget {
                       icon: const Icon(Icons.logout_rounded, size: 18),
                       label: const Text(
                         'Sign Out',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ),

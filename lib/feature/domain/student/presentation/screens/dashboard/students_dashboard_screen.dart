@@ -667,6 +667,42 @@ class StudentDashboardScreen extends StatelessWidget {
         onTap: () => _openExams(sData, tab: 3),
       ),
       _QuickAction(
+        icon: Icons.how_to_reg_rounded,
+        title: 'Attendance',
+        subtitle: 'Class presence log',
+        color: const Color(0xFF0284C7),
+        onTap: () => Get.toNamed(
+          AppRoutes.studentAttendanceHistory,
+          arguments: {
+            'studentId': sData.id,
+            'studentName': sData.name,
+            'batchId': sData.batch,
+            'teacherId': sData.teacherId,
+          },
+        ),
+      ),
+      _QuickAction(
+        icon: Icons.campaign_rounded,
+        title: 'Notices',
+        subtitle: 'Announcements',
+        color: const Color(0xFFE11D48),
+        onTap: () => Get.toNamed(
+          AppRoutes.studentNoticeInbox,
+          arguments: {
+            'studentUid': sData.id,
+            'batchIds': sData.activeEnrollments.map((e) => e.batchId).toList(),
+            'teacherId': sData.teacherId,
+          },
+        ),
+      ),
+      _QuickAction(
+        icon: Icons.insights_rounded,
+        title: 'Performance',
+        subtitle: 'Analytics & Leaderboard',
+        color: const Color(0xFF8B5CF6),
+        onTap: () => Get.toNamed(AppRoutes.performanceAnalytics),
+      ),
+      _QuickAction(
         icon: Icons.person_rounded,
         title: 'My profile',
         subtitle: 'Account & settings',

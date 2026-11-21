@@ -18,6 +18,7 @@ class ExamModel {
   final List<String> assignedStudentIds;
   final String teacherId;
   final String teacherName;
+  final String? subject;
 
   const ExamModel({
     required this.examId,
@@ -34,6 +35,7 @@ class ExamModel {
     this.assignedStudentIds = const [],
     this.teacherId = '',
     this.teacherName = '',
+    this.subject,
   });
 
   factory ExamModel.fromJson(
@@ -119,6 +121,13 @@ class ExamModel {
       ),
       teacherId: resolvedTeacherId,
       teacherName: resolvedTeacherName,
+      subject:
+          (details['subject'] ??
+                  json['subject'] ??
+                  details['subject_name'] ??
+                  json['subject_name'])
+              ?.toString()
+              .trim(),
       assignedStudentIds: () {
         final rawIds =
             json['assigned_student_ids'] ?? details['assigned_student_ids'];
@@ -192,6 +201,7 @@ class ExamModel {
       'batch': batch,
       'teacher_id': teacherId,
       'teacher_name': teacherName,
+      if (subject != null && subject!.isNotEmpty) 'subject': subject,
       'exam_start': examStart == null ? null : Timestamp.fromDate(examStart!),
       'exam_end': examEnd == null ? null : Timestamp.fromDate(examEnd!),
     },

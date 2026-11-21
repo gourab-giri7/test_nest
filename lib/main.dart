@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:test_nest/firebase_options.dart';
 
+import 'package:test_nest/core/context/active_tenant_context.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 
 import 'package:test_nest/feature/domain/common/presentation/screen/login/controller/login_controller.dart';
@@ -128,9 +129,28 @@ Future<void> main() async {
     }
   }
 
+  final activeTenantContext = ActiveTenantContext();
+  if (validLoggedIn && restoredRole == 'teacher') {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? teacherData?.id;
+    if (uid != null && uid.isNotEmpty) {
+      try {
+        await activeTenantContext.init(
+          uid,
+          fallbackName: teacherData?.name,
+          fallbackEmail: teacherData?.email,
+        );
+      } catch (e) {
+        log('Failed to init ActiveTenantContext in main: $e');
+      }
+    }
+  }
+
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider<ActiveTenantContext>.value(
+          value: activeTenantContext,
+        ),
         ChangeNotifierProvider<LoginController>(
           create: (_) => LoginController(
             initialIsLogined: validLoggedIn,

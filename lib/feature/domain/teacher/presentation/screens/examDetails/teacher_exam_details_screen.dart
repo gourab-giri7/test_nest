@@ -512,7 +512,8 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
             ],
           );
 
-          final isExamEnded = e.status == 'Completed' ||
+          final isExamEnded =
+              e.status == 'Completed' ||
               (e.examEnd != null && DateTime.now().isAfter(e.examEnd!));
 
           final button = isExamEnded
@@ -1729,8 +1730,7 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
     // 2. Validate exam end time again immediately before committing write
     final preWriteSnap = await ref.get();
     final preWriteData = preWriteSnap.data() ?? {};
-    final preWriteRawEnd =
-        preWriteData['exam_end'] ?? preWriteData['examEnd'];
+    final preWriteRawEnd = preWriteData['exam_end'] ?? preWriteData['examEnd'];
     DateTime? preWriteEnd;
     if (preWriteRawEnd is Timestamp) {
       preWriteEnd = preWriteRawEnd.toDate();

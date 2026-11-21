@@ -35,6 +35,49 @@ service cloud.firestore {
       );
     }
 
+    function isOrgAdmin(orgId) {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/organizations/$(orgId)) &&
+         get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid) ||
+        (exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isOrgMember(orgId) {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/organizations/$(orgId)) &&
+         get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid)
+      );
+    }
+
+    function isOrgTeacher(orgId) {
+      return isAuthenticated() && (
+        isOrgAdmin(orgId) ||
+        (exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'teacher')
+      );
+    }
+
+    function isOrgStudent(orgId) {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/organizations/$(orgId)/students/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)/memberships/$(orgId)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)/memberships/$(orgId)).data.role == 'student')
+      );
+    }
+
+    function isTeacherAssignedToBatch(orgId, batchId) {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/organizations/$(orgId)/batches/$(batchId)) && (
+          get(/databases/$(database)/documents/organizations/$(orgId)/batches/$(batchId)).data.teacher_id == request.auth.uid ||
+          ('assigned_teacher_ids' in get(/databases/$(database)/documents/organizations/$(orgId)/batches/$(batchId)).data &&
+           request.auth.uid in get(/databases/$(database)/documents/organizations/$(orgId)/batches/$(batchId)).data.assigned_teacher_ids)
+        )
+      );
+    }
+
     // Default deny-all
     match /{document=**} {
       allow read, write: if false;
@@ -58,6 +101,17 @@ service cloud.firestore {
         allow read: if isOwner(userId) || (isAuthenticated() && resource.data.teacher_id == request.auth.uid);
         allow create, update: if isOwner(userId) || (isAuthenticated() && request.resource.data.teacher_id == request.auth.uid);
         allow delete: if isOwner(userId) || (isAuthenticated() && resource.data.teacher_id == request.auth.uid);
+      }
+
+      // User Memberships subcollection (Phase 1 Workspace Indexing)
+      match /memberships/{orgId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && (
+          (getAfter(/databases/$(database)/documents/organizations/$(orgId)/members/$(userId)).data.role == request.resource.data.role) ||
+          (exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(userId)) &&
+           get(/databases/$(database)/documents/organizations/$(orgId)/members/$(userId)).data.role == request.resource.data.role)
+        );
+        allow delete: if isOwner(userId) || isOrgAdmin(orgId);
       }
     }
 
@@ -99,6 +153,297 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // Global Teacher Invitations (Phase 1)
+    // -------------------------------------------------------------------------
+    match /invitations/{code} {
+      allow read: if isAuthenticated() && (
+        resource.data.createdBy == request.auth.uid ||
+        (request.auth.token.email != null && resource.data.teacherEmail.lower() == request.auth.token.email.lower())
+      );
+      // ONLY Org Admin can create global invitation for their org
+      allow create: if isAuthenticated() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        isOrgAdmin(request.resource.data.orgId) &&
+        request.resource.data.isUsed == false &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.expiresAt > request.time;
+      // Admin can revoke; OR Invited teacher with verified matching email can accept in atomic transaction
+      allow update: if isAuthenticated() && (
+        // Admin revoking or editing
+        (resource.data.createdBy == request.auth.uid && isOrgAdmin(resource.data.orgId)) ||
+        // Teacher accepting
+        (request.auth.token.email_verified == true &&
+         request.auth.token.email != null &&
+         resource.data.teacherEmail.lower() == request.auth.token.email.lower() &&
+         resource.data.isUsed == false &&
+         resource.data.status == 'pending' &&
+         request.time < resource.data.expiresAt &&
+         request.resource.data.isUsed == true &&
+         request.resource.data.status == 'accepted' &&
+         request.resource.data.usedBy == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'status', 'usedBy', 'usedAt']))
+      );
+      allow delete: if isAuthenticated() && resource.data.createdBy == request.auth.uid && isOrgAdmin(resource.data.orgId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Organizations Collection (Phase 1 Multi-Tenant Institute & Workspaces)
+    // -------------------------------------------------------------------------
+    match /organizations/{orgId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isOrgAdmin(orgId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId', 'createdAt']);
+      allow delete: if isOrgAdmin(orgId);
+
+      // Members subcollection
+      match /members/{memberUid} {
+        allow read: if isOrgMember(orgId);
+        // Only Org Admins can add members directly;
+        // OR the Org Owner can initialize their own admin membership;
+        // OR an invited teacher can join as 'teacher' with an accepted invitation in the transaction
+        allow create: if isOrgAdmin(orgId) || (
+          isAuthenticated() && memberUid == request.auth.uid && (
+            // Org owner initializing their membership
+            (getAfter(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid &&
+             request.resource.data.role == 'admin') ||
+            // Invited teacher redeeming an invitation
+            (request.resource.data.role == 'teacher' &&
+             request.resource.data.inviteCode is string &&
+             request.auth.token.email_verified == true &&
+             request.auth.token.email != null &&
+             getAfter(/databases/$(database)/documents/organizations/$(orgId)/invitations/$(request.resource.data.inviteCode)).data.usedBy == request.auth.uid &&
+             getAfter(/databases/$(database)/documents/organizations/$(orgId)/invitations/$(request.resource.data.inviteCode)).data.status == 'accepted' &&
+             get(/databases/$(database)/documents/organizations/$(orgId)/invitations/$(request.resource.data.inviteCode)).data.isUsed == false &&
+             get(/databases/$(database)/documents/organizations/$(orgId)/invitations/$(request.resource.data.inviteCode)).data.status == 'pending' &&
+             request.time < get(/databases/$(database)/documents/organizations/$(orgId)/invitations/$(request.resource.data.inviteCode)).data.expiresAt &&
+             get(/databases/$(database)/documents/organizations/$(orgId)/invitations/$(request.resource.data.inviteCode)).data.teacherEmail.lower() == request.auth.token.email.lower())
+          )
+        );
+        allow update: if isOrgAdmin(orgId) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'joinedAt']);
+        allow delete: if isOrgAdmin(orgId) || (isAuthenticated() && memberUid == request.auth.uid);
+      }
+
+      // Org-scoped invitations subcollection
+      match /invitations/{code} {
+        allow read: if isOrgAdmin(orgId) || (isAuthenticated() && resource.data.usedBy == request.auth.uid);
+        allow create: if isOrgAdmin(orgId);
+        allow update: if isOrgAdmin(orgId) || (
+          isAuthenticated() &&
+          request.auth.token.email_verified == true &&
+          request.auth.token.email != null &&
+          resource.data.teacherEmail.lower() == request.auth.token.email.lower() &&
+          resource.data.isUsed == false &&
+          resource.data.status == 'pending' &&
+          request.time < resource.data.expiresAt &&
+          request.resource.data.isUsed == true &&
+          request.resource.data.status == 'accepted' &&
+          request.resource.data.usedBy == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'status', 'usedBy', 'usedAt'])
+        );
+        allow delete: if isOrgAdmin(orgId);
+      }
+
+      // Batches subcollection under organization (Phase 2 Batch-Teacher Assignment)
+      match /batches/{batchId} {
+        allow read: if isOrgAdmin(orgId) ||
+          (isOrgTeacher(orgId) && (
+            !('assigned_teacher_ids' in resource.data) ||
+            request.auth.uid in resource.data.assigned_teacher_ids ||
+            resource.data.teacher_id == request.auth.uid
+          )) || isAuthenticated();
+        allow create: if isOrgAdmin(orgId) || isOrgTeacher(orgId);
+        // Only Admin can update teacher assignments or delete; Teacher can update details if assigned
+        allow update: if isOrgAdmin(orgId) || (
+          isOrgTeacher(orgId) &&
+          (resource.data.teacher_id == request.auth.uid || request.auth.uid in resource.data.assigned_teacher_ids) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['assigned_teacher_ids'])
+        );
+        allow delete: if isOrgAdmin(orgId);
+
+        // Batch Leaderboard (Phase 5)
+        match /leaderboard/{studentId} {
+          allow read: if isOrgAdmin(orgId) ||
+            (isOrgTeacher(orgId) && isTeacherAssignedToBatch(orgId, batchId)) ||
+            isOrgStudent(orgId);
+          allow write: if isOrgAdmin(orgId) ||
+            (isOrgTeacher(orgId) && isTeacherAssignedToBatch(orgId, batchId));
+        }
+      }
+
+      // Students subcollection under organization
+      match /students/{studentId} {
+        allow read: if isOrgTeacher(orgId) || (
+          isAuthenticated() && (
+            resource.data.auth_uid == request.auth.uid ||
+            resource.data.id == request.auth.uid ||
+            studentId == request.auth.uid
+          )
+        );
+        allow write: if isOrgTeacher(orgId);
+      }
+
+      // Exams subcollection under organization (Phase 2 & Phase 5 Performance Intelligence)
+      match /exams/{examId} {
+        allow read: if isOrgAdmin(orgId) || isOrgMember(orgId) || isOrgStudent(orgId);
+        // Admin or exam owner teacher can create
+        allow create: if isOrgAdmin(orgId) || (
+          isOrgTeacher(orgId) && request.resource.data.teacher_id == request.auth.uid
+        );
+        // Teacher can edit/delete ONLY their own exams; Admin can manage all institute exams
+        allow update: if isOrgAdmin(orgId) || (
+          isOrgTeacher(orgId) && resource.data.teacher_id == request.auth.uid
+        );
+        allow delete: if isOrgAdmin(orgId) || (
+          isOrgTeacher(orgId) && resource.data.teacher_id == request.auth.uid
+        );
+
+        match /questions/{questionId} {
+          allow read: if isOrgAdmin(orgId) || isOrgMember(orgId) || isOrgStudent(orgId);
+          allow write: if isOrgTeacher(orgId);
+        }
+
+        // Answer keys — teacher/admin ONLY (NEVER expose to students)
+        match /answerKeys/{questionId} {
+          allow read, write: if isOrgTeacher(orgId);
+        }
+
+        match /submissions/{submissionId} {
+          allow read: if isOrgAdmin(orgId) ||
+            (isOrgTeacher(orgId) && (
+              get(/databases/$(database)/documents/organizations/$(orgId)/exams/$(examId)).data.teacher_id == request.auth.uid ||
+              (
+                'batch' in get(/databases/$(database)/documents/organizations/$(orgId)/exams/$(examId)).data &&
+                isTeacherAssignedToBatch(orgId, get(/databases/$(database)/documents/organizations/$(orgId)/exams/$(examId)).data.batch)
+              )
+            )) ||
+            (isAuthenticated() && (
+              submissionId == request.auth.uid ||
+              resource.data.student_id == request.auth.uid ||
+              resource.data.auth_uid == request.auth.uid
+            ));
+
+          allow create: if isOrgTeacher(orgId) || (
+            isAuthenticated() && (
+              submissionId == request.auth.uid ||
+              request.resource.data.student_id == request.auth.uid ||
+              request.resource.data.auth_uid == request.auth.uid
+            )
+          );
+
+          // Students CANNOT alter scores or submitted answers through analytics
+          allow update: if isOrgAdmin(orgId) ||
+            (isOrgTeacher(orgId) && get(/databases/$(database)/documents/organizations/$(orgId)/exams/$(examId)).data.teacher_id == request.auth.uid) ||
+            (isAuthenticated() && (
+              (submissionId == request.auth.uid || request.resource.data.student_id == request.auth.uid) &&
+              resource.data.status != 'submitted' &&
+              resource.data.status != 'graded' &&
+              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['score', 'correct_count', 'total_questions', 'status'])
+            ));
+
+          allow delete: if isOrgAdmin(orgId) ||
+            (isOrgTeacher(orgId) && get(/databases/$(database)/documents/organizations/$(orgId)/exams/$(examId)).data.teacher_id == request.auth.uid);
+        }
+      }
+
+      // Attendance subcollection under organization (Phase 3 Attendance Management)
+      match /attendance/{attendanceId} {
+        allow read: if isOrgAdmin(orgId) ||
+          (isOrgTeacher(orgId) && (
+            resource.data.teacherId == request.auth.uid ||
+            resource.data.markedBy == request.auth.uid ||
+            (exists(/databases/$(database)/documents/organizations/$(orgId)/batches/$(resource.data.batchId)) &&
+             (get(/databases/$(database)/documents/organizations/$(orgId)/batches/$(resource.data.batchId)).data.teacher_id == request.auth.uid ||
+              request.auth.uid in get(/databases/$(database)/documents/organizations/$(orgId)/batches/$(resource.data.batchId)).data.assigned_teacher_ids))
+          )) ||
+          (isAuthenticated() && (
+            resource.data.studentId == request.auth.uid ||
+            resource.data.auth_uid == request.auth.uid
+          ));
+
+        allow create, update: if isOrgAdmin(orgId) ||
+          (isOrgTeacher(orgId) && (
+            request.resource.data.teacherId == request.auth.uid ||
+            request.resource.data.markedBy == request.auth.uid ||
+            (exists(/databases/$(database)/documents/organizations/$(orgId)/batches/$(request.resource.data.batchId)) &&
+             (get(/databases/$(database)/documents/organizations/$(orgId)/batches/$(request.resource.data.batchId)).data.teacher_id == request.auth.uid ||
+              request.auth.uid in get(/databases/$(database)/documents/organizations/$(orgId)/batches/$(request.resource.data.batchId)).data.assigned_teacher_ids))
+          ));
+
+        allow delete: if isOrgAdmin(orgId);
+      }
+
+      // Notices subcollection under organization (Phase 4 Notice System)
+      match /notices/{noticeId} {
+        allow read: if isOrgAdmin(orgId) ||
+          (isOrgTeacher(orgId) && (
+            resource.data.createdBy == request.auth.uid ||
+            resource.data.audienceType == 'all' ||
+            (resource.data.audienceType == 'batches' && (
+              (resource.data.targetBatchIds.size() > 0 &&
+               isTeacherAssignedToBatch(orgId, resource.data.targetBatchIds[0])) ||
+              (exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+               'assignedBatchIds' in get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data &&
+               get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.assignedBatchIds.hasAny(resource.data.targetBatchIds))
+            ))
+          )) ||
+          ((isOrgMember(orgId) || isOrgStudent(orgId)) &&
+           resource.data.status == 'published' &&
+           (
+             resource.data.audienceType == 'all' ||
+             (resource.data.audienceType == 'students' && request.auth.uid in resource.data.targetStudentIds) ||
+             (resource.data.audienceType == 'batches' && (
+               (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                'batch_ids' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.batch_ids.hasAny(resource.data.targetBatchIds)) ||
+               (exists(/databases/$(database)/documents/organizations/$(orgId)/students/$(request.auth.uid)) &&
+                resource.data.targetBatchIds.hasAny([get(/databases/$(database)/documents/organizations/$(orgId)/students/$(request.auth.uid)).data.batch_id]))
+             ))
+           )
+          );
+
+        allow create: if isOrgAdmin(orgId) ||
+          (isOrgTeacher(orgId) &&
+           request.resource.data.createdBy == request.auth.uid &&
+           request.resource.data.audienceType != 'all' &&
+           (
+             request.resource.data.audienceType == 'batches' ?
+               (
+                 (request.resource.data.targetBatchIds.size() > 0 &&
+                  isTeacherAssignedToBatch(orgId, request.resource.data.targetBatchIds[0])) ||
+                 (exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+                  'assignedBatchIds' in get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data &&
+                  get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.assignedBatchIds.hasAll(request.resource.data.targetBatchIds))
+               )
+               : true
+           )
+          );
+
+        allow update: if isOrgAdmin(orgId) ||
+          (isOrgTeacher(orgId) &&
+           resource.data.createdBy == request.auth.uid &&
+           request.resource.data.createdBy == request.auth.uid &&
+           request.resource.data.audienceType != 'all' &&
+           (
+             request.resource.data.audienceType == 'batches' ?
+               (
+                 !request.resource.data.diff(resource.data).affectedKeys().hasAny(['targetBatchIds', 'audienceType']) ||
+                 (request.resource.data.targetBatchIds.size() > 0 &&
+                  isTeacherAssignedToBatch(orgId, request.resource.data.targetBatchIds[0])) ||
+                 (exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+                  'assignedBatchIds' in get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data &&
+                  get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.assignedBatchIds.hasAll(request.resource.data.targetBatchIds))
+               )
+               : true
+           )
+          );
+
+        allow delete: if isOrgAdmin(orgId);
+      }
+    }
+
+    // -------------------------------------------------------------------------
     // Teacher Root Profile and Subcollections: user/{teacherId}
     // -------------------------------------------------------------------------
     match /user/{teacherId} {
@@ -110,6 +455,12 @@ service cloud.firestore {
       match /batches/{batchId} {
         allow read: if isAuthenticated();
         allow write: if isTeacher(teacherId);
+
+        // Batch Leaderboard (Phase 5)
+        match /leaderboard/{studentId} {
+          allow read: if isTeacher(teacherId) || hasTeacherMembership(teacherId);
+          allow write: if isTeacher(teacherId);
+        }
       }
 
       // Students sub-collection
@@ -182,15 +533,54 @@ service cloud.firestore {
             )
           );
           // Student can submit their own exam attempt only if active membership exists; teacher can grade/update
-          allow create, update: if isTeacher(teacherId) || (
+          allow create: if isTeacher(teacherId) || (
             (hasTeacherMembership(teacherId) || isAuthenticated()) && (
               submissionId == request.auth.uid ||
               request.resource.data.student_id == request.auth.uid ||
               request.resource.data.auth_uid == request.auth.uid
             )
           );
+          // Student cannot alter scores or completed/graded attempts
+          allow update: if isTeacher(teacherId) || (
+            (hasTeacherMembership(teacherId) || isAuthenticated()) && (
+              (submissionId == request.auth.uid || request.resource.data.student_id == request.auth.uid) &&
+              resource.data.status != 'submitted' &&
+              resource.data.status != 'graded' &&
+              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['score', 'correct_count', 'total_questions', 'status'])
+            )
+          );
           allow delete: if isTeacher(teacherId);
         }
+      }
+
+      // Attendance subcollection under Single Teacher
+      match /attendance/{attendanceId} {
+        allow read: if isTeacher(teacherId) || (
+          isAuthenticated() && (
+            resource.data.studentId == request.auth.uid ||
+            resource.data.auth_uid == request.auth.uid
+          )
+        );
+        allow create, update, delete: if isTeacher(teacherId);
+      }
+
+      // Notices subcollection under Single Teacher
+      match /notices/{noticeId} {
+        allow read: if isTeacher(teacherId) || (
+          isAuthenticated() &&
+          resource.data.status == 'published' &&
+          (
+            resource.data.audienceType == 'all' ||
+            (resource.data.audienceType == 'students' && request.auth.uid in resource.data.targetStudentIds) ||
+            (resource.data.audienceType == 'batches' && (
+              hasTeacherMembership(teacherId) ||
+              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               'batch_ids' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.batch_ids.hasAny(resource.data.targetBatchIds))
+            ))
+          )
+        );
+        allow create, update, delete: if isTeacher(teacherId);
       }
     }
   }

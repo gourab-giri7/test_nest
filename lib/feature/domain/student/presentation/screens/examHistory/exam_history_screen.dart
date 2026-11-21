@@ -450,7 +450,8 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (controller.profileErrorMessage != null || controller.currentStudent == null) {
+    if (controller.profileErrorMessage != null ||
+        controller.currentStudent == null) {
       return _buildProfileErrorState(
         controller.profileErrorMessage ??
             'Student profile is missing. Please log in again.',
@@ -526,7 +527,8 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
           }
         }
         final availableTeachers = teacherNamesSet.toList(growable: false);
-        final selectedTeacher = availableTeachers.contains(controller.selectedTeacher)
+        final selectedTeacher =
+            availableTeachers.contains(controller.selectedTeacher)
             ? controller.selectedTeacher
             : 'All Teachers';
 
@@ -764,11 +766,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
             suffixIcon: context.watch<ExamController>().searchQuery.isNotEmpty
                 ? IconButton(
                     padding: EdgeInsets.zero,
-                    icon: const Icon(
-                      Icons.clear,
-                      size: 16,
-                      color: _muted,
-                    ),
+                    icon: const Icon(Icons.clear, size: 16, color: _muted),
                     onPressed: _searchController.clear,
                   )
                 : null,
@@ -813,7 +811,9 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
           separatorBuilder: (_, __) => const SizedBox(width: 6),
           itemBuilder: (context, index) {
             final teacher = teachers[index];
-            final selectedTeacher = context.watch<ExamController>().selectedTeacher;
+            final selectedTeacher = context
+                .watch<ExamController>()
+                .selectedTeacher;
             final isSelected = teacher == selectedTeacher;
             return GestureDetector(
               onTap: () {
@@ -886,8 +886,10 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
           color: const Color(0xFFEEF2FF),
         ),
         labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        unselectedLabelStyle:
-            const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
         tabs: const [
           Tab(text: 'All'),
           Tab(text: 'Active'),
@@ -898,8 +900,7 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
     );
   }
 
-
-    // ── List ─────────────────────────────────────────────────────────────────
+  // ── List ─────────────────────────────────────────────────────────────────
 
   Widget _buildExamList(List<ExamModel> exams, String label) {
     final searchQuery = context.watch<ExamController>().searchQuery;
@@ -1652,4 +1653,3 @@ class _PulseDotState extends State<_PulseDot>
     );
   }
 }
-

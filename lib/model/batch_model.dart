@@ -13,6 +13,7 @@ class BatchModel {
   final int pendingRequestCount;
   final DateTime? createdAt;
   final String teacherId;
+  final List<String> assignedTeacherIds;
 
   BatchModel({
     required this.id,
@@ -29,6 +30,7 @@ class BatchModel {
     this.pendingRequestCount = 0,
     this.createdAt,
     required this.teacherId,
+    this.assignedTeacherIds = const [],
   });
 
   factory BatchModel.fromJson(Map<String, dynamic> json, {String? docId}) {
@@ -55,6 +57,15 @@ class BatchModel {
                 : DateTime.tryParse(json['created_at'].toString()))
           : null,
       teacherId: (json['teacher_id'] ?? '').toString().trim(),
+      assignedTeacherIds: (json['assigned_teacher_ids'] is List)
+          ? (json['assigned_teacher_ids'] as List)
+                .map((e) => e.toString().trim())
+                .where((e) => e.isNotEmpty)
+                .toList()
+          : ((json['teacher_id'] != null &&
+                    json['teacher_id'].toString().trim().isNotEmpty)
+                ? [json['teacher_id'].toString().trim()]
+                : const <String>[]),
     );
   }
 
@@ -79,6 +90,7 @@ class BatchModel {
       'student_count': studentCount,
       'pending_request_count': pendingRequestCount,
       'teacher_id': teacherId.trim(),
+      'assigned_teacher_ids': assignedTeacherIds,
     };
   }
 
@@ -97,6 +109,7 @@ class BatchModel {
     int? pendingRequestCount,
     DateTime? createdAt,
     String? teacherId,
+    List<String>? assignedTeacherIds,
   }) {
     return BatchModel(
       id: id ?? this.id,
@@ -113,6 +126,7 @@ class BatchModel {
       pendingRequestCount: pendingRequestCount ?? this.pendingRequestCount,
       createdAt: createdAt ?? this.createdAt,
       teacherId: teacherId ?? this.teacherId,
+      assignedTeacherIds: assignedTeacherIds ?? this.assignedTeacherIds,
     );
   }
 }

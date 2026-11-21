@@ -73,8 +73,9 @@ class StudentModel {
             .toString()
             .trim();
     final rawPhone = (json['phone'] ?? json['mobile'] ?? '').toString().trim();
-    final rawBatchId =
-        (json['batch_id'] ?? json['batchId'] ?? '').toString().trim();
+    final rawBatchId = (json['batch_id'] ?? json['batchId'] ?? '')
+        .toString()
+        .trim();
     final rawName =
         (json['name'] ??
                 json['student_name'] ??

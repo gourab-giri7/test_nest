@@ -43,4 +43,29 @@ abstract class AppRoutes {
   static const teacherCreateBatch = '/teacher/create-batch';
   static const teacherJoinRequests = '/teacher/join-requests';
   static const teacherPromoteStudents = '/teacher/promote-students';
+
+  // Organization / Workspace (Phase 1 & Phase 2)
+  static const createOrganization = '/organization/create';
+  static const organizationSwitcher = '/organization/switcher';
+  static const joinOrganization = '/organization/join';
+  static const manageInvitations = '/organization/invitations';
+  static const instituteAdminDashboard = '/organization/admin-dashboard';
+  static const instituteTeacherDashboard = '/organization/teacher-dashboard';
+  static const instituteTeachers = '/organization/teachers';
+  static const batchTeacherAssignment = '/organization/batch-assignment';
+
+  // Attendance Management (Phase 3)
+  static const batchAttendance = '/attendance/mark';
+  static const attendanceOverview = '/attendance/overview';
+  static const studentAttendanceHistory = '/attendance/student-history';
+
+  // Notice System (Phase 4)
+  static const noticeList = '/notices';
+  static const noticeEditor = '/notices/editor';
+  static const noticeDetail = '/notices/detail';
+  static const studentNoticeInbox = '/student/notices';
+  static const studentNoticeDetail = '/student/notices/detail';
+
+  // Performance Intelligence (Phase 5)
+  static const performanceAnalytics = '/performance-analytics';
 }

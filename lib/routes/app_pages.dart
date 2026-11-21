@@ -4,6 +4,23 @@ import 'package:provider/provider.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/about/about_app_screen.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/login/login_screen.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/privacy/privacy_policy_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/attendance_overview_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/batch_attendance_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/batch_teacher_assignment_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/create_organization_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/institute_admin_dashboard_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/institute_teacher_dashboard_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/institute_teachers_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/join_organization_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/manage_invitations_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/notice_detail_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/notice_editor_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/notice_list_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/organization_switcher_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/performance_overview_screen.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/attendance/student_attendance_history_screen.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/notices/student_notice_detail_screen.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/notices/student_notice_inbox_screen.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/profile/student_profile_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/profile/teacher_profile_screen.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/roleSelection/role_selection_screen.dart';
@@ -44,6 +61,7 @@ import 'package:test_nest/feature/domain/teacher/presentation/screens/studentDet
 import 'package:test_nest/feature/domain/teacher/presentation/screens/studentDetails/student_exam_details_screen.dart';
 import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/model/exam_model.dart';
+import 'package:test_nest/model/notice_model.dart';
 import 'package:test_nest/routes/app_routes.dart';
 
 class AppPages {
@@ -51,22 +69,13 @@ class AppPages {
 
   static final List<GetPage> routes = [
     // Common / Auth
-    GetPage(
-      name: AppRoutes.splash,
-      page: () => const SplashScreen(),
-    ),
+    GetPage(name: AppRoutes.splash, page: () => const SplashScreen()),
     GetPage(
       name: AppRoutes.roleSelection,
       page: () => const RoleSelectionScreen(),
     ),
-    GetPage(
-      name: AppRoutes.login,
-      page: () => const LoginScreen(),
-    ),
-    GetPage(
-      name: AppRoutes.aboutApp,
-      page: () => const AboutAppScreen(),
-    ),
+    GetPage(name: AppRoutes.login, page: () => const LoginScreen()),
+    GetPage(name: AppRoutes.aboutApp, page: () => const AboutAppScreen()),
     GetPage(
       name: AppRoutes.privacyPolicy,
       page: () => const PrivacyPolicyScreen(),
@@ -121,8 +130,9 @@ class AppPages {
 
         if (args is Map<String, dynamic>) {
           student = args['initialStudentData'] as StudentData?;
-          stream = args['examStream']
-              as Stream<QuerySnapshot<Map<String, dynamic>>>?;
+          stream =
+              args['examStream']
+                  as Stream<QuerySnapshot<Map<String, dynamic>>>?;
           tab = args['initialTab'] as int? ?? 0;
         } else if (args is StudentData) {
           student = args;
@@ -210,10 +220,7 @@ class AppPages {
           throw ArgumentError('ExamModel is required for studentExamResult');
         }
 
-        return ExamResultReviewScreen(
-          exam: exam,
-          submission: submission,
-        );
+        return ExamResultReviewScreen(exam: exam, submission: submission);
       },
     ),
 
@@ -258,10 +265,7 @@ class AppPages {
           throw ArgumentError('StudentModel is required for studentDetails');
         }
 
-        return StudentDetailsScreen(
-          student: student,
-          teacherId: teacherId,
-        );
+        return StudentDetailsScreen(student: student, teacherId: teacherId);
       },
     ),
     GetPage(
@@ -432,6 +436,200 @@ class AppPages {
         }
         return PromoteStudentsScreen(sourceBatch: batch);
       },
+    ),
+    GetPage(
+      name: AppRoutes.createOrganization,
+      page: () => const CreateOrganizationScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.organizationSwitcher,
+      page: () => const OrganizationSwitcherScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.joinOrganization,
+      page: () => const JoinOrganizationScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.manageInvitations,
+      page: () => const ManageInvitationsScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.instituteAdminDashboard,
+      page: () => const InstituteAdminDashboardScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.instituteTeacherDashboard,
+      page: () => const InstituteTeacherDashboardScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.instituteTeachers,
+      page: () {
+        final args = Get.arguments;
+        String orgId = '';
+        if (args is String) {
+          orgId = args;
+        } else if (args is Map<String, dynamic>) {
+          orgId = (args['orgId'] ?? '').toString();
+        }
+        return InstituteTeachersScreen(orgId: orgId);
+      },
+    ),
+    GetPage(
+      name: AppRoutes.batchTeacherAssignment,
+      page: () {
+        final args = Get.arguments;
+        if (args is Map<String, dynamic>) {
+          final orgId = (args['orgId'] ?? '').toString();
+          final batch = args['batch'] as BatchModel;
+          return BatchTeacherAssignmentScreen(orgId: orgId, batch: batch);
+        }
+        throw ArgumentError(
+          'orgId and batch are required for batchTeacherAssignment',
+        );
+      },
+    ),
+    GetPage(
+      name: AppRoutes.batchAttendance,
+      page: () {
+        final args = Get.arguments;
+        String? batchId;
+        String? teacherId;
+        if (args is Map<String, dynamic>) {
+          batchId = args['batchId']?.toString();
+          teacherId = args['teacherId']?.toString();
+        } else if (args is String) {
+          batchId = args;
+        }
+        return BatchAttendanceScreen(
+          initialBatchId: batchId,
+          fallbackTeacherId: teacherId,
+        );
+      },
+    ),
+    GetPage(
+      name: AppRoutes.attendanceOverview,
+      page: () {
+        final args = Get.arguments;
+        String? teacherId;
+        if (args is Map<String, dynamic>) {
+          teacherId = args['teacherId']?.toString();
+        } else if (args is String) {
+          teacherId = args;
+        }
+        return AttendanceOverviewScreen(fallbackTeacherId: teacherId);
+      },
+    ),
+    GetPage(
+      name: AppRoutes.studentAttendanceHistory,
+      page: () {
+        final args = Get.arguments;
+        String? studentId;
+        String? studentName;
+        String? batchId;
+        String? teacherId;
+        if (args is Map<String, dynamic>) {
+          studentId = args['studentId']?.toString();
+          studentName = args['studentName']?.toString();
+          batchId = args['batchId']?.toString();
+          teacherId = args['teacherId']?.toString();
+        }
+        return StudentAttendanceHistoryScreen(
+          studentId: studentId,
+          studentName: studentName,
+          batchId: batchId,
+          fallbackTeacherId: teacherId,
+        );
+      },
+    ),
+    GetPage(
+      name: AppRoutes.noticeList,
+      page: () {
+        final args = Get.arguments;
+        String? teacherId;
+        if (args is Map<String, dynamic>) {
+          teacherId = args['teacherId']?.toString();
+        } else if (args is String) {
+          teacherId = args;
+        }
+        return NoticeListScreen(fallbackTeacherId: teacherId);
+      },
+    ),
+    GetPage(
+      name: AppRoutes.noticeEditor,
+      page: () {
+        final args = Get.arguments;
+        NoticeModel? notice;
+        String? teacherId;
+        if (args is NoticeModel) {
+          notice = args;
+        } else if (args is Map<String, dynamic>) {
+          notice = args['notice'] as NoticeModel?;
+          teacherId = args['teacherId']?.toString();
+        }
+        return NoticeEditorScreen(notice: notice, fallbackTeacherId: teacherId);
+      },
+    ),
+    GetPage(
+      name: AppRoutes.noticeDetail,
+      page: () {
+        final args = Get.arguments;
+        if (args is NoticeModel) {
+          return NoticeDetailScreen(notice: args);
+        }
+        if (args is Map<String, dynamic> && args['notice'] is NoticeModel) {
+          return NoticeDetailScreen(
+            notice: args['notice'] as NoticeModel,
+            fallbackTeacherId: args['teacherId']?.toString(),
+          );
+        }
+        throw ArgumentError(
+          'NoticeModel argument is required for noticeDetail',
+        );
+      },
+    ),
+    GetPage(
+      name: AppRoutes.studentNoticeInbox,
+      page: () {
+        final args = Get.arguments;
+        String? studentUid;
+        List<String>? batchIds;
+        String? teacherId;
+        if (args is Map<String, dynamic>) {
+          studentUid =
+              args['studentUid']?.toString() ?? args['studentId']?.toString();
+          if (args['batchIds'] is List) {
+            batchIds = (args['batchIds'] as List)
+                .map((e) => e.toString())
+                .toList();
+          } else if (args['batchId'] is String) {
+            batchIds = [args['batchId'].toString()];
+          }
+          teacherId = args['teacherId']?.toString();
+        }
+        return StudentNoticeInboxScreen(
+          studentUid: studentUid,
+          enrolledBatchIds: batchIds,
+          fallbackTeacherId: teacherId,
+        );
+      },
+    ),
+    GetPage(
+      name: AppRoutes.studentNoticeDetail,
+      page: () {
+        final args = Get.arguments;
+        if (args is NoticeModel) {
+          return StudentNoticeDetailScreen(notice: args);
+        }
+        throw ArgumentError(
+          'NoticeModel argument is required for studentNoticeDetail',
+        );
+      },
+    ),
+
+    // Performance Intelligence (Phase 5)
+    GetPage(
+      name: AppRoutes.performanceAnalytics,
+      page: () => const PerformanceOverviewScreen(),
     ),
   ];
 }

@@ -183,7 +183,8 @@ class TeacherExamsScreen extends StatelessWidget {
             ],
           ),
           body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: examStream ??
+            stream:
+                examStream ??
                 FirebaseFirestore.instance
                     .collection('user')
                     .doc(tData.id.trim())

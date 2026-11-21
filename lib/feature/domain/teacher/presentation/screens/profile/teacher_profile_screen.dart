@@ -33,7 +33,10 @@ class TeacherProfileScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -64,7 +67,8 @@ class TeacherProfileScreen extends StatelessWidget {
     final tData = teacherData;
     final currentUser = FirebaseAuth.instance.currentUser;
     final name = tData?.name.trim() ?? currentUser?.displayName ?? 'Educator';
-    final email = tData?.email.trim() ?? currentUser?.email ?? 'teacher@testnest.app';
+    final email =
+        tData?.email.trim() ?? currentUser?.email ?? 'teacher@testnest.app';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'T';
 
     return Scaffold(
@@ -119,7 +123,9 @@ class TeacherProfileScreen extends StatelessWidget {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF4F46E5).withOpacity(0.35),
+                                color: const Color(
+                                  0xFF4F46E5,
+                                ).withOpacity(0.35),
                                 blurRadius: 14,
                                 offset: const Offset(0, 5),
                               ),
@@ -211,7 +217,9 @@ class TeacherProfileScreen extends StatelessWidget {
                         _infoItem(
                           icon: Icons.currency_rupee_rounded,
                           label: 'Fee Tracking',
-                          value: tData?.feeTrackingEnabled != false ? 'Enabled' : 'Disabled',
+                          value: tData?.feeTrackingEnabled != false
+                              ? 'Enabled'
+                              : 'Disabled',
                         ),
                       ],
                     ),
@@ -262,7 +270,11 @@ class TeacherProfileScreen extends StatelessWidget {
                           ),
                           onTap: () => Get.toNamed(AppRoutes.aboutApp),
                         ),
-                        const Divider(height: 1, indent: 56, color: AppColors.border),
+                        const Divider(
+                          height: 1,
+                          indent: 56,
+                          color: AppColors.border,
+                        ),
                         ListTile(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -307,7 +319,9 @@ class TeacherProfileScreen extends StatelessWidget {
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.danger,
-                        side: BorderSide(color: AppColors.danger.withOpacity(0.4)),
+                        side: BorderSide(
+                          color: AppColors.danger.withOpacity(0.4),
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -316,7 +330,10 @@ class TeacherProfileScreen extends StatelessWidget {
                       icon: const Icon(Icons.logout_rounded, size: 18),
                       label: const Text(
                         'Sign Out',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ),

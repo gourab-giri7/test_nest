@@ -231,7 +231,10 @@ class BatchAndJoinCodeService {
       // 1. Revoke active join code if present
       if (batchModel.activeJoinCode.isNotEmpty) {
         try {
-          await _db.collection('joinCodes').doc(batchModel.activeJoinCode.trim()).delete();
+          await _db
+              .collection('joinCodes')
+              .doc(batchModel.activeJoinCode.trim())
+              .delete();
         } catch (_) {}
       }
 
@@ -259,7 +262,8 @@ class BatchAndJoinCodeService {
           final bName = (data['batch'] ?? '').toString().trim();
           final authUid = (data['auth_uid'] ?? '').toString().trim();
 
-          if (bId == batchId || bName.toLowerCase() == batchName.toLowerCase()) {
+          if (bId == batchId ||
+              bName.toLowerCase() == batchName.toLowerCase()) {
             writeBatch.update(doc.reference, {
               'status': 'removed',
               'removed_at': FieldValue.serverTimestamp(),

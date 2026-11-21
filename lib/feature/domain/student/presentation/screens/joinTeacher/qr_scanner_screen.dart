@@ -34,7 +34,8 @@ class _StudentQrScannerScreenState extends State<StudentQrScannerScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_scannerController.value.isInitialized) return;
 
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
       _scannerController.stop();
     } else if (state == AppLifecycleState.resumed && !_hasScanned) {
       _scannerController.start();
@@ -141,7 +142,10 @@ class _StudentQrScannerScreenState extends State<StudentQrScannerScreen>
                       backgroundColor: Colors.black.withOpacity(0.5),
                       foregroundColor: Colors.white,
                     ),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 18,
+                    ),
                     tooltip: 'Back',
                     onPressed: () => Get.back(),
                   ),
@@ -164,7 +168,9 @@ class _StudentQrScannerScreenState extends State<StudentQrScannerScreen>
                       foregroundColor: _isTorchOn ? Colors.black : Colors.white,
                     ),
                     icon: Icon(
-                      _isTorchOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                      _isTorchOn
+                          ? Icons.flash_on_rounded
+                          : Icons.flash_off_rounded,
                       size: 20,
                     ),
                     tooltip: 'Toggle Flashlight',
@@ -185,7 +191,10 @@ class _StudentQrScannerScreenState extends State<StudentQrScannerScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.65),
                       borderRadius: BorderRadius.circular(16),
@@ -292,7 +301,10 @@ class _StudentQrScannerScreenState extends State<StudentQrScannerScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.secondary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 14,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),

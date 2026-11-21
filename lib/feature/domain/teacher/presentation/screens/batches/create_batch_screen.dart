@@ -36,7 +36,10 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
     super.dispose();
   }
 
-  Future<void> _submitBatch(BuildContext context, CreateBatchController controller) async {
+  Future<void> _submitBatch(
+    BuildContext context,
+    CreateBatchController controller,
+  ) async {
     final tData = teacherData;
     if (tData == null) {
       customSnackbar(
@@ -123,11 +126,16 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
             body: SafeArea(
               child: Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 20,
+                  ),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: controller.createdBatch != null
-                        ? _buildSuccessView(controller.createdBatch as BatchModel)
+                        ? _buildSuccessView(
+                            controller.createdBatch as BatchModel,
+                          )
                         : _buildCreateForm(context, controller),
                   ),
                 ),
@@ -139,7 +147,10 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
     );
   }
 
-  Widget _buildCreateForm(BuildContext context, CreateBatchController controller) {
+  Widget _buildCreateForm(
+    BuildContext context,
+    CreateBatchController controller,
+  ) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -307,7 +318,9 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                onPressed: controller.isLoading ? null : () => _submitBatch(context, controller),
+                onPressed: controller.isLoading
+                    ? null
+                    : () => _submitBatch(context, controller),
                 child: controller.isLoading
                     ? const SizedBox(
                         height: 20,
@@ -417,7 +430,8 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                     ),
                     icon: const Icon(Icons.copy_rounded, size: 18),
                     label: const Text('Copy Joining Code'),
-                    onPressed: () => _copyJoinCode(context, batch.activeJoinCode),
+                    onPressed: () =>
+                        _copyJoinCode(context, batch.activeJoinCode),
                   ),
                 ],
               ),
