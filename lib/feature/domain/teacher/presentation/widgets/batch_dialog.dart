@@ -214,131 +214,146 @@ Future<void> batchDialog(BuildContext context) async {
 Future<String?> addBatchDialog(BuildContext context) async {
   final batchController = TextEditingController();
 
-  return showDialog<String>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-        contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-        actionsPadding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+  try {
+    return await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+          contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
 
-        title: Row(
-          children: [
-            Container(
-              height: 44,
-              width: 44,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
+          title: Row(
+            children: [
+              Container(
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.add_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
-              child: Icon(
-                Icons.add_rounded,
-                color: Theme.of(context).colorScheme.primary,
+
+              const SizedBox(width: 12),
+
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Add New Batch",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      "Create a new student batch",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
+          ),
 
-            const SizedBox(width: 12),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
 
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Add New Batch",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              const Text(
+                "Batch Name",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextFormField(
+                controller: batchController,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  hintText: "e.g. Class 12 Science",
+                  prefixIcon: const Icon(Icons.groups_rounded),
+                  filled: true,
+                  fillColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
                   ),
-                  SizedBox(height: 3),
-                  Text(
-                    "Create a new student batch",
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 1.5,
+                    ),
                   ),
-                ],
+                ),
               ),
+
+              const SizedBox(height: 8),
+
+              Text(
+                "Enter a unique name for batch.",
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+
+          actions: [
+            TextButton(
+              onPressed: () {
+                Get.back();
+              },
+              child: const Text("Cancel"),
             ),
-          ],
-        ),
 
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
+            const SizedBox(width: 8),
 
-            const Text(
-              "Batch Name",
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                final batchName = batchController.text.trim();
 
-            const SizedBox(height: 8),
-
-            TextFormField(
-              controller: batchController,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              decoration: InputDecoration(
-                hintText: "e.g. Class 12 Science",
-                prefixIcon: const Icon(Icons.groups_rounded),
-                filled: true,
-                fillColor: Theme.of(
+                if (batchName.isEmpty) {
+                  return;
+                }
+                context.read<AddStudentController>().addbatch(
+                  batchName,
                   context,
-                ).colorScheme.surfaceContainerHighest,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
+                );
+                Get.back();
+              },
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text("Add Batch"),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(
-                    color: Theme.of(context).colorScheme.primary,
-                    width: 1.5,
-                  ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-            ),
-
-            const SizedBox(height: 8),
-
-            Text(
-              "Enter a unique name for batch.",
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
             ),
           ],
-        ),
-
-        actions: [
-          TextButton(
-            onPressed: () {
-              Get.back();
-            },
-            child: const Text("Cancel"),
-          ),
-
-          const SizedBox(width: 8),
-
-          ElevatedButton.icon(
-            onPressed: () {
-              final batchName = batchController.text.trim();
-
-              if (batchName.isEmpty) {
-                return;
-              }
-              context.read<AddStudentController>().addbatch(batchName, context);
-              Get.back();
-            },
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text("Add Batch"),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ],
-      );
-    },
-  );
+        );
+      },
+    );
+  } finally {
+    batchController.dispose();
+  }
 }

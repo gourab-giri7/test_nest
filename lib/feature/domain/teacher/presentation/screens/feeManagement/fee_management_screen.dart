@@ -1,15 +1,10 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-import 'package:test_nest/core/services/fee_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
-import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/feeManagement/controller/fee_management_controller.dart';
-import 'package:test_nest/model/fee_record_model.dart';
 import 'package:test_nest/model/payment_model.dart';
 
 class FeeManagementScreen extends StatefulWidget {

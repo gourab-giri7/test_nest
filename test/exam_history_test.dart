@@ -28,6 +28,7 @@ class FakeQuerySnapshot implements QuerySnapshot<Map<String, dynamic>> {
   int get size => docs.length;
 }
 
+// ignore: subtype_of_sealed_class
 class FakeQueryDocumentSnapshot
     implements QueryDocumentSnapshot<Map<String, dynamic>> {
   final Map<String, dynamic> _data;

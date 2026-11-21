@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/teacher/data/datasources/get_student_data.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart';

@@ -67,14 +67,6 @@ class _StudentAttendanceHistoryScreenState
     );
   }
 
-  TenantPathResolver _getResolver() {
-    ActiveTenantContext? tenantCtx;
-    try {
-      tenantCtx = context.read<ActiveTenantContext>();
-    } catch (_) {}
-    return TenantPathResolver(tenantContext: tenantCtx);
-  }
-
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<StudentAttendanceController>.value(

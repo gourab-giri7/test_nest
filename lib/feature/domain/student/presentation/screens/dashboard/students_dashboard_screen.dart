@@ -1,18 +1,13 @@
-import 'dart:convert';
 import 'dart:developer';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-import 'package:test_nest/core/services/exam_firestore_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/screen/login/controller/login_controller.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/dashboard/controller/student_dashboard_controller.dart';
-import 'package:test_nest/feature/domain/student/presentation/screens/examHistory/controller/exam_controller.dart';
-import 'package:test_nest/main.dart';
 import 'package:test_nest/model/exam_model.dart';
 import 'package:test_nest/routes/app_routes.dart';
 
@@ -1237,60 +1232,6 @@ class StudentDashboardScreen extends StatelessWidget {
                 ],
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSessionExpired() {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 68,
-                  height: 68,
-                  decoration: BoxDecoration(
-                    color: _warn.withOpacity(0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.person_off_outlined,
-                    size: 32,
-                    color: _warn,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Your session has ended',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: _ink,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Please log in again to see your exams.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: _muted, height: 1.4),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => Get.offAllNamed(AppRoutes.login),
-                  icon: const Icon(Icons.login_rounded, size: 16),
-                  label: const Text('Log in'),
-                  style: _primaryButton(),
-                ),
-              ],
-            ),
           ),
         ),
       ),

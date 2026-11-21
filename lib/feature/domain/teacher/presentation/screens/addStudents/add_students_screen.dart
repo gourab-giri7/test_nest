@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/addStudents/controller/add_student_controller.dart';
-import 'package:test_nest/feature/domain/teacher/presentation/widgets/batch_dialog.dart';
 import 'package:test_nest/routes/app_routes.dart';
 
 class AddStudentScreen extends StatefulWidget {
@@ -184,60 +183,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 6.0),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: AppColors.text,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    String hint = "",
-    IconData? prefixIcon,
-    bool enabled = true,
-    bool suffix = false,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      validator: validator,
-      enabled: enabled,
-      onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-      controller: controller,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w700,
-        color: !enabled ? AppColors.textSecondary : AppColors.text,
-      ),
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 20) : null,
-        filled: true,
-        fillColor: enabled ? const Color(0xFFF8FAFC) : AppColors.surfaceAlt,
-        suffixIcon: suffix
-            ? const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: AppColors.textSecondary,
-              )
-            : null,
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.border),
         ),
       ),
     );

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:test_nest/core/services/batch_assignment_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/model/batch_model.dart';
@@ -29,7 +28,6 @@ class _BatchTeacherAssignmentScreenState
   List<OrganizationMemberModel> _allMembers = [];
   bool _isLoading = true;
   String _searchQuery = '';
-  String? _statusMessage;
 
   @override
   void initState() {
@@ -69,7 +67,6 @@ class _BatchTeacherAssignmentScreenState
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _statusMessage = 'Failed to load: $e';
         });
       }
     }

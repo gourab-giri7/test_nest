@@ -164,6 +164,24 @@ class LoginController extends ChangeNotifier {
           notifyListeners();
 
           if (state == 'approved') {
+            if (context.mounted) {
+              try {
+                final tenantCtx = context.read<ActiveTenantContext>();
+                final sUid =
+                    FirebaseAuth.instance.currentUser?.uid ??
+                    studentData?.id ??
+                    '';
+                if (sUid.isNotEmpty) {
+                  await tenantCtx.init(
+                    sUid,
+                    fallbackName: studentData?.name,
+                    fallbackEmail: FirebaseAuth.instance.currentUser?.email,
+                  );
+                }
+              } catch (e) {
+                log('Failed to init tenant context on student login: $e');
+              }
+            }
             isLogined = true;
             role = "student";
             notifyListeners();

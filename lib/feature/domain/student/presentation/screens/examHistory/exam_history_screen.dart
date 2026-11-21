@@ -86,67 +86,6 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
 
   // ── Data / logic (behaviour unchanged) ───────────────────────────────────
 
-  /// Times out only if the FIRST snapshot never arrives.
-  Stream<T> _withInitialTimeout<T>(Stream<T> source, Duration limit) {
-    late StreamController<T> controller;
-    StreamSubscription<T>? sub;
-    Timer? timer;
-
-    controller = StreamController<T>(
-      onListen: () {
-        timer = Timer(limit, () {
-          log('Exam stream timed out in ExamHistoryScreen');
-          controller.addError(
-            TimeoutException(
-              'Loading exams took longer than expected. '
-              'Please check your internet connection or tap Refresh.',
-            ),
-          );
-        });
-        sub = source.listen(
-          (event) {
-            timer?.cancel();
-            controller.add(event);
-          },
-          onError: (Object e, StackTrace s) {
-            timer?.cancel();
-            controller.addError(e, s);
-          },
-          onDone: () {
-            timer?.cancel();
-            controller.close();
-          },
-        );
-      },
-      onCancel: () {
-        timer?.cancel();
-        return sub?.cancel();
-      },
-    );
-    return controller.stream;
-  }
-
-  Stream<List<ExamModel>> _adaptStream(Stream<dynamic> raw) {
-    return raw.map((event) {
-      if (event is List<ExamModel>) return event;
-      if (event is QuerySnapshot) {
-        final docs = (event as QuerySnapshot<Map<String, dynamic>>).docs;
-        final list = <ExamModel>[];
-        for (final doc in docs) {
-          try {
-            list.add(ExamModel.fromFirestore(doc));
-          } catch (_) {
-            try {
-              list.add(ExamModel.fromJson(doc.data()));
-            } catch (_) {}
-          }
-        }
-        return list;
-      }
-      return <ExamModel>[];
-    });
-  }
-
   void _onRetry() {
     context.read<ExamController>().loadProfileAndStream(
       initialStudentData: widget.initialStudentData,
@@ -1405,61 +1344,6 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen>
   }
 
   // ── States ───────────────────────────────────────────────────────────────
-
-  Widget _buildSkeleton() {
-    Widget bar(double w, double h) => Container(
-      width: w,
-      height: h,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE9EEF5),
-        borderRadius: BorderRadius.circular(6),
-      ),
-    );
-
-    return ListView(
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-      children: [
-        Container(
-          height: 112,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE9EEF5),
-            borderRadius: BorderRadius.circular(18),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE9EEF5),
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        const SizedBox(height: 12),
-        for (var i = 0; i < 3; i++) ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: _line),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                bar(150, 14),
-                const SizedBox(height: 6),
-                bar(90, 10),
-                const SizedBox(height: 10),
-                bar(double.infinity, 36),
-              ],
-            ),
-          ),
-          const SizedBox(height: 9),
-        ],
-      ],
-    );
-  }
 
   Widget _buildMessage({
     required IconData icon,

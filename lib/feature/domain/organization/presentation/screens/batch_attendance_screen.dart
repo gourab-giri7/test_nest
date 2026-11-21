@@ -839,37 +839,41 @@ class _BatchAttendanceScreenState extends State<BatchAttendanceScreen> {
     String currentRemarks,
   ) async {
     final textController = TextEditingController(text: currentRemarks);
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          'Remarks for $studentName',
-          style: const TextStyle(fontSize: 16),
+    try {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            'Remarks for $studentName',
+            style: const TextStyle(fontSize: 16),
+          ),
+          content: TextField(
+            controller: textController,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'e.g. Arrived 15 mins late, informed parent, etc.',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 2,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                controller.markRemarks(studentKey, textController.text);
+                Navigator.pop(ctx);
+              },
+              child: const Text('Save Note'),
+            ),
+          ],
         ),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'e.g. Arrived 15 mins late, informed parent, etc.',
-            border: OutlineInputBorder(),
-          ),
-          maxLines: 2,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              controller.markRemarks(studentKey, textController.text);
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save Note'),
-          ),
-        ],
-      ),
-    );
+      );
+    } finally {
+      textController.dispose();
+    }
   }
 
   Widget _buildBottomBar(BatchAttendanceController controller) {

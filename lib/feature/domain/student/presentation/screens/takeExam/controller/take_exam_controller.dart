@@ -346,9 +346,7 @@ class TakeExamController extends ChangeNotifier {
       final diff = end.difference(DateTime.now());
       remaining = diff.isNegative ? Duration.zero : diff;
     }
-    if (remainingNotifier != null) {
-      remainingNotifier.value = remaining;
-    }
+    remainingNotifier.value = remaining;
   }
 
   void _startTimer() {

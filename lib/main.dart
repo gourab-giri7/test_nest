@@ -130,14 +130,20 @@ Future<void> main() async {
   }
 
   final activeTenantContext = ActiveTenantContext();
-  if (validLoggedIn && restoredRole == 'teacher') {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? teacherData?.id;
+  if (validLoggedIn) {
+    final uid =
+        FirebaseAuth.instance.currentUser?.uid ??
+        (restoredRole == 'teacher' ? teacherData?.id : studentData?.id);
     if (uid != null && uid.isNotEmpty) {
       try {
         await activeTenantContext.init(
           uid,
-          fallbackName: teacherData?.name,
-          fallbackEmail: teacherData?.email,
+          fallbackName: restoredRole == 'teacher'
+              ? teacherData?.name
+              : studentData?.name,
+          fallbackEmail: restoredRole == 'teacher'
+              ? teacherData?.email
+              : FirebaseAuth.instance.currentUser?.email,
         );
       } catch (e) {
         log('Failed to init ActiveTenantContext in main: $e');
