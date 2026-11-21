@@ -44,17 +44,31 @@ Future<void> main() async {
   bool validLoggedIn = false;
   String restoredRole = '';
 
-  if (isLoggedIn && savedRole == 'teacher') {
-    // Use FirebaseAuth.currentUser to verify the teacher session is still valid
-    final currentUser = FirebaseAuth.instance.currentUser;
+  if (isLoggedIn && (savedRole == 'teacher' || savedRole == 'owner')) {
+    // 1. Immediately restore cached session from SharedPreferences for fast, non-blocking startup
+    final teacherString = pref.getString('teacherData');
+    if (teacherString != null && teacherString.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(teacherString);
+        if (decoded is Map<String, dynamic>) {
+          teacherData = TeacherData.fromJson(decoded);
+          validLoggedIn = true;
+          restoredRole = savedRole;
+        }
+      } catch (e) {
+        log('Failed to decode teacherData from prefs: $e');
+      }
+    }
 
+    // 2. Verify with FirebaseAuth.currentUser and optionally refresh with a short timeout
+    final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser != null) {
-      // Try to load teacher data from Firestore using the auth UID
       try {
         final doc = await FirebaseFirestore.instance
             .collection('user')
             .doc(currentUser.uid)
-            .get();
+            .get()
+            .timeout(const Duration(milliseconds: 1500));
 
         if (doc.exists && doc.data() != null) {
           teacherData = TeacherData.fromJson(
@@ -62,47 +76,16 @@ Future<void> main() async {
             docId: currentUser.uid,
           );
           validLoggedIn = true;
-          restoredRole = 'teacher';
-        } else {
-          // Try to restore from SharedPreferences as fallback
-          final teacherString = pref.getString('teacherData');
-          if (teacherString != null && teacherString.trim().isNotEmpty) {
-            try {
-              final decoded = jsonDecode(teacherString);
-              if (decoded is Map<String, dynamic>) {
-                teacherData = TeacherData.fromJson(decoded);
-                validLoggedIn = true;
-                restoredRole = 'teacher';
-              }
-            } catch (e) {
-              log('Failed to decode teacherData from prefs: $e');
-              await _clearLoginSession();
-            }
-          } else {
-            await _clearLoginSession();
-          }
-        }
-      } catch (e) {
-        log('Failed to restore teacher session from Firestore: $e');
-        // Attempt prefs fallback
-        final teacherString = pref.getString('teacherData');
-        if (teacherString != null && teacherString.trim().isNotEmpty) {
-          try {
-            final decoded = jsonDecode(teacherString);
-            if (decoded is Map<String, dynamic>) {
-              teacherData = TeacherData.fromJson(decoded);
-              validLoggedIn = true;
-              restoredRole = 'teacher';
-            }
-          } catch (_) {
-            await _clearLoginSession();
-          }
-        } else {
+          restoredRole = savedRole.isNotEmpty ? savedRole : 'teacher';
+        } else if (!validLoggedIn) {
           await _clearLoginSession();
         }
+      } catch (e) {
+        log('Firestore session refresh skipped/timed out: $e');
+        // Keep validLoggedIn if prefs were successfully loaded
       }
-    } else {
-      // No Firebase Auth session — clear login state
+    } else if (!validLoggedIn) {
+      // No Firebase Auth session and no valid local data
       await _clearLoginSession();
     }
   } else if (isLoggedIn && savedRole == 'student') {
@@ -133,23 +116,35 @@ Future<void> main() async {
   if (validLoggedIn) {
     final uid =
         FirebaseAuth.instance.currentUser?.uid ??
-        (restoredRole == 'teacher' ? teacherData?.id : studentData?.id);
+        ((restoredRole == 'teacher' || restoredRole == 'owner')
+            ? teacherData?.id
+            : studentData?.id);
     if (uid != null && uid.isNotEmpty) {
       try {
-        await activeTenantContext.init(
-          uid,
-          fallbackName: restoredRole == 'teacher'
-              ? teacherData?.name
-              : studentData?.name,
-          fallbackEmail: restoredRole == 'teacher'
-              ? teacherData?.email
-              : FirebaseAuth.instance.currentUser?.email,
-        );
+        await activeTenantContext
+            .init(
+              uid,
+              fallbackName:
+                  (restoredRole == 'teacher' || restoredRole == 'owner')
+                      ? teacherData?.name
+                      : studentData?.name,
+              fallbackEmail:
+                  (restoredRole == 'teacher' || restoredRole == 'owner')
+                      ? teacherData?.email
+                      : FirebaseAuth.instance.currentUser?.email,
+            )
+            .timeout(const Duration(milliseconds: 2000));
       } catch (e) {
-        log('Failed to init ActiveTenantContext in main: $e');
+        log('ActiveTenantContext init non-blocking timeout: $e');
       }
     }
   }
+
+  final loginController = LoginController(
+    initialIsLogined: validLoggedIn,
+    initialRole: restoredRole,
+  );
+  Get.put<LoginController>(loginController, permanent: true);
 
   runApp(
     MultiProvider(
@@ -157,11 +152,8 @@ Future<void> main() async {
         ChangeNotifierProvider<ActiveTenantContext>.value(
           value: activeTenantContext,
         ),
-        ChangeNotifierProvider<LoginController>(
-          create: (_) => LoginController(
-            initialIsLogined: validLoggedIn,
-            initialRole: restoredRole,
-          ),
+        ChangeNotifierProvider<LoginController>.value(
+          value: loginController,
         ),
 
         ChangeNotifierProvider<AddStudentController>(

@@ -17,6 +17,8 @@ import 'package:test_nest/feature/domain/organization/presentation/screens/notic
 import 'package:test_nest/feature/domain/organization/presentation/screens/notice_editor_screen.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/notice_list_screen.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/organization_switcher_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/owner_student_fees_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/owner_teacher_salaries_screen.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/performance_overview_screen.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/attendance/student_attendance_history_screen.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/notices/student_notice_detail_screen.dart';
@@ -224,9 +226,13 @@ class AppPages {
       },
     ),
 
-    // Teacher Auth
+    // Teacher & Owner Auth
     GetPage(
       name: AppRoutes.teacherSignup,
+      page: () => const TeacherSignupScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.ownerSignup,
       page: () => const TeacherSignupScreen(),
     ),
 
@@ -487,6 +493,14 @@ class AppPages {
           'orgId and batch are required for batchTeacherAssignment',
         );
       },
+    ),
+    GetPage(
+      name: AppRoutes.ownerStudentFees,
+      page: () => const OwnerStudentFeesScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.ownerTeacherSalaries,
+      page: () => const OwnerTeacherSalariesScreen(),
     ),
     GetPage(
       name: AppRoutes.batchAttendance,

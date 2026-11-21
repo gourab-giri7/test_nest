@@ -126,6 +126,25 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ActiveTenantContext? tenantCtx;
+    try {
+      tenantCtx = context.watch<ActiveTenantContext>();
+    } catch (_) {
+      tenantCtx = null;
+    }
+
+    // If active workspace is an Institute and the user is Admin (Owner),
+    // present the dedicated 5-tab Owner Management Panel directly.
+    if (tenantCtx != null && tenantCtx.isInstitute && tenantCtx.isAdmin) {
+      return const InstituteAdminDashboardScreen();
+    }
+
+    // If active workspace is an Institute and the user is a Teacher,
+    // present the dedicated 5-tab Teacher Workspace directly.
+    if (tenantCtx != null && tenantCtx.isInstitute) {
+      return const InstituteTeacherDashboardScreen();
+    }
+
     final tData = teacherData;
     if (tData == null) {
       return _buildSessionExpired();
@@ -134,21 +153,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     final isFeeEnabled = tData.feeTrackingEnabled != false;
     final currentNavIndex = context.watch<DasboardController>().currentNavIndex;
 
-    ActiveTenantContext? tenantCtx;
-    try {
-      tenantCtx = context.watch<ActiveTenantContext>();
-    } catch (_) {
-      tenantCtx = null;
-    }
-
-    Widget homeView;
-    if (tenantCtx != null && tenantCtx.isInstitute && tenantCtx.isAdmin) {
-      homeView = const InstituteAdminDashboardScreen();
-    } else if (tenantCtx != null && tenantCtx.isInstitute) {
-      homeView = const InstituteTeacherDashboardScreen();
-    } else {
-      homeView = _buildHomeTab(context, tData);
-    }
+    final homeView = _buildHomeTab(context, tData);
 
     return PopScope(
       canPop: currentNavIndex == 0,

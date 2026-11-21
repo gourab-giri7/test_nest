@@ -80,7 +80,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     final String nextRoute;
     if (controller.isLogined) {
-      if (controller.role == "teacher") {
+      if (controller.role == "teacher" || controller.role == "owner") {
         nextRoute = AppRoutes.teacherDashboard;
       } else if (controller.role == "student") {
         nextRoute = AppRoutes.studentDashboard;

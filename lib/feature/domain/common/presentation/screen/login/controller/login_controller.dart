@@ -19,7 +19,19 @@ class LoginController extends ChangeNotifier {
   TextEditingController teacherId = TextEditingController();
   TextEditingController id = TextEditingController();
   TextEditingController password = TextEditingController();
-  bool isStudentLogin = false;
+
+  String _portal = 'teacher'; // 'owner', 'teacher', 'student'
+  String get portal => _portal;
+
+  bool get isOwnerLogin => _portal == 'owner';
+  bool get isTeacherLogin => _portal == 'teacher';
+  bool get isStudentLogin => _portal == 'student';
+
+  set isStudentLogin(bool val) {
+    _portal = val ? 'student' : 'teacher';
+    notifyListeners();
+  }
+
   bool useLegacyStudentLogin = false;
   bool obscurePassword = true;
   bool ispressed = false;
@@ -37,8 +49,26 @@ class LoginController extends ChangeNotifier {
     : isLogined = initialIsLogined,
       role = initialRole;
 
+  void setPortal(String p) {
+    if (p == 'owner' || p == 'teacher' || p == 'student') {
+      _portal = p;
+      id.clear();
+      password.clear();
+      teacherId.clear();
+      notifyListeners();
+    }
+  }
+
+  void changeLoginToOwner() {
+    _portal = 'owner';
+    id.clear();
+    password.clear();
+    teacherId.clear();
+    notifyListeners();
+  }
+
   void changeLoginToStudent() {
-    isStudentLogin = true;
+    _portal = 'student';
     id.clear();
     password.clear();
     teacherId.clear();
@@ -46,7 +76,7 @@ class LoginController extends ChangeNotifier {
   }
 
   void changeLoginToTeacher() {
-    isStudentLogin = false;
+    _portal = 'teacher';
     id.clear();
     password.clear();
     teacherId.clear();
@@ -118,12 +148,38 @@ class LoginController extends ChangeNotifier {
                 fallbackName: teacherData?.name,
                 fallbackEmail: teacherData?.email,
               );
+
+              // Check if teacher is suspended
+              if (tenantCtx.isTeacher && tenantCtx.isSuspended) {
+                await FirebaseAuth.instance.signOut();
+                tenantCtx.clear();
+                isLogined = false;
+                ispressed = false;
+                notifyListeners();
+                customSnackbar(
+                  context: context,
+                  message:
+                      "Your teacher account has been suspended by the Institute Owner. Please contact your administrator.",
+                  color: Colors.red,
+                  ico: Icons.block_rounded,
+                );
+                return;
+              }
+
+              if (tenantCtx.isAdmin && tenantCtx.isInstitute) {
+                role = "owner";
+              } else if (tenantCtx.isTeacher && tenantCtx.isInstitute) {
+                role = "teacher";
+              } else if (tenantCtx.isStudent) {
+                role = "student";
+              } else {
+                role = "teacher";
+              }
             } catch (e) {
               log('Failed to init tenant context on login: $e');
             }
           }
           isLogined = true;
-          role = "teacher";
           ispressed = false;
           notifyListeners();
           customSnackbar(

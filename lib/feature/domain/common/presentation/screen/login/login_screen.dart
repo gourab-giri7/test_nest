@@ -16,14 +16,49 @@ class _LoginScreenState extends State<LoginScreen> {
   final GlobalKey<FormState> _loginFormKey = GlobalKey<FormState>();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = Get.arguments;
+      if (args is Map && args['portal'] != null) {
+        final portal = args['portal'].toString();
+        context.read<LoginController>().setPortal(portal);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Consumer<LoginController>(
         builder: (context, controller, child) {
-          final activeAccent = controller.isStudentLogin
-              ? AppColors.secondary
-              : AppColors.primary;
+          final Color activeAccent = controller.isOwnerLogin
+              ? const Color(0xFF2563EB)
+              : (controller.isTeacherLogin
+                  ? const Color(0xFF0D9488)
+                  : const Color(0xFF7C3AED));
+
+          final Gradient activeGradient = controller.isOwnerLogin
+              ? const LinearGradient(
+                  colors: [
+                    Color(0xFF1E3A8A),
+                    Color(0xFF2563EB),
+                    Color(0xFF3B82F6),
+                  ],
+                )
+              : (controller.isTeacherLogin
+                  ? const LinearGradient(
+                      colors: [
+                        Color(0xFF115E59),
+                        Color(0xFF0D9488),
+                        Color(0xFF14B8A6),
+                      ],
+                    )
+                  : AppGradients.student);
+
+          final topPadding = MediaQuery.of(context).padding.top;
+          final backdropHeight = (topPadding + 225.0).clamp(260.0, 320.0);
 
           return Stack(
             children: [
@@ -32,28 +67,31 @@ class _LoginScreenState extends State<LoginScreen> {
                 top: 0,
                 left: 0,
                 right: 0,
-                height: 260,
+                height: backdropHeight,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   decoration: BoxDecoration(
-                    gradient: controller.isStudentLogin
-                        ? AppGradients.student
-                        : AppGradients.teacherHero,
+                    gradient: activeGradient,
                     borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(40),
-                      bottomRight: Radius.circular(40),
+                      bottomLeft: Radius.circular(32),
+                      bottomRight: Radius.circular(32),
                     ),
                   ),
                 ),
               ),
 
               SafeArea(
-                child: Center(
+                child: Align(
+                  alignment: Alignment.topCenter,
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 22.0,
-                      vertical: 16.0,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.only(
+                      left: 22.0,
+                      right: 22.0,
+                      top: 6.0,
+                      bottom: 24.0,
                     ),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 430),
@@ -63,31 +101,36 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (ModalRoute.of(context)?.canPop ?? false)
                             Align(
                               alignment: Alignment.centerLeft,
-                              child: IconButton(
-                                onPressed: () => Get.back(),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: Colors.white.withOpacity(
-                                    0.16,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 4.0),
+                                child: IconButton(
+                                  onPressed: () => Get.back(),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: Colors.white.withOpacity(
+                                      0.16,
+                                    ),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.all(8),
+                                    minimumSize: const Size(36, 36),
                                   ),
-                                  foregroundColor: Colors.white,
-                                ),
-                                icon: const Icon(
-                                  Icons.arrow_back_ios_new_rounded,
-                                  size: 18,
+                                  icon: const Icon(
+                                    Icons.arrow_back_ios_new_rounded,
+                                    size: 18,
+                                  ),
                                 ),
                               ),
                             ),
 
                           // Brand Logo & Greeting Header
                           Container(
-                            width: 76,
-                            height: 76,
-                            padding: const EdgeInsets.all(12),
+                            width: 62,
+                            height: 62,
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(22),
+                              color: Colors.white.withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(18),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.25),
+                                color: Colors.white.withOpacity(0.30),
                                 width: 1.5,
                               ),
                             ),
@@ -100,33 +143,38 @@ class _LoginScreenState extends State<LoginScreen> {
                                 errorBuilder: (_, __, ___) => const Icon(
                                   Icons.school_rounded,
                                   color: Colors.white,
-                                  size: 38,
+                                  size: 32,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                           const Text(
                             'Welcome Back',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 26,
+                              fontSize: 24,
                               fontWeight: FontWeight.w900,
                               color: Colors.white,
                               letterSpacing: -0.5,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           Text(
-                            controller.isStudentLogin
-                                ? 'Sign in to your Student Learning Portal'
-                                : 'Sign in to your Teacher Management Portal',
+                            controller.isOwnerLogin
+                                ? 'Sign in to your Owner Management Portal'
+                                : (controller.isTeacherLogin
+                                    ? 'Sign in to your Teacher Faculty Portal'
+                                    : 'Sign in to your Student Learning Portal'),
+                            textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.white.withOpacity(0.84),
+                              color: Colors.white.withOpacity(0.92),
                               fontWeight: FontWeight.w500,
+                              letterSpacing: 0.1,
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 16),
 
                           // Elevated Main Form Card
                           Container(
@@ -152,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // Modern Segmented Role Switcher
+                                  // Modern 3-Segmented Role Switcher
                                   Container(
                                     height: 52,
                                     padding: const EdgeInsets.all(5),
@@ -162,149 +210,38 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                     child: Row(
                                       children: [
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              if (controller.isStudentLogin) {
-                                                controller
-                                                    .changeLoginToTeacher();
-                                              }
-                                            },
-                                            child: AnimatedContainer(
-                                              duration: const Duration(
-                                                milliseconds: 220,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    !controller.isStudentLogin
-                                                    ? AppColors.primary
-                                                    : Colors.transparent,
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
-                                                boxShadow:
-                                                    !controller.isStudentLogin
-                                                    ? [
-                                                        BoxShadow(
-                                                          color: AppColors
-                                                              .primary
-                                                              .withOpacity(
-                                                                0.25,
-                                                              ),
-                                                          blurRadius: 8,
-                                                          offset: const Offset(
-                                                            0,
-                                                            3,
-                                                          ),
-                                                        ),
-                                                      ]
-                                                    : null,
-                                              ),
-                                              alignment: Alignment.center,
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons
-                                                        .cast_for_education_rounded,
-                                                    size: 17,
-                                                    color:
-                                                        !controller
-                                                            .isStudentLogin
-                                                        ? Colors.white
-                                                        : AppColors
-                                                              .textSecondary,
-                                                  ),
-                                                  const SizedBox(width: 7),
-                                                  Text(
-                                                    'Teacher',
-                                                    style: TextStyle(
-                                                      color:
-                                                          !controller
-                                                              .isStudentLogin
-                                                          ? Colors.white
-                                                          : AppColors
-                                                                .textSecondary,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
+                                        _buildRoleSegment(
+                                          label: 'Owner',
+                                          icon: Icons.admin_panel_settings_rounded,
+                                          isSelected: controller.isOwnerLogin,
+                                          color: const Color(0xFF2563EB),
+                                          onTap: () {
+                                            if (!controller.isOwnerLogin) {
+                                              controller.changeLoginToOwner();
+                                            }
+                                          },
                                         ),
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              if (!controller.isStudentLogin) {
-                                                controller
-                                                    .changeLoginToStudent();
-                                              }
-                                            },
-                                            child: AnimatedContainer(
-                                              duration: const Duration(
-                                                milliseconds: 220,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: controller.isStudentLogin
-                                                    ? AppColors.secondary
-                                                    : Colors.transparent,
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
-                                                boxShadow:
-                                                    controller.isStudentLogin
-                                                    ? [
-                                                        BoxShadow(
-                                                          color: AppColors
-                                                              .secondary
-                                                              .withOpacity(
-                                                                0.25,
-                                                              ),
-                                                          blurRadius: 8,
-                                                          offset: const Offset(
-                                                            0,
-                                                            3,
-                                                          ),
-                                                        ),
-                                                      ]
-                                                    : null,
-                                              ),
-                                              alignment: Alignment.center,
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.school_rounded,
-                                                    size: 17,
-                                                    color:
-                                                        controller
-                                                            .isStudentLogin
-                                                        ? Colors.white
-                                                        : AppColors
-                                                              .textSecondary,
-                                                  ),
-                                                  const SizedBox(width: 7),
-                                                  Text(
-                                                    'Student',
-                                                    style: TextStyle(
-                                                      color:
-                                                          controller
-                                                              .isStudentLogin
-                                                          ? Colors.white
-                                                          : AppColors
-                                                                .textSecondary,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
+                                        _buildRoleSegment(
+                                          label: 'Teacher',
+                                          icon: Icons.cast_for_education_rounded,
+                                          isSelected: controller.isTeacherLogin,
+                                          color: const Color(0xFF0D9488),
+                                          onTap: () {
+                                            if (!controller.isTeacherLogin) {
+                                              controller.changeLoginToTeacher();
+                                            }
+                                          },
+                                        ),
+                                        _buildRoleSegment(
+                                          label: 'Student',
+                                          icon: Icons.school_rounded,
+                                          isSelected: controller.isStudentLogin,
+                                          color: const Color(0xFF7C3AED),
+                                          onTap: () {
+                                            if (!controller.isStudentLogin) {
+                                              controller.changeLoginToStudent();
+                                            }
+                                          },
                                         ),
                                       ],
                                     ),
@@ -313,9 +250,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                   // User Email Field
                                   _InputLabel(
-                                    label: controller.isStudentLogin
-                                        ? 'Student Email'
-                                        : 'Teacher Email or ID',
+                                    label: controller.isOwnerLogin
+                                        ? 'Institute Owner Email'
+                                        : (controller.isTeacherLogin
+                                            ? 'Teacher Email'
+                                            : 'Student Email'),
                                   ),
                                   const SizedBox(height: 6),
                                   TextFormField(
@@ -327,9 +266,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                         .primaryFocus!
                                         .unfocus(),
                                     decoration: InputDecoration(
-                                      hintText: controller.isStudentLogin
-                                          ? 'student@example.com'
-                                          : 'teacher@institute.com',
+                                      hintText: controller.isOwnerLogin
+                                          ? 'owner@institute.com'
+                                          : (controller.isTeacherLogin
+                                              ? 'teacher@institute.com'
+                                              : 'student@example.com'),
                                       prefixIcon: const Icon(
                                         Icons.alternate_email_rounded,
                                         size: 20,
@@ -420,27 +361,33 @@ class _LoginScreenState extends State<LoginScreen> {
                                                 strokeWidth: 2.5,
                                               ),
                                             )
-                                          : Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  controller.isStudentLogin
-                                                      ? 'Sign In as Student'
-                                                      : 'Sign In as Teacher',
-                                                  style: const TextStyle(
-                                                    fontSize: 15.5,
-                                                    fontWeight: FontWeight.w800,
+                                          : FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    controller.isOwnerLogin
+                                                        ? 'Sign In as Owner'
+                                                        : (controller.isTeacherLogin
+                                                            ? 'Sign In as Teacher'
+                                                            : 'Sign In as Student'),
+                                                    style: const TextStyle(
+                                                      fontSize: 15.5,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  const Icon(
+                                                    Icons.arrow_forward_rounded,
+                                                    size: 18,
                                                     color: Colors.white,
                                                   ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                const Icon(
-                                                  Icons.arrow_forward_rounded,
-                                                  size: 18,
-                                                  color: Colors.white,
-                                                ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
                                     ),
                                   ),
@@ -449,43 +396,90 @@ class _LoginScreenState extends State<LoginScreen> {
                                   const Divider(height: 1),
                                   const SizedBox(height: 18),
 
-                                  // Registration Footer
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Text(
-                                        "New to Test Nest? ",
-                                        style: TextStyle(
-                                          color: AppColors.textSecondary,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      GestureDetector(
-                                        onTap: () {
-                                          if (controller.isStudentLogin) {
-                                            Get.toNamed(
-                                              AppRoutes.studentSignup,
-                                            );
-                                          } else {
-                                            Get.toNamed(
-                                              AppRoutes.teacherSignup,
-                                            );
-                                          }
-                                        },
-                                        child: Text(
-                                          controller.isStudentLogin
-                                              ? 'Create Student Account'
-                                              : 'Create Teacher Account',
-                                          style: TextStyle(
-                                            color: activeAccent,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 13,
+                                  // Context-Sensitive Registration / Notice Footer
+                                  if (controller.isTeacherLogin)
+                                    Wrap(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 12,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF0FDFA),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: const Color(0xFFCCFBF1),
+                                            ),
+                                          ),
+                                          child: const Row(
+                                            children: [
+                                              Icon(
+                                                Icons.info_outline_rounded,
+                                                size: 18,
+                                                color: Color(0xFF0D9488),
+                                              ),
+                                              SizedBox(width: 10),
+                                              Expanded(
+                                                child: Text(
+                                                  'Teacher accounts are created by your Institute Owner. Please log in with the credentials provided to you.',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF115E59),
+                                                    fontWeight: FontWeight.w600,
+                                                    height: 1.35,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                      ],
+                                    )
+                                  else
+                                    Wrap(
+                                      alignment: WrapAlignment.center,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      spacing: 4,
+                                      runSpacing: 2,
+                                      children: [
+                                        Text(
+                                          controller.isOwnerLogin
+                                              ? "New Institute Owner? "
+                                              : "New to Test Nest? ",
+                                          style: const TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: () {
+                                            if (controller.isOwnerLogin) {
+                                              Get.toNamed(
+                                                AppRoutes.ownerSignup,
+                                              );
+                                            } else {
+                                              Get.toNamed(
+                                                AppRoutes.studentSignup,
+                                              );
+                                            }
+                                          },
+                                          child: Text(
+                                            controller.isOwnerLogin
+                                                ? 'Create Owner Account'
+                                                : 'Create Student Account',
+                                            style: TextStyle(
+                                              color: activeAccent,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                 ],
                               ),
                             ),
@@ -499,6 +493,63 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildRoleSegment({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          decoration: BoxDecoration(
+            color: isSelected ? color : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withOpacity(0.28),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 16,
+                    color: isSelected ? Colors.white : AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color:
+                          isSelected ? Colors.white : AppColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

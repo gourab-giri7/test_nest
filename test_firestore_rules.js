@@ -1556,6 +1556,448 @@ async function main() {
     assert(res.status === 403, `Student reading another teacher legacy submission must be rejected with 403, got ${res.status}`);
   });
 
+  // ── Step 2 Core Architecture & User Relationship Tests (70–86) ────────────
+
+  await test('70. Step 2: Owner can create and manage their coaching institute', async () => {
+    // Owner creates a batch
+    const batchRes = await setDoc(adminToken, `organizations/${orgId}/batches/batch_step2_01`, {
+      name: 'Class 12 Advanced Physics',
+      ownerId: adminUid,
+      student_count: 0
+    });
+    assert(batchRes.status === 200, `Owner should be able to create batch, got ${batchRes.status}`);
+
+    // Owner updates institute metadata
+    const orgUpdate = await updateDoc(adminToken, `organizations/${orgId}`, {
+      status: 'active',
+      name: 'Apex Academy Premier'
+    }, ['name']);
+    assert(orgUpdate.status === 200, `Owner should update org metadata, got ${orgUpdate.status}`);
+  });
+
+  await test('71. Step 2: Teacher cannot edit organization settings', async () => {
+    const res = await updateDoc(teacherVerifiedToken, `organizations/${orgId}`, {
+      name: 'Hacked Academy'
+    }, ['name']);
+    assert(res.status === 403, `Teacher must not edit org settings, got ${res.status}`);
+  });
+
+  await test('72. Step 2: Teacher can read assigned batches', async () => {
+    // Owner creates batch with teacherUid assigned
+    await setDoc(adminToken, `organizations/${orgId}/batches/batch_step2_assigned`, {
+      name: 'Batch Assigned To Jane',
+      assigned_teacher_ids: [teacherUid]
+    });
+
+    const res = await getDoc(teacherVerifiedToken, `organizations/${orgId}/batches/batch_step2_assigned`);
+    assert(res.status === 200, `Assigned teacher should read assigned batch, got ${res.status}`);
+  });
+
+  await test('73. Step 2: Teacher CANNOT read unassigned batch students', async () => {
+    // Owner creates batch without teacherUid and enrolls a student
+    await setDoc(adminToken, `organizations/${orgId}/batches/batch_step2_unassigned`, {
+      name: 'Batch Unassigned To Jane',
+      assigned_teacher_ids: [adminUid]
+    });
+    await setDoc(adminToken, `organizations/${orgId}/batches/batch_step2_unassigned/students/std_secret_01`, {
+      studentUid: 'std_secret_01',
+      studentName: 'Secret Student',
+      status: 'active'
+    });
+
+    const res = await getDoc(teacherVerifiedToken, `organizations/${orgId}/batches/batch_step2_unassigned/students/std_secret_01`);
+    assert(res.status === 403, `Teacher must not read unassigned batch students, got ${res.status}`);
+  });
+
+  await test('74. Step 2: Teacher CANNOT assign themselves to batches', async () => {
+    const res = await updateDoc(teacherVerifiedToken, `organizations/${orgId}/batches/batch_step2_unassigned`, {
+      assigned_teacher_ids: [adminUid, teacherUid]
+    }, ['assigned_teacher_ids']);
+    assert(res.status === 403, `Teacher cannot assign themselves to batches, got ${res.status}`);
+  });
+
+  await test('75. Step 2: Student can submit join request to organization', async () => {
+    const res = await setDoc(studentToken, `organizations/${orgId}/joinRequests/req_std_step2_01`, {
+      student_uid: studentUid,
+      student_name: 'Tim Student',
+      student_email: studentEmail,
+      orgId: orgId,
+      status: 'pending'
+    });
+    assert(res.status === 200, `Student should be able to submit join request, got ${res.status}`);
+  });
+
+  await test('76. Step 2: Student CANNOT approve their own join request', async () => {
+    const res = await updateDoc(studentToken, `organizations/${orgId}/joinRequests/req_std_step2_01`, {
+      status: 'approved'
+    }, ['status']);
+    assert(res.status === 403, `Student must not approve their own join request, got ${res.status}`);
+  });
+
+  await test('77. Step 2: Owner can approve student join request', async () => {
+    // Owner updates request to approved
+    const approveRes = await updateDoc(adminToken, `organizations/${orgId}/joinRequests/req_std_step2_01`, {
+      status: 'approved',
+      reviewed_by: adminUid
+    }, ['status', 'reviewed_by']);
+    assert(approveRes.status === 200, `Owner should approve request, got ${approveRes.status}`);
+
+    // Owner creates student member doc
+    const memberRes = await setDoc(adminToken, `organizations/${orgId}/members/${studentUid}`, {
+      uid: studentUid,
+      email: studentEmail,
+      name: 'Tim Student',
+      role: 'student',
+      status: 'active',
+      joinedAt: new Date()
+    });
+    assert(memberRes.status === 200, `Owner should create student member record, got ${memberRes.status}`);
+  });
+
+  await test('78. Step 2: Teacher CANNOT approve student join request', async () => {
+    const otherStudentUid = 'student_sam_005';
+    const otherStudentToken = makeJwt(otherStudentUid, 'sam@students.edu', true);
+
+    await setDoc(otherStudentToken, `organizations/${orgId}/joinRequests/req_std_step2_02`, {
+      student_uid: otherStudentUid,
+      student_name: 'Sam Student',
+      orgId: orgId,
+      status: 'pending'
+    });
+
+    const res = await updateDoc(teacherVerifiedToken, `organizations/${orgId}/joinRequests/req_std_step2_02`, {
+      status: 'approved',
+      reviewed_by: teacherUid
+    }, ['status', 'reviewed_by']);
+    assert(res.status === 403, `Teacher must not approve student join request, got ${res.status}`);
+  });
+
+  await test('79. Step 2: Owner can enroll student into batch', async () => {
+    const res = await setDoc(adminToken, `organizations/${orgId}/batches/batch_step2_01/students/${studentUid}`, {
+      studentUid: studentUid,
+      student_name: 'Tim Student',
+      batchId: 'batch_step2_01',
+      status: 'active',
+      enrolledAt: new Date()
+    });
+    assert(res.status === 200, `Owner should enroll student into batch, got ${res.status}`);
+  });
+
+  await test('80. Step 2: Teacher CANNOT enroll student into batch', async () => {
+    const res = await setDoc(teacherVerifiedToken, `organizations/${orgId}/batches/batch_step2_01/students/std_intruder`, {
+      studentUid: 'std_intruder',
+      student_name: 'Intruder',
+      status: 'active'
+    });
+    assert(res.status === 403, `Teacher must not enroll student into batch, got ${res.status}`);
+  });
+
+  await test('81. Step 2: Enrolled student can read their batch info and enrollment', async () => {
+    const res = await getDoc(studentToken, `organizations/${orgId}/batches/batch_step2_01/students/${studentUid}`);
+    assert(res.status === 200, `Enrolled student should read their own enrollment, got ${res.status}`);
+  });
+
+  await test('82. Step 2: Student CANNOT read other batches they are not enrolled in', async () => {
+    const res = await getDoc(studentToken, `organizations/${orgId}/batches/batch_step2_unassigned/students/std_secret_01`);
+    assert(res.status === 403, `Student must not read unassigned batch students, got ${res.status}`);
+  });
+
+  await test('83. Step 2: Teacher CANNOT delete students from institute', async () => {
+    const delMemberRes = await deleteDoc(teacherVerifiedToken, `organizations/${orgId}/members/${studentUid}`);
+    assert(delMemberRes.status === 403, `Teacher must not delete student from org members, got ${delMemberRes.status}`);
+
+    const delBatchStudentRes = await deleteDoc(teacherVerifiedToken, `organizations/${orgId}/batches/batch_step2_01/students/${studentUid}`);
+    assert(delBatchStudentRes.status === 403, `Teacher must not delete student from batch, got ${delBatchStudentRes.status}`);
+  });
+
+  await test('84. Step 2: Teacher CANNOT access institute financial records', async () => {
+    // Owner creates institute fee record
+    await setDoc(adminToken, `organizations/${orgId}/feeRecords/fee_record_step2_01`, {
+      title: 'October 2026 Collection',
+      totalAmount: 50000
+    });
+
+    const teacherRes = await getDoc(teacherVerifiedToken, `organizations/${orgId}/feeRecords/fee_record_step2_01`);
+    assert(teacherRes.status === 403, `Teacher must not access institute financial records, got ${teacherRes.status}`);
+
+    const adminRes = await getDoc(adminToken, `organizations/${orgId}/feeRecords/fee_record_step2_01`);
+    assert(adminRes.status === 200, `Owner should access institute financial records, got ${adminRes.status}`);
+  });
+
+  await test('85. Step 2: Unenrolled student CANNOT access institute exams', async () => {
+    const unenrolledUid = 'student_unenrolled_006';
+    const unenrolledToken = makeJwt(unenrolledUid, 'un@student.com', true);
+
+    const res = await getDoc(unenrolledToken, `organizations/${orgId}/exams/exam_perf_01/submissions/${studentUid}`);
+    assert(res.status === 403, `Unenrolled student cannot access private submissions, got ${res.status}`);
+  });
+
+  await test('86. Step 2: Cross-tenant isolation: User from Institute A cannot access Institute B data', async () => {
+    const crossMemberRes = await getDoc(otherAdminToken, `organizations/${orgId}/members/${adminUid}`);
+    assert(crossMemberRes.status === 403, `Rival admin cannot read institute A member, got ${crossMemberRes.status}`);
+
+    const crossBatchRes = await getDoc(otherAdminToken, `organizations/${orgId}/batches/batch_step2_01/students/${studentUid}`);
+    assert(crossBatchRes.status === 403, `Rival admin cannot read institute A batch student, got ${crossBatchRes.status}`);
+  });
+
+  // ── Section 8: Step 4 Teacher Portal & Salary Rules Tests ────────────────
+  await test('87. Step 4: Admin can create and manage salary records in organization', async () => {
+    const res = await setDoc(adminToken, `organizations/${orgId}/salaries/sal_001`, {
+      id: 'sal_001',
+      org_id: orgId,
+      teacher_uid: teacherUid,
+      teacher_name: 'Jane Doe',
+      amount: 45000,
+      month: 'October 2026',
+      status: 'paid'
+    });
+    assert(res.status === 200, `Admin creating salary record should succeed with 200, got ${res.status}`);
+  });
+
+  await test('88. Step 4: Teacher can read their own salary records', async () => {
+    const res = await getDoc(teacherVerifiedToken, `organizations/${orgId}/salaries/sal_001`);
+    assert(res.status === 200, `Teacher reading their own salary record should succeed with 200, got ${res.status}`);
+  });
+
+  await test('89. Step 4: Teacher CANNOT read another teacher\'s salary record', async () => {
+    // Setup salary for second teacher
+    await setDoc(adminToken, `organizations/${orgId}/salaries/sal_other_002`, {
+      id: 'sal_other_002',
+      org_id: orgId,
+      teacher_uid: 'other_teacher_xyz',
+      teacher_name: 'Bob Smith',
+      amount: 50000,
+      month: 'October 2026',
+      status: 'paid'
+    });
+
+    const res = await getDoc(teacherVerifiedToken, `organizations/${orgId}/salaries/sal_other_002`);
+    assert(res.status === 403, `Teacher reading another teacher's salary record must be rejected with 403, got ${res.status}`);
+  });
+
+  await test('90. Step 4: Teacher CANNOT create or write salary records', async () => {
+    const res = await setDoc(teacherVerifiedToken, `organizations/${orgId}/salaries/sal_hack`, {
+      id: 'sal_hack',
+      org_id: orgId,
+      teacher_uid: teacherUid,
+      teacher_name: 'Jane Doe',
+      amount: 999999,
+      month: 'October 2026',
+      status: 'paid'
+    });
+    assert(res.status === 403, `Teacher attempting to create salary record must be rejected with 403, got ${res.status}`);
+  });
+
+  await test('91. Step 4: Student CANNOT read teacher salary records', async () => {
+    const res = await getDoc(studentToken, `organizations/${orgId}/salaries/sal_001`);
+    assert(res.status === 403, `Student reading teacher salary record must be rejected with 403, got ${res.status}`);
+  });
+
+  await test('92. Step 4: Unauthenticated user CANNOT read teacher salary records', async () => {
+    const res = await getDoc(null, `organizations/${orgId}/salaries/sal_001`);
+    assert(res.status === 403, `Unauthenticated user reading salary record must be rejected with 403, got ${res.status}`);
+  });
+
+  // ── Section 9: Step 5 Student Portal Fee & Enrollment Rules Tests ─────────
+  await test('93. Step 5: Admin can create and manage student fee records in organization', async () => {
+    const res = await setDoc(adminToken, `organizations/${orgId}/feeRecords/${studentUid}`, {
+      id: studentUid,
+      student_uid: studentUid,
+      org_id: orgId,
+      student_name: 'Alice Walker',
+      monthly_fee: 1500.0,
+      total_due: 3000.0,
+      total_paid: 1500.0,
+      status: 'partial'
+    });
+    assert(res.status === 200, `Admin creating fee record should succeed with 200, got ${res.status}`);
+  });
+
+  await test('94. Step 5: Student can read their own fee record in organization', async () => {
+    const res = await getDoc(studentToken, `organizations/${orgId}/feeRecords/${studentUid}`);
+    assert(res.status === 200, `Student reading own fee record should succeed with 200, got ${res.status}`);
+  });
+
+  await test('95. Step 5: Student CANNOT read another student\'s fee record in organization', async () => {
+    // Admin creates fee record for student 2
+    await setDoc(adminToken, `organizations/${orgId}/feeRecords/other_student_999`, {
+      id: 'other_student_999',
+      student_uid: 'other_student_999',
+      org_id: orgId,
+      student_name: 'Bob Other',
+      monthly_fee: 2000.0,
+      total_due: 2000.0,
+      total_paid: 0.0,
+      status: 'due'
+    });
+
+    const res = await getDoc(studentToken, `organizations/${orgId}/feeRecords/other_student_999`);
+    assert(res.status === 403, `Student reading another student fee record must be rejected with 403, got ${res.status}`);
+  });
+
+  await test('96. Step 5: Student CANNOT write or delete fee records', async () => {
+    const res = await setDoc(studentToken, `organizations/${orgId}/feeRecords/hack_fee`, {
+      id: 'hack_fee',
+      student_uid: studentUid,
+      total_due: 0
+    });
+    assert(res.status === 403, `Student write fee record must be rejected with 403, got ${res.status}`);
+  });
+
+  await test('97. Step 5: Student can read their own batch enrollment in organization', async () => {
+    const res = await getDoc(studentToken, `organizations/${orgId}/batches/batch_step2_01/students/${studentUid}`);
+    assert(res.status === 200, `Student reading own batch enrollment doc should succeed with 200, got ${res.status}`);
+  });
+
+  await test('98. Step 5: Student CANNOT enroll themselves into a batch', async () => {
+    const res = await setDoc(studentToken, `organizations/${orgId}/batches/batch_step2_01/students/student_self_enroll`, {
+      student_uid: studentUid,
+      status: 'active'
+    });
+    assert(res.status === 403, `Student self-enrollment must be rejected with 403, got ${res.status}`);
+  });
+
+  await test('99. Step 5: Student CANNOT delete other students\' enrollments', async () => {
+    const res = await deleteDoc(studentToken, `organizations/${orgId}/batches/batch_step2_01/students/student_02`);
+    assert(res.status === 403, `Student deleting another enrollment must be rejected with 403, got ${res.status}`);
+  });
+
+  // ── Section 10: Step 6 Financial Management Rules Tests ──────────────────
+  await test('100. Step 6: Admin can create monthly fee record under student months subcollection', async () => {
+    const res = await setDoc(adminToken, `organizations/${orgId}/feeRecords/${studentUid}/months/2026-11`, {
+      billing_month: '2026-11',
+      student_id: studentUid,
+      student_name: 'Alice Walker',
+      org_id: orgId,
+      amount_due: 3500.0,
+      amount_paid: 0.0,
+      balance: 3500.0,
+      status: 'pending'
+    });
+    assert(res.status === 200, `Admin creating monthly fee record should succeed with 200, got ${res.status}`);
+  });
+
+  await test('101. Step 6: Admin can record student payment in append-only payments subcollection', async () => {
+    const res = await setDoc(adminToken, `organizations/${orgId}/feeRecords/${studentUid}/months/2026-11/payments/pay_nov_01`, {
+      payment_id: 'pay_nov_01',
+      amount: 1500.0,
+      method: 'upi',
+      student_uid: studentUid,
+      recorded_by: 'Institute Owner'
+    });
+    assert(res.status === 200, `Admin recording fee payment should succeed with 200, got ${res.status}`);
+  });
+
+  await test('102. Step 6: Student can read their own monthly fee record and payment entry', async () => {
+    const monthRes = await getDoc(studentToken, `organizations/${orgId}/feeRecords/${studentUid}/months/2026-11`);
+    assert(monthRes.status === 200, `Student reading own monthly fee doc should succeed with 200, got ${monthRes.status}`);
+
+    const payRes = await getDoc(studentToken, `organizations/${orgId}/feeRecords/${studentUid}/months/2026-11/payments/pay_nov_01`);
+    assert(payRes.status === 200, `Student reading own payment entry should succeed with 200, got ${payRes.status}`);
+  });
+
+  await test('103. Step 6: Student CANNOT modify or delete fee payment entry (strictly append-only)', async () => {
+    const updateRes = await setDoc(studentToken, `organizations/${orgId}/feeRecords/${studentUid}/months/2026-11/payments/pay_nov_01`, {
+      amount: 99999
+    });
+    assert(updateRes.status === 403, `Student updating payment entry must be rejected with 403, got ${updateRes.status}`);
+
+    const delRes = await deleteDoc(studentToken, `organizations/${orgId}/feeRecords/${studentUid}/months/2026-11/payments/pay_nov_01`);
+    assert(delRes.status === 403, `Student deleting payment entry must be rejected with 403, got ${delRes.status}`);
+  });
+
+  await test('104. Step 6: Teacher CANNOT access institute student fee records', async () => {
+    const res = await getDoc(teacherVerifiedToken, `organizations/${orgId}/feeRecords/${studentUid}/months/2026-11`);
+    assert(res.status === 403, `Teacher reading student fee record must be rejected with 403, got ${res.status}`);
+  });
+
+  await test('105. Step 6: Admin can create and manage teacher monthly salary record', async () => {
+    const res = await setDoc(adminToken, `organizations/${orgId}/teacherSalaryRecords/${teacherUid}/months/2026-11`, {
+      id: `${teacherUid}_2026-11`,
+      org_id: orgId,
+      teacher_uid: teacherUid,
+      teacher_name: 'Jane Doe',
+      amount: 45000.0,
+      base_salary: 45000.0,
+      amount_paid: 0.0,
+      remaining_amount: 45000.0,
+      month: '2026-11',
+      status: 'pending'
+    });
+    assert(res.status === 200, `Admin creating teacher salary record should succeed with 200, got ${res.status}`);
+  });
+
+  await test('106. Step 6: Admin can record teacher salary payment entry', async () => {
+    const res = await setDoc(adminToken, `organizations/${orgId}/teacherSalaryRecords/${teacherUid}/months/2026-11/payments/sal_pay_01`, {
+      payment_id: 'sal_pay_01',
+      amount: 45000.0,
+      payment_method: 'bank_transfer',
+      recorded_by: 'Institute Owner'
+    });
+    assert(res.status === 200, `Admin recording salary payment should succeed with 200, got ${res.status}`);
+  });
+
+  await test('107. Step 6: Teacher can read their own monthly salary record and payment entries', async () => {
+    const salaryRes = await getDoc(teacherVerifiedToken, `organizations/${orgId}/teacherSalaryRecords/${teacherUid}/months/2026-11`);
+    assert(salaryRes.status === 200, `Teacher reading own salary record should succeed with 200, got ${salaryRes.status}`);
+
+    const payRes = await getDoc(teacherVerifiedToken, `organizations/${orgId}/teacherSalaryRecords/${teacherUid}/months/2026-11/payments/sal_pay_01`);
+    assert(payRes.status === 200, `Teacher reading own salary payment should succeed with 200, got ${payRes.status}`);
+  });
+
+  await test('108. Step 6: Teacher CANNOT read another teacher\'s salary record or payments', async () => {
+    const res = await getDoc(wrongEmailToken, `organizations/${orgId}/teacherSalaryRecords/${teacherUid}/months/2026-11`);
+    assert(res.status === 403, `Teacher reading another teacher salary must be rejected with 403, got ${res.status}`);
+  });
+
+  await test('109. Step 6: Teacher CANNOT modify or delete salary payments (append-only protection)', async () => {
+    const updateRes = await setDoc(teacherVerifiedToken, `organizations/${orgId}/teacherSalaryRecords/${teacherUid}/months/2026-11/payments/sal_pay_01`, {
+      amount: 1000000
+    });
+    assert(updateRes.status === 403, `Teacher modifying salary payment must be rejected with 403, got ${updateRes.status}`);
+
+    const delRes = await deleteDoc(teacherVerifiedToken, `organizations/${orgId}/teacherSalaryRecords/${teacherUid}/months/2026-11/payments/sal_pay_01`);
+    assert(delRes.status === 403, `Teacher deleting salary payment must be rejected with 403, got ${delRes.status}`);
+  });
+
+  await test('110. Step 6: Cross-organization financial isolation: User from Institute A cannot access Institute B fees or salaries', async () => {
+    const otherOrgId = 'org_competitor_888';
+    const feeRes = await getDoc(adminToken, `organizations/${otherOrgId}/feeRecords/student_comp_01/months/2026-11`);
+    assert(feeRes.status === 403, `Admin reading other org fee records must be rejected with 403, got ${feeRes.status}`);
+
+    const salRes = await getDoc(adminToken, `organizations/${otherOrgId}/teacherSalaryRecords/teacher_comp_01/months/2026-11`);
+    assert(salRes.status === 403, `Admin reading other org salary records must be rejected with 403, got ${salRes.status}`);
+  });
+
+  await test('111. Role Correction: Active Teacher can read all institute students regardless of batch', async () => {
+    await setDoc(adminToken, `organizations/${orgId}/students/std_unassigned_99`, {
+      id: 'std_unassigned_99',
+      name: 'Unassigned Student',
+      email: 'unassigned@test.com',
+      batch: '',
+      status: 'active'
+    });
+
+    const readRes = await getDoc(teacherVerifiedToken, `organizations/${orgId}/students/std_unassigned_99`);
+    assert(readRes.status === 200, `Active teacher reading unassigned student must succeed with 200, got ${readRes.status}`);
+  });
+
+  await test('112. Role Correction: Suspended Teacher CANNOT read institute student data', async () => {
+    const suspendedTeacherUid = 'teacher_suspended_999';
+    const suspendedTeacherToken = makeJwt(suspendedTeacherUid, 'suspended@test.com', true);
+
+    await setDoc(adminToken, `organizations/${orgId}/members/${suspendedTeacherUid}`, {
+      uid: suspendedTeacherUid,
+      email: 'suspended@test.com',
+      name: 'Suspended Faculty',
+      role: 'teacher',
+      status: 'suspended'
+    });
+
+    const readRes = await getDoc(suspendedTeacherToken, `organizations/${orgId}/students/std_unassigned_99`);
+    assert(readRes.status === 403, `Suspended teacher reading student must be rejected with 403, got ${readRes.status}`);
+  });
+
   console.log('\n================================================================');
   console.log('FIRESTORE RULES EMULATOR SUITE TEST SUMMARY');
   console.log('================================================================');

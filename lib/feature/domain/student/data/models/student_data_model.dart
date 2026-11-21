@@ -10,15 +10,17 @@ class StudentEnrollment {
   final String studentId;
   final String status;
   final DateTime? enrolledAt;
+  final String? orgId;
 
   StudentEnrollment({
-    required this.teacherId,
-    required this.teacherName,
-    required this.batchId,
-    required this.batchName,
-    required this.studentId,
+    this.teacherId = '',
+    this.teacherName = '',
+    this.batchId = '',
+    this.batchName = '',
+    this.studentId = '',
     this.status = 'active',
     this.enrolledAt,
+    this.orgId,
   });
 
   bool get isActive => status.toLowerCase() == 'active';
@@ -60,6 +62,8 @@ class StudentEnrollment {
       studentId: (json['student_id'] ?? json['id'] ?? '').toString().trim(),
       status: (json['status'] ?? 'active').toString().trim(),
       enrolledAt: parsedDate,
+      orgId:
+          json['org_id']?.toString().trim() ?? json['orgId']?.toString().trim(),
     );
   }
 
@@ -72,6 +76,7 @@ class StudentEnrollment {
       'student_id': studentId,
       'status': status,
       'enrolled_at': enrolledAt?.toIso8601String(),
+      if (orgId != null) 'org_id': orgId,
     };
   }
 }
@@ -83,22 +88,32 @@ class StudentData {
   String batch;
   String teacherName;
   List<StudentEnrollment> enrollments;
+  String? orgId;
+  String? orgName;
+  List<String> assignedBatchIds;
 
   StudentData({
     required this.name,
     required this.id,
-    required this.teacherId,
-    required this.batch,
-    required this.teacherName,
+    this.teacherId = '',
+    this.batch = '',
+    this.teacherName = '',
     List<StudentEnrollment>? enrollments,
-  }) : enrollments = enrollments ?? [];
+    this.orgId,
+    this.orgName,
+    List<String>? assignedBatchIds,
+  }) : enrollments = enrollments ?? [],
+       assignedBatchIds = assignedBatchIds ?? [];
 
   /// Returns only active, approved batch enrollments.
   List<StudentEnrollment> get activeEnrollments =>
       enrollments.where((e) => e.isActive).toList(growable: false);
 
-  /// Whether the student currently has at least one approved, active enrollment.
-  bool get hasActiveEnrollment => activeEnrollments.isNotEmpty;
+  /// Whether the student currently has at least one approved active organization
+  /// membership OR active legacy teacher enrollment.
+  bool get hasActiveEnrollment =>
+      (orgId != null && orgId!.trim().isNotEmpty) ||
+      activeEnrollments.isNotEmpty;
 
   /// Retrieves the enrollment record for a specific teacher.
   StudentEnrollment? getEnrollmentForTeacher(String? targetTeacherId) {
@@ -112,6 +127,7 @@ class StudentData {
           batchId: batch.trim(),
           batchName: batch.trim(),
           studentId: id.trim(),
+          orgId: orgId,
         );
       }
       return null;
@@ -128,6 +144,7 @@ class StudentData {
         batchId: batch.trim(),
         batchName: batch.trim(),
         studentId: id.trim(),
+        orgId: orgId,
       );
     }
     return null;
@@ -213,6 +230,21 @@ class StudentData {
         (json['batch'] ?? json['batch_name'] ?? json['batchName'] ?? "")
             .toString()
             .trim();
+    final resolvedOrgId =
+        json['org_id']?.toString().trim() ?? json['orgId']?.toString().trim();
+    final resolvedOrgName =
+        json['org_name']?.toString().trim() ??
+        json['orgName']?.toString().trim();
+
+    final parsedBatchIds = <String>[];
+    final rawBatchList = json['assigned_batch_ids'] ?? json['assignedBatchIds'];
+    if (rawBatchList is List) {
+      for (final b in rawBatchList) {
+        if (b != null && b.toString().trim().isNotEmpty) {
+          parsedBatchIds.add(b.toString().trim());
+        }
+      }
+    }
 
     final parsedEnrollments = <StudentEnrollment>[];
     if (json['enrollments'] is List) {
@@ -236,6 +268,7 @@ class StudentData {
           batchId: (json['batch_id'] ?? '').toString().trim(),
           batchName: resolvedBatch,
           studentId: resolvedId,
+          orgId: resolvedOrgId,
         ),
       );
     }
@@ -249,6 +282,9 @@ class StudentData {
       batch: resolvedBatch,
       teacherName: resolvedTeacherName,
       enrollments: parsedEnrollments,
+      orgId: resolvedOrgId,
+      orgName: resolvedOrgName,
+      assignedBatchIds: parsedBatchIds,
     );
   }
 
@@ -260,12 +296,18 @@ class StudentData {
       "batch": data.batch,
       "teacher_name": data.teacherName,
       "enrollments": data.enrollments.map((e) => e.toJson()).toList(),
+      if (data.orgId != null) "org_id": data.orgId,
+      if (data.orgName != null) "org_name": data.orgName,
+      "assigned_batch_ids": data.assignedBatchIds,
       // NOTE: password is intentionally NOT stored here
     };
   }
 
   static Future<StudentData?> restoreFromPreferences() async {
-    if (studentData != null && studentData!.teacherId.trim().isNotEmpty) {
+    if (studentData != null &&
+        ((studentData!.orgId != null &&
+                studentData!.orgId!.trim().isNotEmpty) ||
+            studentData!.teacherId.trim().isNotEmpty)) {
       return studentData;
     }
     final rawString = pref.getString("studentData");
@@ -277,10 +319,16 @@ class StudentData {
         }
       } catch (_) {}
     }
-    if (studentData == null || studentData!.teacherId.trim().isEmpty) {
+    if (studentData == null ||
+        ((studentData!.orgId == null || studentData!.orgId!.trim().isEmpty) &&
+            studentData!.teacherId.trim().isEmpty)) {
       final savedId = pref.getString("id") ?? "";
       final savedTeacherId = pref.getString("teacherId") ?? "";
-      if (savedId.isNotEmpty || savedTeacherId.isNotEmpty) {
+      final savedOrgId = pref.getString("orgId");
+      final savedOrgName = pref.getString("orgName");
+      if (savedId.isNotEmpty ||
+          savedTeacherId.isNotEmpty ||
+          (savedOrgId != null && savedOrgId.isNotEmpty)) {
         studentData = StudentData(
           id: (studentData?.id.isNotEmpty == true)
               ? studentData!.id
@@ -292,6 +340,8 @@ class StudentData {
           batch: studentData?.batch ?? "",
           teacherName: studentData?.teacherName ?? "",
           enrollments: studentData?.enrollments ?? [],
+          orgId: savedOrgId,
+          orgName: savedOrgName,
         );
       }
     }
@@ -306,6 +356,12 @@ class StudentData {
       await pref.setString("role", "student");
       await pref.setString("id", studentData!.id);
       await pref.setString("teacherId", studentData!.teacherId);
+      if (studentData!.orgId != null) {
+        await pref.setString("orgId", studentData!.orgId!);
+      }
+      if (studentData!.orgName != null) {
+        await pref.setString("orgName", studentData!.orgName!);
+      }
       // NOTE: password is NOT stored in SharedPreferences
     }
   }

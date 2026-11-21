@@ -58,12 +58,15 @@ class TeacherSignupScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Text(
-                            'Educator Registration',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 19,
+                          const Expanded(
+                            child: Text(
+                              'Educator Registration',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 19,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -76,6 +79,8 @@ class TeacherSignupScreen extends StatelessWidget {
                           constraints: const BoxConstraints(maxWidth: 480),
                           child: SingleChildScrollView(
                             physics: const BouncingScrollPhysics(),
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
                             padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
                             child: Container(
                               decoration: BoxDecoration(
@@ -121,7 +126,7 @@ class TeacherSignupScreen extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 16),
                                     const Text(
-                                      'Create Teacher Account',
+                                      'Create Owner Account',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 22,
@@ -132,7 +137,7 @@ class TeacherSignupScreen extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 5),
                                     const Text(
-                                      'Set up your digital coaching institute & start managing batches',
+                                      'Set up your digital coaching institute & start managing faculty and students',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 13,
@@ -295,35 +300,42 @@ class TeacherSignupScreen extends StatelessWidget {
                                                       color: Colors.white,
                                                     ),
                                               )
-                                            : const Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Text(
-                                                    'Create Educator Account',
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                      fontSize: 15.5,
+                                            : const FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Text(
+                                                      'Create Owner Account',
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                        fontSize: 15.5,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                    SizedBox(width: 8),
+                                                    Icon(
+                                                      Icons
+                                                          .arrow_forward_rounded,
+                                                      size: 18,
                                                       color: Colors.white,
                                                     ),
-                                                  ),
-                                                  SizedBox(width: 8),
-                                                  Icon(
-                                                    Icons.arrow_forward_rounded,
-                                                    size: 18,
-                                                    color: Colors.white,
-                                                  ),
-                                                ],
+                                                  ],
+                                                ),
                                               ),
                                       ),
                                     ),
                                     const SizedBox(height: 18),
 
                                     // Login Link
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
+                                    Wrap(
+                                      alignment: WrapAlignment.center,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      spacing: 4,
+                                      runSpacing: 2,
                                       children: [
                                         const Text(
                                           'Already have an account?',
@@ -403,13 +415,16 @@ class _SectionHeader extends StatelessWidget {
       children: [
         Icon(icon, size: 15, color: AppColors.primary),
         const SizedBox(width: 6),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: AppColors.primary,
-            letterSpacing: 1.0,
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primary,
+              letterSpacing: 1.0,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],

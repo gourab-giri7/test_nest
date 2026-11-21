@@ -5,6 +5,7 @@ class BatchModel {
   final String? academicYear;
   final String? subject;
   final String? description;
+  final String? schedule;
   final double monthlyFee;
   final bool feeTrackingEnabled;
   final String activeJoinCode;
@@ -22,6 +23,7 @@ class BatchModel {
     this.academicYear,
     this.subject,
     this.description,
+    this.schedule,
     this.monthlyFee = 0.0,
     this.feeTrackingEnabled = true,
     required this.activeJoinCode,
@@ -33,6 +35,9 @@ class BatchModel {
     this.assignedTeacherIds = const [],
   });
 
+  /// Alias for name
+  String get batchName => name;
+
   factory BatchModel.fromJson(Map<String, dynamic> json, {String? docId}) {
     return BatchModel(
       id: docId ?? (json['id'] ?? '').toString(),
@@ -41,6 +46,7 @@ class BatchModel {
       academicYear: json['academic_year']?.toString(),
       subject: json['subject']?.toString(),
       description: json['description']?.toString(),
+      schedule: json['schedule']?.toString(),
       monthlyFee: _toDouble(json['monthly_fee']),
       feeTrackingEnabled: json['fee_tracking_enabled'] != false,
       activeJoinCode: (json['active_join_code'] ?? '').toString().trim(),
@@ -83,6 +89,7 @@ class BatchModel {
       'academic_year': academicYear?.trim(),
       'subject': subject?.trim(),
       'description': description?.trim(),
+      if (schedule != null) 'schedule': schedule?.trim(),
       'monthly_fee': monthlyFee,
       'fee_tracking_enabled': feeTrackingEnabled,
       'active_join_code': activeJoinCode.trim(),
@@ -101,6 +108,7 @@ class BatchModel {
     String? academicYear,
     String? subject,
     String? description,
+    String? schedule,
     double? monthlyFee,
     bool? feeTrackingEnabled,
     String? activeJoinCode,
@@ -118,6 +126,7 @@ class BatchModel {
       academicYear: academicYear ?? this.academicYear,
       subject: subject ?? this.subject,
       description: description ?? this.description,
+      schedule: schedule ?? this.schedule,
       monthlyFee: monthlyFee ?? this.monthlyFee,
       feeTrackingEnabled: feeTrackingEnabled ?? this.feeTrackingEnabled,
       activeJoinCode: activeJoinCode ?? this.activeJoinCode,

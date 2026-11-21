@@ -121,6 +121,13 @@ class OrganizationMemberModel {
   final DateTime joinedAt;
   final List<String> assignedBatchIds;
   final String? inviteCode;
+  final String? teacherId; // e.g. 'TN-TEA-0001'
+  final String? subject;
+  final String? phone;
+  final String? gender;
+  final String? qualification;
+  final String? experience;
+  final double? monthlySalary;
 
   const OrganizationMemberModel({
     required this.uid,
@@ -131,12 +138,20 @@ class OrganizationMemberModel {
     required this.joinedAt,
     this.assignedBatchIds = const [],
     this.inviteCode,
+    this.teacherId,
+    this.subject,
+    this.phone,
+    this.gender,
+    this.qualification,
+    this.experience,
+    this.monthlySalary,
   });
 
   bool get isAdmin => role == OrganizationRole.admin;
   bool get isTeacher => role == OrganizationRole.teacher;
   bool get isStudent => role == OrganizationRole.student;
   bool get isActive => status == OrganizationStatus.active;
+  bool get isSuspended => status == OrganizationStatus.suspended;
 
   factory OrganizationMemberModel.fromMap(
     Map<String, dynamic> map,
@@ -154,6 +169,12 @@ class OrganizationMemberModel {
       batches = rawBatches.map((e) => e.toString()).toList();
     }
 
+    double? parseDouble(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString());
+    }
+
     return OrganizationMemberModel(
       uid: uid,
       email: (map['email'] ?? '').toString(),
@@ -163,6 +184,13 @@ class OrganizationMemberModel {
       joinedAt: parseDate(map['joinedAt']),
       assignedBatchIds: batches,
       inviteCode: map['inviteCode']?.toString(),
+      teacherId: map['teacherId']?.toString() ?? map['teacher_id']?.toString(),
+      subject: map['subject']?.toString(),
+      phone: map['phone']?.toString() ?? map['mobile']?.toString(),
+      gender: map['gender']?.toString(),
+      qualification: map['qualification']?.toString(),
+      experience: map['experience']?.toString(),
+      monthlySalary: parseDouble(map['monthlySalary'] ?? map['monthly_salary']),
     );
   }
 
@@ -176,6 +204,15 @@ class OrganizationMemberModel {
       'joinedAt': Timestamp.fromDate(joinedAt),
       'assignedBatchIds': assignedBatchIds,
       if (inviteCode != null) 'inviteCode': inviteCode,
+      if (teacherId != null) 'teacherId': teacherId,
+      if (teacherId != null) 'teacher_id': teacherId,
+      if (subject != null) 'subject': subject,
+      if (phone != null) 'phone': phone,
+      if (gender != null) 'gender': gender,
+      if (qualification != null) 'qualification': qualification,
+      if (experience != null) 'experience': experience,
+      if (monthlySalary != null) 'monthlySalary': monthlySalary,
+      if (monthlySalary != null) 'monthly_salary': monthlySalary,
     };
   }
 }

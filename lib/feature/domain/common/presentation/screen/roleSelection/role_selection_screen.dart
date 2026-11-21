@@ -40,7 +40,8 @@ class RoleSelectionScreen extends StatelessWidget {
           ),
 
           SafeArea(
-            child: Center(
+            child: Align(
+              alignment: Alignment.topCenter,
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(
@@ -100,57 +101,101 @@ class RoleSelectionScreen extends StatelessWidget {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 28),
 
-                      // Teacher Portal Card
+                      // 1. Owner Portal Card
                       _buildRoleCard(
                         context: context,
-                        badgeText: 'EDUCATOR & INSTITUTE',
-                        title: 'Teacher Portal',
+                        badgeText: 'INSTITUTE ADMINISTRATION',
+                        title: 'Owner Portal',
                         subtitle:
-                            'Create smart assessments, manage student batches, track fees & performance analytics.',
+                            'Establish and oversee your coaching institute, manage faculty, student admissions, batches, fees, and exams.',
                         features: const [
-                          'Batches & Join Codes',
-                          'Automated Grading',
-                          'Fee Tracking',
+                          'Full Institute Control',
+                          'Create Faculty Accounts',
+                          'Fees & Salary Ledger',
                         ],
                         gradientColors: const [
-                          Color(0xFFEEF2FF),
-                          Color(0xFFE0E7FF),
+                          Color(0xFFEFF6FF),
+                          Color(0xFFDBEAFE),
                         ],
-                        accentColor: AppColors.primary,
-                        icon: Icons.cast_for_education_rounded,
-                        isTeacher: true,
+                        accentColor: const Color(0xFF2563EB),
+                        icon: Icons.admin_panel_settings_rounded,
+                        onTap: () {
+                          final loginController = context.read<LoginController>();
+                          loginController.changeLoginToOwner();
+                          Get.toNamed(
+                            AppRoutes.login,
+                            arguments: {'portal': 'owner'},
+                          );
+                        },
                       ),
                       const SizedBox(height: 18),
 
-                      // Student Portal Card
+                      // 2. Teacher Portal Card
+                      _buildRoleCard(
+                        context: context,
+                        badgeText: 'FACULTY WORKSPACE',
+                        title: 'Teacher Portal',
+                        subtitle:
+                            'Access all institute students, conduct exams, mark daily attendance, and track monthly salary status.',
+                        features: const [
+                          'All Institute Students',
+                          'Assessment & Grading',
+                          'Attendance Tracking',
+                        ],
+                        noticeText: 'Account provisioned by Institute Owner',
+                        gradientColors: const [
+                          Color(0xFFF0FDFA),
+                          Color(0xFFCCFBF1),
+                        ],
+                        accentColor: const Color(0xFF0D9488),
+                        icon: Icons.cast_for_education_rounded,
+                        onTap: () {
+                          final loginController = context.read<LoginController>();
+                          loginController.changeLoginToTeacher();
+                          Get.toNamed(
+                            AppRoutes.login,
+                            arguments: {'portal': 'teacher'},
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+
+                      // 3. Student Portal Card
                       _buildRoleCard(
                         context: context,
                         badgeText: 'LEARNER WORKSPACE',
                         title: 'Student Portal',
                         subtitle:
-                            'Join your coaching batch, attempt timed exams, and review detailed answer explanations.',
+                            'Connect directly to your coaching institute, attempt timed tests, view scorecards, and review fee status.',
                         features: const [
+                          'Direct Institute Access',
                           'Live Timed Exams',
-                          'Instant Scorecards',
-                          'Batch Updates',
+                          'Results & Attendance',
                         ],
                         gradientColors: const [
                           Color(0xFFF5F3FF),
                           Color(0xFFEDE9FE),
                         ],
-                        accentColor: AppColors.secondary,
+                        accentColor: const Color(0xFF7C3AED),
                         icon: Icons.school_rounded,
-                        isTeacher: false,
+                        onTap: () {
+                          final loginController = context.read<LoginController>();
+                          loginController.changeLoginToStudent();
+                          Get.toNamed(
+                            AppRoutes.login,
+                            arguments: {'portal': 'student'},
+                          );
+                        },
                       ),
                       const SizedBox(height: 26),
 
                       // Quick Direct Sign-In Pill
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
+                          horizontal: 16,
+                          vertical: 12,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -158,38 +203,41 @@ class RoleSelectionScreen extends StatelessWidget {
                           border: Border.all(color: AppColors.border),
                           boxShadow: AppShadows.card,
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.login_rounded,
-                              size: 18,
-                              color: AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Already registered?',
-                              style: TextStyle(
-                                fontSize: 13,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.login_rounded,
+                                size: 18,
                                 color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w600,
                               ),
-                            ),
-                            const SizedBox(width: 6),
-                            GestureDetector(
-                              onTap: () {
-                                Get.toNamed(AppRoutes.login);
-                              },
-                              child: const Text(
-                                'Sign In directly →',
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Already registered?',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                onTap: () {
+                                  Get.toNamed(AppRoutes.login);
+                                },
+                                child: const Text(
+                                  'Sign In directly →',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -212,7 +260,8 @@ class RoleSelectionScreen extends StatelessWidget {
     required List<Color> gradientColors,
     required Color accentColor,
     required IconData icon,
-    required bool isTeacher,
+    required VoidCallback onTap,
+    String? noticeText,
   }) {
     return Container(
       width: double.infinity,
@@ -233,16 +282,7 @@ class RoleSelectionScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () {
-            final loginController = context.read<LoginController>();
-            if (isTeacher) {
-              loginController.changeLoginToTeacher();
-              Get.toNamed(AppRoutes.teacherSignup);
-            } else {
-              loginController.changeLoginToStudent();
-              Get.toNamed(AppRoutes.studentSignup);
-            }
-          },
+          onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(22),
             child: Column(
@@ -252,50 +292,50 @@ class RoleSelectionScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 62,
-                      height: 62,
+                      width: 58,
+                      height: 58,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: gradientColors,
                         ),
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: accentColor.withOpacity(0.18),
                         ),
                       ),
-                      child: Icon(icon, color: accentColor, size: 32),
+                      child: Icon(icon, color: accentColor, size: 30),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
+                              horizontal: 8,
+                              vertical: 3.5,
                             ),
                             decoration: BoxDecoration(
                               color: accentColor.withOpacity(0.10),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(7),
                             ),
                             child: Text(
                               badgeText,
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 9.5,
                                 fontWeight: FontWeight.w800,
                                 color: accentColor,
-                                letterSpacing: 0.8,
+                                letterSpacing: 0.7,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Text(
                             title,
                             style: const TextStyle(
-                              fontSize: 20,
+                              fontSize: 19,
                               fontWeight: FontWeight.w900,
                               color: AppColors.text,
                               letterSpacing: -0.3,
@@ -305,8 +345,8 @@ class RoleSelectionScreen extends StatelessWidget {
                       ),
                     ),
                     Container(
-                      width: 36,
-                      height: 36,
+                      width: 34,
+                      height: 34,
                       decoration: BoxDecoration(
                         color: accentColor.withOpacity(0.08),
                         shape: BoxShape.circle,
@@ -314,53 +354,93 @@ class RoleSelectionScreen extends StatelessWidget {
                       child: Icon(
                         Icons.arrow_forward_rounded,
                         color: accentColor,
-                        size: 18,
+                        size: 17,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 Text(
                   subtitle,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 12.5,
                     color: AppColors.textSecondary,
                     height: 1.45,
                   ),
                 ),
-                const SizedBox(height: 16),
+                if (noticeText != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: accentColor.withOpacity(0.18),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 14,
+                          color: accentColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            noticeText,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: accentColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: 6,
+                  runSpacing: 6,
                   children: features
                       .map(
                         (f) => Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
+                            horizontal: 9,
+                            vertical: 4.5,
                           ),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceAlt,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.check_circle_rounded,
-                                size: 13,
-                                color: accentColor,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                f,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textSecondary,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.check_circle_rounded,
+                                  size: 12,
+                                  color: accentColor,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 5),
+                                Text(
+                                  f,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       )

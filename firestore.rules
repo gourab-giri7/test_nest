@@ -56,13 +56,17 @@ service cloud.firestore {
       return isAuthenticated() && (
         isOrgAdmin(orgId) ||
         (exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'teacher')
+         get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'teacher' &&
+         (!('status' in get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data) ||
+          get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.status == 'active'))
       );
     }
 
     function isOrgStudent(orgId) {
       return isAuthenticated() && (
         exists(/databases/$(database)/documents/organizations/$(orgId)/students/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'student') ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)/memberships/$(orgId)) &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)/memberships/$(orgId)).data.role == 'student')
       );
@@ -105,8 +109,9 @@ service cloud.firestore {
 
       // User Memberships subcollection (Phase 1 Workspace Indexing)
       match /memberships/{orgId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId) && (
+        allow read: if isOwner(userId) || isOrgAdmin(orgId);
+        allow create, update: if (isOwner(userId) || isOrgAdmin(orgId)) && (
+          isOrgAdmin(orgId) ||
           (getAfter(/databases/$(database)/documents/organizations/$(orgId)/members/$(userId)).data.role == request.resource.data.role) ||
           (exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(userId)) &&
            get(/databases/$(database)/documents/organizations/$(orgId)/members/$(userId)).data.role == request.resource.data.role)
@@ -198,7 +203,7 @@ service cloud.firestore {
 
       // Members subcollection
       match /members/{memberUid} {
-        allow read: if isOrgMember(orgId);
+        allow read: if isOrgMember(orgId) || (isAuthenticated() && memberUid == request.auth.uid);
         // Only Org Admins can add members directly;
         // OR the Org Owner can initialize their own admin membership;
         // OR an invited teacher can join as 'teacher' with an accepted invitation in the transaction
@@ -223,6 +228,31 @@ service cloud.firestore {
         allow update: if isOrgAdmin(orgId) &&
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'joinedAt']);
         allow delete: if isOrgAdmin(orgId) || (isAuthenticated() && memberUid == request.auth.uid);
+      }
+
+      // Student join requests to organization
+      match /joinRequests/{requestId} {
+        allow read: if isOrgAdmin(orgId) || (
+          isAuthenticated() && (
+            resource.data.student_uid == request.auth.uid ||
+            requestId == request.auth.uid
+          )
+        );
+        allow create: if isAuthenticated() && (
+          isOrgAdmin(orgId) ||
+          (request.resource.data.student_uid == request.auth.uid &&
+           request.resource.data.status == 'pending' &&
+           request.resource.data.orgId == orgId)
+        );
+        allow update: if isOrgAdmin(orgId) || (
+          isAuthenticated() &&
+          resource.data.student_uid == request.auth.uid &&
+          request.resource.data.status == 'cancelled' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        );
+        allow delete: if isOrgAdmin(orgId) || (
+          isAuthenticated() && resource.data.student_uid == request.auth.uid
+        );
       }
 
       // Org-scoped invitations subcollection
@@ -269,6 +299,18 @@ service cloud.firestore {
             isOrgStudent(orgId);
           allow write: if isOrgAdmin(orgId) ||
             (isOrgTeacher(orgId) && isTeacherAssignedToBatch(orgId, batchId));
+        }
+
+        // Batch students subcollection (Canonical student enrollment)
+        match /students/{studentUid} {
+          allow read: if isOrgAdmin(orgId) ||
+            (isOrgTeacher(orgId) && isTeacherAssignedToBatch(orgId, batchId)) ||
+            (isAuthenticated() && (
+              studentUid == request.auth.uid ||
+              resource.data.studentUid == request.auth.uid ||
+              resource.data.student_uid == request.auth.uid
+            ));
+          allow create, update, delete: if isOrgAdmin(orgId);
         }
       }
 
@@ -440,6 +482,102 @@ service cloud.firestore {
           );
 
         allow delete: if isOrgAdmin(orgId);
+      }
+
+      // Fee Records subcollection under organization (Owner/Admin managed, Student read-only for own records)
+      match /feeRecords/{recordId} {
+        allow read: if isOrgAdmin(orgId) || (
+          isAuthenticated() && (
+            resource.data.student_uid == request.auth.uid ||
+            resource.data.studentId == request.auth.uid ||
+            recordId == request.auth.uid
+          )
+        );
+        allow write: if isOrgAdmin(orgId);
+
+        // Nested monthly records: organizations/{orgId}/feeRecords/{studentUid}/months/{billingMonth}
+        match /months/{billingMonth} {
+          allow read: if isOrgAdmin(orgId) || (
+            isAuthenticated() && (
+              resource.data.student_uid == request.auth.uid ||
+              resource.data.studentId == request.auth.uid ||
+              recordId == request.auth.uid
+            )
+          );
+          allow write: if isOrgAdmin(orgId);
+
+          // Append-only payments subcollection under monthly fee record
+          match /payments/{paymentId} {
+            allow read: if isOrgAdmin(orgId) || (
+              isAuthenticated() && (
+                recordId == request.auth.uid ||
+                resource.data.student_uid == request.auth.uid
+              )
+            );
+            allow create: if isOrgAdmin(orgId);
+            allow update, delete: if false;
+          }
+        }
+
+        // Direct payments subcollection under fee record (legacy/top-level support)
+        match /payments/{paymentId} {
+          allow read: if isOrgAdmin(orgId) || (
+            isAuthenticated() && (
+              get(/databases/$(database)/documents/organizations/$(orgId)/feeRecords/$(recordId)).data.student_uid == request.auth.uid ||
+              get(/databases/$(database)/documents/organizations/$(orgId)/feeRecords/$(recordId)).data.studentId == request.auth.uid ||
+              recordId == request.auth.uid
+            )
+          );
+          allow create: if isOrgAdmin(orgId);
+          allow update, delete: if false;
+        }
+      }
+
+      // Salaries subcollection under organization (Teacher Salary - Owner managed, Teacher read-only for own records)
+      match /salaries/{salaryId} {
+        allow read: if isOrgAdmin(orgId) || (
+          isOrgTeacher(orgId) && (
+            resource.data.teacher_uid == request.auth.uid ||
+            resource.data.teacherId == request.auth.uid
+          )
+        );
+        allow write: if isOrgAdmin(orgId);
+
+        // Append-only payments subcollection under salary record
+        match /payments/{paymentId} {
+          allow read: if isOrgAdmin(orgId) || (
+            isOrgTeacher(orgId) && (
+              get(/databases/$(database)/documents/organizations/$(orgId)/salaries/$(salaryId)).data.teacher_uid == request.auth.uid ||
+              get(/databases/$(database)/documents/organizations/$(orgId)/salaries/$(salaryId)).data.teacherId == request.auth.uid
+            )
+          );
+          allow create: if isOrgAdmin(orgId);
+          allow update, delete: if false;
+        }
+      }
+
+      // Teacher Salary Records subcollection: organizations/{orgId}/teacherSalaryRecords/{teacherUid}/months/{billingMonth}
+      match /teacherSalaryRecords/{teacherUid} {
+        allow read: if isOrgAdmin(orgId) || (
+          isOrgTeacher(orgId) && teacherUid == request.auth.uid
+        );
+        allow write: if isOrgAdmin(orgId);
+
+        match /months/{billingMonth} {
+          allow read: if isOrgAdmin(orgId) || (
+            isOrgTeacher(orgId) && teacherUid == request.auth.uid
+          );
+          allow write: if isOrgAdmin(orgId);
+
+          // Append-only salary payments subcollection
+          match /payments/{paymentId} {
+            allow read: if isOrgAdmin(orgId) || (
+              isOrgTeacher(orgId) && teacherUid == request.auth.uid
+            );
+            allow create: if isOrgAdmin(orgId);
+            allow update, delete: if false;
+          }
+        }
       }
     }
 

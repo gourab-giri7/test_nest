@@ -1,9 +1,14 @@
+import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
+import 'package:test_nest/core/context/active_tenant_context.dart';
+import 'package:test_nest/core/services/organization_service.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
+import 'package:test_nest/model/organization_model.dart';
 import 'package:test_nest/routes/app_routes.dart';
 
 class TeacherSignupController extends ChangeNotifier {
@@ -126,10 +131,42 @@ class TeacherSignupController extends ChangeNotifier {
       );
       await TeacherData.updateTeacherLocalData();
 
+      // Create coaching institute and assign Owner role
+      final cleanInstName = instituteName.text.trim();
+      final orgName = cleanInstName.isNotEmpty
+          ? cleanInstName
+          : '$cleanName\'s Institute';
+
+      try {
+        final orgService = OrganizationService();
+        await orgService.createOrganization(
+          name: orgName,
+          type: OrganizationType.institute,
+          ownerId: uid,
+          ownerName: cleanName,
+          ownerEmail: cleanEmail,
+          metadata: {
+            'address': instituteAddress.text.trim(),
+            'phone': mobile.text.trim(),
+          },
+        );
+      } catch (e) {
+        log('Auto organization creation notice: $e');
+      }
+
       if (context.mounted) {
+        try {
+          final tenantCtx = context.read<ActiveTenantContext>();
+          await tenantCtx.init(
+            uid,
+            fallbackName: cleanName,
+            fallbackEmail: cleanEmail,
+          );
+        } catch (_) {}
+
         customSnackbar(
           context: context,
-          message: 'Account created successfully! Welcome, $cleanName.',
+          message: 'Institute Owner account created! Welcome, $cleanName.',
           color: Colors.green,
           ico: Icons.check_circle,
         );

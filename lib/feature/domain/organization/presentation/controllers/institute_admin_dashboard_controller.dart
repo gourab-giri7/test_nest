@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:test_nest/core/context/active_tenant_context.dart';
 import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/model/exam_model.dart';
+import 'package:test_nest/model/join_request_model.dart';
 import 'package:test_nest/model/organization_model.dart';
 
 class InstituteAdminDashboardController extends ChangeNotifier {
@@ -11,15 +12,20 @@ class InstituteAdminDashboardController extends ChangeNotifier {
   final FirebaseFirestore? _explicitFirestore;
 
   InstituteAdminDashboardController({
-    required this.tenantContext,
+    ActiveTenantContext? tenantContext,
     FirebaseFirestore? firestore,
-  }) : _explicitFirestore = firestore {
-    _initListeners();
+    bool autoListen = true,
+  }) : tenantContext = tenantContext ?? ActiveTenantContext(),
+       _explicitFirestore = firestore {
+    if (autoListen) {
+      _initListeners();
+    }
   }
 
   FirebaseFirestore get _firestore =>
       _explicitFirestore ?? FirebaseFirestore.instance;
 
+  int _currentTabIndex = 0;
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -28,19 +34,25 @@ class InstituteAdminDashboardController extends ChangeNotifier {
   int _totalBatches = 0;
   int _activeExams = 0;
   int _pendingJoinRequests = 0;
+  int _todayAttendancePresent = 0;
+  int _todayAttendanceTotal = 0;
   double _totalFeeDue = 0.0;
   double _totalFeeCollected = 0.0;
 
   List<BatchModel> _batches = [];
   List<OrganizationMemberModel> _teachers = [];
   List<ExamModel> _recentExams = [];
+  List<JoinRequestModel> _recentJoinRequests = [];
 
   StreamSubscription? _batchSub;
   StreamSubscription? _memberSub;
   StreamSubscription? _studentSub;
   StreamSubscription? _examSub;
+  StreamSubscription? _joinRequestsSub;
+  StreamSubscription? _attendanceSub;
 
   // ── Getters ─────────────────────────────────────────────────────────────
+  int get currentTabIndex => _currentTabIndex;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -49,15 +61,26 @@ class InstituteAdminDashboardController extends ChangeNotifier {
   int get totalBatches => _totalBatches;
   int get activeExams => _activeExams;
   int get pendingJoinRequests => _pendingJoinRequests;
+  int get todayAttendancePresent => _todayAttendancePresent;
+  int get todayAttendanceTotal => _todayAttendanceTotal;
   double get totalFeeDue => _totalFeeDue;
   double get totalFeeCollected => _totalFeeCollected;
 
   List<BatchModel> get batches => List.unmodifiable(_batches);
   List<OrganizationMemberModel> get teachers => List.unmodifiable(_teachers);
   List<ExamModel> get recentExams => List.unmodifiable(_recentExams);
+  List<JoinRequestModel> get recentJoinRequests =>
+      List.unmodifiable(_recentJoinRequests);
 
   String get orgId => tenantContext.activeOrgId;
   String get orgName => tenantContext.activeOrgName;
+
+  void switchTab(int index) {
+    if (_currentTabIndex != index) {
+      _currentTabIndex = index;
+      notifyListeners();
+    }
+  }
 
   void _initListeners() {
     _cancelSubscriptions();
@@ -185,6 +208,59 @@ class InstituteAdminDashboardController extends ChangeNotifier {
               _checkLoadingComplete();
             },
           );
+
+      // 5. Pending Join Requests stream
+      _joinRequestsSub = _firestore
+          .collection('organizations')
+          .doc(currentOrgId)
+          .collection('joinRequests')
+          .where('status', isEqualTo: 'pending')
+          .snapshots()
+          .listen(
+            (snapshot) {
+              _recentJoinRequests = snapshot.docs
+                  .map((d) => JoinRequestModel.fromJson(d.data(), docId: d.id))
+                  .toList();
+              _pendingJoinRequests = _recentJoinRequests.length;
+              _checkLoadingComplete();
+            },
+            onError: (_) {
+              _recentJoinRequests = [];
+              _checkLoadingComplete();
+            },
+          );
+
+      // 6. Today's Attendance summary stream
+      final now = DateTime.now();
+      final todayKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      _attendanceSub = _firestore
+          .collection('organizations')
+          .doc(currentOrgId)
+          .collection('attendance')
+          .where('dateKey', isEqualTo: todayKey)
+          .snapshots()
+          .listen(
+            (snapshot) {
+              int present = 0;
+              for (final doc in snapshot.docs) {
+                final st = (doc.data()['status'] ?? '')
+                    .toString()
+                    .toLowerCase();
+                if (st == 'present' || st == 'late') {
+                  present++;
+                }
+              }
+              _todayAttendancePresent = present;
+              _todayAttendanceTotal = snapshot.docs.length;
+              _checkLoadingComplete();
+            },
+            onError: (_) {
+              _todayAttendancePresent = 0;
+              _todayAttendanceTotal = 0;
+              _checkLoadingComplete();
+            },
+          );
     } catch (e) {
       _errorMessage = e.toString();
       _isLoading = false;
@@ -206,10 +282,14 @@ class InstituteAdminDashboardController extends ChangeNotifier {
     _memberSub?.cancel();
     _studentSub?.cancel();
     _examSub?.cancel();
+    _joinRequestsSub?.cancel();
+    _attendanceSub?.cancel();
     _batchSub = null;
     _memberSub = null;
     _studentSub = null;
     _examSub = null;
+    _joinRequestsSub = null;
+    _attendanceSub = null;
   }
 
   @override

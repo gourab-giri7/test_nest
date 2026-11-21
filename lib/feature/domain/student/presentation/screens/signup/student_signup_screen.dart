@@ -68,12 +68,15 @@ class _StudentSignupBody extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
-                        'Student Registration',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
+                      const Expanded(
+                        child: Text(
+                          'Student Registration',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -84,6 +87,8 @@ class _StudentSignupBody extends StatelessWidget {
                   child: Center(
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 460),
@@ -282,31 +287,37 @@ class _StudentSignupBody extends StatelessWidget {
                                               color: Colors.white,
                                             ),
                                           )
-                                        : const Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                'Create Student Account',
-                                                style: TextStyle(
-                                                  fontSize: 15.5,
-                                                  fontWeight: FontWeight.w800,
+                                        : const FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  'Create Student Account',
+                                                  style: TextStyle(
+                                                    fontSize: 15.5,
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
                                                 ),
-                                              ),
-                                              SizedBox(width: 8),
-                                              Icon(
-                                                Icons.arrow_forward_rounded,
-                                                size: 18,
-                                              ),
-                                            ],
+                                                SizedBox(width: 8),
+                                                Icon(
+                                                  Icons.arrow_forward_rounded,
+                                                  size: 18,
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                   ),
                                 ),
                                 const SizedBox(height: 20),
 
                                 // Already have account
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                                Wrap(
+                                  alignment: WrapAlignment.center,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 4,
+                                  runSpacing: 2,
                                   children: [
                                     const Text(
                                       'Already registered? ',

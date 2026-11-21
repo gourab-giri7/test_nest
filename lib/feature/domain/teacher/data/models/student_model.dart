@@ -24,6 +24,9 @@ class StudentModel {
   /// Student contact phone number
   final String phone;
 
+  /// Associated organization ID if in an institute
+  final String? orgId;
+
   StudentModel({
     required this.name,
     required this.batch,
@@ -36,6 +39,7 @@ class StudentModel {
     this.authUid = '',
     this.status = 'Active',
     this.phone = '',
+    this.orgId,
   });
 
   /// Whether the student has an active enrollment and is not removed.
@@ -88,6 +92,7 @@ class StudentModel {
         (json['batch'] ?? json['batch_name'] ?? json['batchName'] ?? '')
             .toString()
             .trim();
+    final rawOrgId = (json['org_id'] ?? json['orgId'] ?? '').toString().trim();
 
     return StudentModel(
       name: rawName,
@@ -101,6 +106,7 @@ class StudentModel {
       authUid: rawAuthUid,
       status: rawStatus.isEmpty ? 'Active' : rawStatus,
       phone: rawPhone,
+      orgId: rawOrgId.isNotEmpty ? rawOrgId : null,
     );
   }
 
@@ -122,6 +128,7 @@ class StudentModel {
     String? authUid,
     String? status,
     String? phone,
+    String? orgId,
   }) {
     return StudentModel(
       name: name ?? this.name,
@@ -135,6 +142,7 @@ class StudentModel {
       authUid: authUid ?? this.authUid,
       status: status ?? this.status,
       phone: phone ?? this.phone,
+      orgId: orgId ?? this.orgId,
     );
   }
 
@@ -151,6 +159,8 @@ class StudentModel {
     return normalizeBatch(a) == normalizeBatch(b);
   }
 
+  Map<String, dynamic> toJson() => tojson(this);
+
   static Map<String, dynamic> tojson(StudentModel data) {
     return {
       'name': data.name.trim(),
@@ -163,6 +173,7 @@ class StudentModel {
       'auth_uid': data.authUid.trim(),
       'status': data.status.trim(),
       'phone': data.phone.trim(),
+      'org_id': data.orgId ?? '',
     };
   }
 }

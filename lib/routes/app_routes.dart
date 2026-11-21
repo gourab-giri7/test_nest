@@ -21,8 +21,9 @@ abstract class AppRoutes {
   static const studentExamSubmitted = '/student/exam-submitted';
   static const studentExamResult = '/student/exam-result';
 
-  // Teacher Auth
+  // Teacher & Owner Auth
   static const teacherSignup = '/teacher/signup';
+  static const ownerSignup = '/owner/signup';
 
   // Teacher Main
   static const teacherDashboard = '/teacher/dashboard';
@@ -53,6 +54,8 @@ abstract class AppRoutes {
   static const instituteTeacherDashboard = '/organization/teacher-dashboard';
   static const instituteTeachers = '/organization/teachers';
   static const batchTeacherAssignment = '/organization/batch-assignment';
+  static const ownerStudentFees = '/organization/owner-student-fees';
+  static const ownerTeacherSalaries = '/organization/owner-teacher-salaries';
 
   // Attendance Management (Phase 3)
   static const batchAttendance = '/attendance/mark';

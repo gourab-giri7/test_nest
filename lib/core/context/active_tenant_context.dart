@@ -18,6 +18,7 @@ class ActiveTenantContext extends ChangeNotifier {
   String? _currentUid;
   OrganizationModel? _activeOrg;
   String? _activeRole;
+  String? _activeStatus;
   List<UserMembershipModel> _memberships = [];
   bool _isLoading = false;
   bool _isInitialized = false;
@@ -27,6 +28,7 @@ class ActiveTenantContext extends ChangeNotifier {
   String? get currentUid => _currentUid;
   OrganizationModel? get activeOrg => _activeOrg;
   String? get activeRole => _activeRole;
+  String? get activeStatus => _activeStatus;
   List<UserMembershipModel> get memberships => List.unmodifiable(_memberships);
   bool get isLoading => _isLoading;
   bool get isInitialized => _isInitialized;
@@ -41,6 +43,9 @@ class ActiveTenantContext extends ChangeNotifier {
   bool get isAdmin => _activeRole == OrganizationRole.admin;
   bool get isTeacher => _activeRole == OrganizationRole.teacher;
   bool get isStudent => _activeRole == OrganizationRole.student;
+  bool get isActive =>
+      _activeStatus == OrganizationStatus.active || _activeStatus == null;
+  bool get isSuspended => _activeStatus == OrganizationStatus.suspended;
   bool get hasMultipleOrgs => _memberships.length > 1;
 
   /// Returns a path resolver bound to this active tenant context.
@@ -149,6 +154,7 @@ class ActiveTenantContext extends ChangeNotifier {
     _currentUid = null;
     _activeOrg = null;
     _activeRole = null;
+    _activeStatus = null;
     _memberships = [];
     _isLoading = false;
     _isInitialized = false;
@@ -190,5 +196,6 @@ class ActiveTenantContext extends ChangeNotifier {
     );
 
     _activeRole = match.role;
+    _activeStatus = match.status;
   }
 }

@@ -256,6 +256,7 @@ class ExamModel {
     String studentId, {
     String? authUid,
     String? studentBatch,
+    List<String>? assignedBatchIds,
   }) {
     final cleanId = studentId.trim().toLowerCase();
     final cleanAuthUid = (authUid ?? '').trim().toLowerCase();
@@ -269,6 +270,16 @@ class ExamModel {
       });
     }
 
+    // Check assignedBatchIds if provided (for institute students)
+    if (assignedBatchIds != null && assignedBatchIds.isNotEmpty) {
+      final cleanExamBatch = batch.trim().toLowerCase();
+      if (cleanExamBatch.isNotEmpty) {
+        return assignedBatchIds.any(
+          (bId) => bId.trim().toLowerCase() == cleanExamBatch,
+        );
+      }
+    }
+
     // If assignedStudentIds is empty (batch-wide or legacy exam), check batch
     if (studentBatch != null &&
         studentBatch.trim().isNotEmpty &&
@@ -276,7 +287,7 @@ class ExamModel {
       return studentBatch.trim().toLowerCase() == batch.trim().toLowerCase();
     }
 
-    // Default to true if the exam is not restricted to specific IDs
+    // Default to true if the exam is not restricted to specific IDs and no batch filter is specified
     return cleanId.isNotEmpty;
   }
 
@@ -286,27 +297,30 @@ class ExamModel {
   bool isEligibleForStudent({
     required String studentId,
     String? authUid,
-    required StudentEnrollment? enrollment,
+    StudentEnrollment? enrollment,
+    List<String>? assignedBatchIds,
     bool hasSubmitted = false,
   }) {
-    if (enrollment == null || !enrollment.isActive) {
+    // 1. Preserve historical submissions and results
+    if (hasSubmitted) return true;
+
+    // 2. If student has legacy enrollment object, enforce active state
+    if (enrollment != null && !enrollment.isActive) {
       return false;
     }
 
-    // 1. Check student assignment (specific student IDs or batch match)
+    // 3. Check student assignment (specific student IDs or batch match)
     final isAssigned = isStudentAssigned(
       studentId,
       authUid: authUid,
-      studentBatch: enrollment.batchName,
+      studentBatch: enrollment?.batchName,
+      assignedBatchIds: assignedBatchIds,
     );
     if (!isAssigned) return false;
 
-    // 2. Preserve historical submissions and results
-    if (hasSubmitted) return true;
-
-    // 3. Enforce enrollment date restriction:
+    // 4. Enforce enrollment date restriction:
     // Students must not see or access exams scheduled/held prior to their approved enrollment date.
-    final enrolledAt = enrollment.enrolledAt;
+    final enrolledAt = enrollment?.enrolledAt;
     if (enrolledAt != null) {
       final effectiveExamDate = examStart ?? createdAt ?? examEnd;
       if (effectiveExamDate != null) {

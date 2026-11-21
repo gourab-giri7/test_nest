@@ -50,6 +50,23 @@ class TenantPathResolver {
   String batchDocPath(String batchId, [String? fallbackTeacherId]) =>
       '${batchesPath(fallbackTeacherId)}/$batchId';
 
+  String batchStudentsPath(String batchId, [String? fallbackId]) =>
+      '${batchDocPath(batchId, fallbackId)}/students';
+
+  String batchStudentDocPath(
+    String batchId,
+    String studentUid, [
+    String? fallbackId,
+  ]) => '${batchStudentsPath(batchId, fallbackId)}/$studentUid';
+
+  String joinRequestsPath([String? fallbackOrgId]) {
+    final targetOrgId = orgId.isNotEmpty ? orgId : (fallbackOrgId ?? '');
+    return 'organizations/$targetOrgId/joinRequests';
+  }
+
+  String joinRequestDocPath(String requestId, [String? fallbackOrgId]) =>
+      '${joinRequestsPath(fallbackOrgId)}/$requestId';
+
   String studentsPath([String? fallbackTeacherId]) =>
       '${basePath(fallbackTeacherId)}/students';
 
@@ -74,6 +91,69 @@ class TenantPathResolver {
   String feeRecordsPath([String? fallbackTeacherId]) =>
       '${basePath(fallbackTeacherId)}/feeRecords';
 
+  String feeRecordDocPath(String recordId, [String? fallbackTeacherId]) =>
+      '${feeRecordsPath(fallbackTeacherId)}/$recordId';
+
+  /// Resolves the collection path for a student's monthly fee records.
+  /// If institute mode: `organizations/{orgId}/feeRecords/{studentUid}/months`
+  /// If single-teacher mode: `user/{teacherId}/students/{studentUid}/feeRecords`
+  String studentFeeMonthsPath(String studentUid, [String? fallbackId]) {
+    if (isInstitute) {
+      final targetOrgId = orgId.isNotEmpty ? orgId : (fallbackId ?? '');
+      return 'organizations/$targetOrgId/feeRecords/$studentUid/months';
+    } else {
+      final targetTeacherId = orgId.isNotEmpty ? orgId : (fallbackId ?? '');
+      return 'user/$targetTeacherId/students/$studentUid/feeRecords';
+    }
+  }
+
+  String studentFeeMonthDocPath(
+    String studentUid,
+    String monthKey, [
+    String? fallbackId,
+  ]) => '${studentFeeMonthsPath(studentUid, fallbackId)}/$monthKey';
+
+  String studentFeePaymentsPath(
+    String studentUid,
+    String monthKey, [
+    String? fallbackId,
+  ]) => '${studentFeeMonthDocPath(studentUid, monthKey, fallbackId)}/payments';
+
+  String studentFeePaymentDocPath(
+    String studentUid,
+    String monthKey,
+    String paymentId, [
+    String? fallbackId,
+  ]) =>
+      '${studentFeePaymentsPath(studentUid, monthKey, fallbackId)}/$paymentId';
+
+  /// Resolves the collection path for a teacher's monthly salary records (organization-scoped).
+  String teacherSalaryMonthsPath(String teacherUid, [String? fallbackOrgId]) {
+    final targetOrgId = orgId.isNotEmpty ? orgId : (fallbackOrgId ?? '');
+    return 'organizations/$targetOrgId/teacherSalaryRecords/$teacherUid/months';
+  }
+
+  String teacherSalaryMonthDocPath(
+    String teacherUid,
+    String monthKey, [
+    String? fallbackOrgId,
+  ]) => '${teacherSalaryMonthsPath(teacherUid, fallbackOrgId)}/$monthKey';
+
+  String teacherSalaryPaymentsPath(
+    String teacherUid,
+    String monthKey, [
+    String? fallbackOrgId,
+  ]) =>
+      '${teacherSalaryMonthDocPath(teacherUid, monthKey, fallbackOrgId)}/payments';
+
+  String teacherSalaryPaymentDocPath(
+    String teacherUid,
+    String monthKey,
+    String paymentId, [
+    String? fallbackOrgId,
+  ]) =>
+      '${teacherSalaryPaymentsPath(teacherUid, monthKey, fallbackOrgId)}/$paymentId';
+
   String attendancePath([String? fallbackTeacherId]) =>
       '${basePath(fallbackTeacherId)}/attendance';
 
@@ -85,6 +165,14 @@ class TenantPathResolver {
 
   String noticeDocPath(String noticeId, [String? fallbackTeacherId]) =>
       '${noticesPath(fallbackTeacherId)}/$noticeId';
+
+  String salariesPath([String? fallbackOrgId]) {
+    final targetOrgId = orgId.isNotEmpty ? orgId : (fallbackOrgId ?? '');
+    return 'organizations/$targetOrgId/salaries';
+  }
+
+  String salaryDocPath(String salaryId, [String? fallbackOrgId]) =>
+      '${salariesPath(fallbackOrgId)}/$salaryId';
 
   String membersPath([String? fallbackOrgId]) {
     final targetOrgId = orgId.isNotEmpty ? orgId : (fallbackOrgId ?? '');

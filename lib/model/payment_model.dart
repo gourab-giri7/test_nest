@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // =============================================================================
 // PaymentEntry — a single payment recorded against a fee record.
 // Document path: .../feeRecords/{YYYY-MM}/payments/{paymentId}
+// or organizations/{orgId}/feeRecords/{studentUid}/months/{YYYY-MM}/payments/{paymentId}
 //
 // Payment history is append-only: never delete a PaymentEntry to "undo" a
 // payment. Instead, record a correcting negative-amount entry (reversal) or
@@ -10,6 +11,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // =============================================================================
 class PaymentEntry {
   final String paymentId;
+  final String? studentUid;
+  final String? orgId;
+  final String? billingMonth;
   final double amount;
   final DateTime paidAt;
 
@@ -18,45 +22,77 @@ class PaymentEntry {
 
   final String? note;
 
-  /// Name of the teacher who recorded this payment.
+  /// Name of the teacher / owner who recorded this payment.
   final String recordedBy;
 
   final String? receiptRef;
+  final DateTime? createdAt;
+
+  /// Alias for receiptRef
+  String? get referenceNumber => receiptRef;
 
   /// A negative amount signals a correcting reversal/adjustment.
   bool get isReversal => amount < 0;
 
   const PaymentEntry({
     required this.paymentId,
+    this.studentUid,
+    this.orgId,
+    this.billingMonth,
     required this.amount,
     required this.paidAt,
     required this.method,
     required this.recordedBy,
     this.note,
     this.receiptRef,
+    this.createdAt,
   });
 
   factory PaymentEntry.fromJson(Map<String, dynamic> json, {String? docId}) {
     return PaymentEntry(
-      paymentId: (json['payment_id'] ?? docId ?? '').toString(),
+      paymentId: (json['payment_id'] ?? json['paymentId'] ?? docId ?? '')
+          .toString(),
+      studentUid:
+          json['student_uid']?.toString() ?? json['studentId']?.toString(),
+      orgId: json['org_id']?.toString() ?? json['orgId']?.toString(),
+      billingMonth:
+          json['billing_month']?.toString() ?? json['billingMonth']?.toString(),
       amount: _toDouble(json['amount']),
-      paidAt: _toDateTime(json['paid_at']) ?? DateTime.now(),
-      method: (json['method'] ?? 'cash').toString(),
-      recordedBy: (json['recorded_by'] ?? '').toString(),
+      paidAt:
+          _toDateTime(
+            json['paid_at'] ?? json['payment_date'] ?? json['paidAt'],
+          ) ??
+          DateTime.now(),
+      method: (json['method'] ?? json['payment_method'] ?? 'cash').toString(),
+      recordedBy: (json['recorded_by'] ?? json['recordedBy'] ?? '').toString(),
       note: json['note']?.toString(),
-      receiptRef: json['receipt_ref']?.toString(),
+      receiptRef:
+          json['receipt_ref']?.toString() ??
+          json['reference_number']?.toString(),
+      createdAt: _toDateTime(json['created_at'] ?? json['createdAt']),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'payment_id': paymentId,
+    if (studentUid != null && studentUid!.isNotEmpty) 'student_uid': studentUid,
+    if (orgId != null && orgId!.isNotEmpty) 'org_id': orgId,
+    if (billingMonth != null && billingMonth!.isNotEmpty)
+      'billing_month': billingMonth,
     'amount': amount,
     'paid_at': Timestamp.fromDate(paidAt),
+    'payment_date': Timestamp.fromDate(paidAt),
     'method': method,
+    'payment_method': method,
     'recorded_by': recordedBy,
     if (note != null && note!.isNotEmpty) 'note': note,
-    if (receiptRef != null && receiptRef!.isNotEmpty) 'receipt_ref': receiptRef,
-    'created_at': FieldValue.serverTimestamp(),
+    if (receiptRef != null && receiptRef!.isNotEmpty) ...{
+      'receipt_ref': receiptRef,
+      'reference_number': receiptRef,
+    },
+    'created_at': createdAt != null
+        ? Timestamp.fromDate(createdAt!)
+        : FieldValue.serverTimestamp(),
   };
 
   static double _toDouble(dynamic v) {
@@ -81,7 +117,7 @@ class PaymentEntry {
   ];
 
   static String methodLabel(String method) {
-    switch (method) {
+    switch (method.toLowerCase().trim()) {
       case 'cash':
         return 'Cash';
       case 'upi':
