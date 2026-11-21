@@ -1,0 +1,12 @@
+# Example key.properties for Android release signing
+# 1. Copy this file to android/key.properties
+# 2. Replace the placeholder values with your real keystore details
+# 3. Ensure android/key.properties is NEVER committed to Git (it is already in .gitignore)
+#
+# To generate a release keystore, run:
+# keytool -genkey -v -keystore my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-key-alias
+
+storePassword=YOUR_KEYSTORE_PASSWORD_HERE
+keyPassword=YOUR_KEY_PASSWORD_HERE
+keyAlias=YOUR_KEY_ALIAS_HERE
+storeFile=../my-release-key.jks
