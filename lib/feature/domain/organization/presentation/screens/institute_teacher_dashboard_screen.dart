@@ -1802,13 +1802,6 @@ class _TeacherMoreTab extends StatelessWidget {
         ),
         const Divider(height: 32),
         _buildFeatureTile(
-          title: 'Switch Workspace',
-          subtitle: 'Switch between institutes or personal workspace',
-          icon: Icons.swap_horiz,
-          color: const Color(0xFF475569),
-          onTap: () => Get.toNamed(AppRoutes.organizationSwitcher),
-        ),
-        _buildFeatureTile(
           title: 'Sign Out',
           subtitle: 'Log out of your account',
           icon: Icons.logout,

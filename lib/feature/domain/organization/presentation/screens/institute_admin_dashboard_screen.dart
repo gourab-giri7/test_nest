@@ -140,9 +140,9 @@ class _OwnerHomeTab extends StatelessWidget {
           const SizedBox(height: 16),
           _buildSummaryStatsGrid(),
           const SizedBox(height: 20),
-          _buildRecentJoinRequestsSection(context),
+          _buildManagementShortcutsGrid(context),
           const SizedBox(height: 20),
-          _buildBatchOverviewSection(context),
+          _buildRecentJoinRequestsSection(context),
           const SizedBox(height: 20),
           _buildRecentActivitySection(context),
         ],
@@ -151,6 +151,13 @@ class _OwnerHomeTab extends StatelessWidget {
   }
 
   Widget _buildTopHeader(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final ownerName = user?.displayName?.isNotEmpty == true
+        ? user!.displayName!
+        : (tenantCtx.activeOrg?.ownerName.isNotEmpty == true
+            ? tenantCtx.activeOrg!.ownerName
+            : 'Institute Owner');
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -172,7 +179,7 @@ class _OwnerHomeTab extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF2563EB), Color(0xFF4F46E5)],
+                colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -204,29 +211,37 @@ class _OwnerHomeTab extends StatelessWidget {
                 const SizedBox(height: 2),
                 Row(
                   children: [
+                    Flexible(
+                      child: Text(
+                        ownerName,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2563EB),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 6,
-                        vertical: 2,
+                        vertical: 1.5,
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text(
-                        'INSTITUTE OWNER',
+                        'OWNER',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF2563EB),
                           letterSpacing: 0.5,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Text(
-                      '• Active Mode',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -234,9 +249,67 @@ class _OwnerHomeTab extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Switch Workspace',
-            icon: const Icon(Icons.swap_horiz, color: Color(0xFF2563EB)),
-            onPressed: () => Get.toNamed(AppRoutes.organizationSwitcher),
+            tooltip: 'Institute Notices',
+            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF2563EB)),
+            onPressed: () => Get.toNamed(AppRoutes.noticeList),
+          ),
+          IconButton(
+            tooltip: 'Owner Profile',
+            icon: const Icon(Icons.person_outline, color: Color(0xFF2563EB)),
+            onPressed: () => _OwnerMoreTab.showOwnerProfileModal(
+              context,
+              tenantCtx,
+              () => _confirmSignOutFromHome(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmSignOutFromHome(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Sign Out?'),
+        content: const Text(
+          'Are you sure you want to sign out of your account?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              LoginController? loginCtrl;
+              try {
+                loginCtrl = context.read<LoginController>();
+              } catch (_) {}
+              if (loginCtrl == null && Get.isRegistered<LoginController>()) {
+                loginCtrl = Get.find<LoginController>();
+              }
+              if (loginCtrl != null) {
+                await loginCtrl.logout(context);
+              } else {
+                try {
+                  await FirebaseAuth.instance.signOut();
+                } catch (_) {}
+                try {
+                  if (context.mounted) {
+                    context.read<ActiveTenantContext>().clear();
+                  }
+                } catch (_) {}
+                await pref.clear();
+                Get.offAllNamed(AppRoutes.login);
+              }
+            },
+            child: const Text(
+              'Sign Out',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -246,7 +319,7 @@ class _OwnerHomeTab extends StatelessWidget {
   Widget _buildSummaryStatsGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth > 500 ? 3 : 2;
+        final crossAxisCount = constraints.maxWidth > 500 ? 4 : 2;
         final aspectRatio = constraints.maxWidth < 360 ? 1.35 : 1.5;
         return GridView.count(
           shrinkWrap: true,
@@ -267,45 +340,22 @@ class _OwnerHomeTab extends StatelessWidget {
               title: 'Total Teachers',
               value: '${controller.totalTeachers}',
               icon: Icons.people_outline,
-              iconColor: const Color(0xFF7C3AED),
-              bgColor: const Color(0xFFF5F3FF),
+              iconColor: const Color(0xFF1D4ED8),
+              bgColor: const Color(0xFFEFF6FF),
             ),
             _buildStatCard(
               title: 'Total Batches',
               value: '${controller.totalBatches}',
               icon: Icons.class_outlined,
-              iconColor: const Color(0xFF0D9488),
-              bgColor: const Color(0xFFCCFBF1),
+              iconColor: const Color(0xFF3B82F6),
+              bgColor: const Color(0xFFEFF6FF),
             ),
             _buildStatCard(
-              title: 'Active Exams',
-              value: '${controller.activeExams}',
+              title: 'Total Exams',
+              value: '${controller.totalExams}',
               icon: Icons.assignment_outlined,
-              iconColor: const Color(0xFFD97706),
-              bgColor: const Color(0xFFFEF3C7),
-            ),
-            _buildStatCard(
-              title: 'Pending Requests',
-              value: '${controller.pendingJoinRequests}',
-              icon: Icons.person_add_outlined,
-              iconColor: controller.pendingJoinRequests > 0
-                  ? Colors.red
-                  : const Color(0xFF10B981),
-              bgColor: controller.pendingJoinRequests > 0
-                  ? const Color(0xFFFEE2E2)
-                  : const Color(0xFFD1FAE5),
-            ),
-            _buildStatCard(
-              title: 'Today Attendance',
-              value: controller.todayAttendanceTotal > 0
-                  ? '${controller.todayAttendancePresent}/${controller.todayAttendanceTotal}'
-                  : '--',
-              subtitle: controller.todayAttendanceTotal > 0
-                  ? 'marked today'
-                  : 'not marked',
-              icon: Icons.fact_check_outlined,
-              iconColor: const Color(0xFF0284C7),
-              bgColor: const Color(0xFFE0F2FE),
+              iconColor: const Color(0xFF1E40AF),
+              bgColor: const Color(0xFFEFF6FF),
             ),
           ],
         );
@@ -391,8 +441,159 @@ class _OwnerHomeTab extends StatelessWidget {
     );
   }
 
+  Widget _buildManagementShortcutsGrid(BuildContext context) {
+    final shortcuts = [
+      _ShortcutItem(
+        title: 'Teachers',
+        subtitle: 'Faculty & accounts',
+        icon: Icons.people_rounded,
+        color: const Color(0xFF2563EB),
+        onTap: () => controller.switchTab(1),
+      ),
+      _ShortcutItem(
+        title: 'Teacher Salaries',
+        subtitle: 'Disbursements',
+        icon: Icons.account_balance_wallet_rounded,
+        color: const Color(0xFF059669),
+        onTap: () => Get.toNamed(AppRoutes.ownerTeacherSalaries),
+      ),
+      _ShortcutItem(
+        title: 'Students',
+        subtitle: 'Directory & requests',
+        icon: Icons.school_rounded,
+        color: const Color(0xFF2563EB),
+        onTap: () => controller.switchTab(2),
+      ),
+      _ShortcutItem(
+        title: 'Batches',
+        subtitle: 'Class groupings',
+        icon: Icons.class_rounded,
+        color: const Color(0xFF1E40AF),
+        onTap: () => controller.switchTab(3),
+      ),
+      _ShortcutItem(
+        title: 'Student Fees',
+        subtitle: 'Dues & collections',
+        icon: Icons.receipt_long_rounded,
+        color: const Color(0xFFD97706),
+        onTap: () => Get.toNamed(AppRoutes.ownerStudentFees),
+      ),
+      _ShortcutItem(
+        title: 'Exams',
+        subtitle: 'Institute assessments',
+        icon: Icons.assignment_rounded,
+        color: const Color(0xFF1D4ED8),
+        onTap: () => Get.toNamed(AppRoutes.teacherExams),
+      ),
+      _ShortcutItem(
+        title: 'Attendance',
+        subtitle: 'Daily mark sheets',
+        icon: Icons.fact_check_rounded,
+        color: const Color(0xFF0D9488),
+        onTap: () => Get.toNamed(AppRoutes.attendanceOverview),
+      ),
+      _ShortcutItem(
+        title: 'Notices',
+        subtitle: 'Institute broadcasts',
+        icon: Icons.campaign_rounded,
+        color: const Color(0xFF7C3AED),
+        onTap: () => Get.toNamed(AppRoutes.noticeList),
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Management Shortcuts',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 12),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: shortcuts.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 2.3,
+            ),
+            itemBuilder: (context, i) {
+              final item = shortcuts[i];
+              return InkWell(
+                onTap: item.onTap,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: item.color.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: item.color.withValues(alpha: 0.15)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: item.color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(item.icon, size: 18, color: item.color),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              item.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            Text(
+                              item.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRecentJoinRequestsSection(BuildContext context) {
     final requests = controller.recentJoinRequests;
+    final orgService = OrganizationService();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -452,9 +653,20 @@ class _OwnerHomeTab extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Center(
-                child: Text(
-                  'No pending join requests. All caught up!',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      size: 16,
+                      color: Color(0xFF10B981),
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'No pending join requests. All caught up!',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -495,139 +707,108 @@ class _OwnerHomeTab extends StatelessWidget {
                               color: Color(0xFF0F172A),
                             ),
                           ),
-                          Text(
-                            req.studentEmail,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        textStyle: const TextStyle(fontSize: 11),
-                      ),
-                      onPressed: () => controller.switchTab(2),
-                      child: const Text('Review'),
-                    ),
-                  ],
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBatchOverviewSection(BuildContext context) {
-    final batches = controller.batches;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Active Batches Overview',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              TextButton(
-                onPressed: () =>
-                    controller.switchTab(3), // Switch to Batches tab
-                child: const Text('Manage Batches'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (batches.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: Text(
-                  'No batches created yet. Add your first batch in Batches tab.',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-                ),
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: batches.take(4).length,
-              separatorBuilder: (_, __) => const Divider(height: 12),
-              itemBuilder: (context, index) {
-                final b = batches[index];
-                return InkWell(
-                  onTap: () => Get.to(
-                    () => BatchDetailsScreen(orgId: controller.orgId, batch: b),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.class_outlined,
-                            size: 18,
-                            color: Color(0xFF2563EB),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Text(
-                                b.name,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF0F172A),
+                              Flexible(
+                                child: Text(
+                                  req.studentEmail,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              Text(
-                                '${b.studentCount} Students • ${b.assignedTeacherIds.length} Teachers',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF64748B),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'Pending',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFFD97706),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 12,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.check_circle,
+                        color: Color(0xFF10B981),
+                        size: 24,
+                      ),
+                      tooltip: 'Approve',
+                      onPressed: () async {
+                        final reviewer = FirebaseAuth.instance.currentUser?.uid ?? '';
+                        try {
+                          await orgService.approveStudentJoinRequest(
+                            orgId: controller.orgId,
+                            orgName: controller.orgName,
+                            requestId: req.id,
+                            studentUid: req.studentUid,
+                            reviewerUid: reviewer,
+                            studentName: req.studentName,
+                            studentEmail: req.studentEmail,
+                            assignedBatchId: req.assignedBatchId ?? (req.batchId.isNotEmpty ? req.batchId : null),
+                            assignedBatchName: req.assignedBatchName ?? (req.batchName.isNotEmpty ? req.batchName : null),
+                          );
+                          CustomSnackbar.showSuccess(
+                            context: context,
+                            title: 'Approved',
+                            message: '${req.studentName} has been approved.',
+                          );
+                        } catch (e) {
+                          CustomSnackbar.showError(
+                            context: context,
+                            title: 'Error',
+                            message: 'Could not approve: $e',
+                          );
+                        }
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.cancel,
+                        color: Color(0xFFEF4444),
+                        size: 24,
+                      ),
+                      tooltip: 'Reject',
+                      onPressed: () async {
+                        final reviewer = FirebaseAuth.instance.currentUser?.uid ?? '';
+                        try {
+                          await orgService.rejectStudentJoinRequest(
+                            orgId: controller.orgId,
+                            requestId: req.id,
+                            reviewerUid: reviewer,
+                          );
+                          CustomSnackbar.showSuccess(
+                            context: context,
+                            title: 'Rejected',
+                            message: '${req.studentName} request was rejected.',
+                          );
+                        } catch (e) {
+                          CustomSnackbar.showError(
+                            context: context,
+                            title: 'Error',
+                            message: 'Could not reject: $e',
+                          );
+                        }
+                      },
+                    ),
+                  ],
                 );
               },
             ),
@@ -737,6 +918,22 @@ class _OwnerHomeTab extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ShortcutItem {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ShortcutItem({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 }
 
 // =============================================================================
@@ -2338,143 +2535,561 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
         .where((b) => student.assignedBatchIds.contains(b.id))
         .toList();
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showStudentProfileModal(student),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: const Color(0xFFF0FDF4),
-                foregroundColor: const Color(0xFF16A34A),
-                child: Text(
-                  student.name.isNotEmpty ? student.name[0].toUpperCase() : 'S',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      student.name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
-                      ),
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: const Color(0xFFEEF2FF),
+                    foregroundColor: AppColors.primary,
+                    child: Text(
+                      student.name.isNotEmpty ? student.name[0].toUpperCase() : 'S',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
-                    Text(
-                      student.email,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              PopupMenuButton<String>(
-                icon: const Icon(
-                  Icons.more_vert,
-                  size: 20,
-                  color: Color(0xFF64748B),
-                ),
-                onSelected: (action) {
-                  if (action == 'enroll') {
-                    _showEnrollBatchDialog(student);
-                  } else if (action == 'transfer') {
-                    _showTransferStudentDialog(student);
-                  } else if (action == 'remove') {
-                    _showRemoveFromBatchDialog(student);
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'enroll',
-                    child: Row(
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.add_task, size: 18),
-                        SizedBox(width: 8),
-                        Text('Enroll in Batch'),
+                        Text(
+                          student.name,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          student.email,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  if (student.assignedBatchIds.isNotEmpty) ...[
-                    const PopupMenuItem(
-                      value: 'transfer',
-                      child: Row(
-                        children: [
-                          Icon(Icons.swap_horiz, size: 18),
-                          SizedBox(width: 8),
-                          Text('Transfer Batch'),
-                        ],
+                  PopupMenuButton<String>(
+                    icon: const Icon(
+                      Icons.more_vert,
+                      size: 20,
+                      color: Color(0xFF64748B),
+                    ),
+                    onSelected: (action) {
+                      if (action == 'profile') {
+                        _showStudentProfileModal(student);
+                      } else if (action == 'enroll') {
+                        _showEnrollBatchDialog(student);
+                      } else if (action == 'transfer') {
+                        _showTransferStudentDialog(student);
+                      } else if (action == 'remove') {
+                        _showRemoveFromBatchDialog(student);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'profile',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_outline_rounded, size: 18),
+                            SizedBox(width: 8),
+                            Text('View Profile'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'enroll',
+                        child: Row(
+                          children: [
+                            Icon(Icons.add_task, size: 18),
+                            SizedBox(width: 8),
+                            Text('Enroll in Batch'),
+                          ],
+                        ),
+                      ),
+                      if (student.assignedBatchIds.isNotEmpty) ...[
+                        const PopupMenuItem(
+                          value: 'transfer',
+                          child: Row(
+                            children: [
+                              Icon(Icons.swap_horiz, size: 18),
+                              SizedBox(width: 8),
+                              Text('Transfer Batch'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'remove',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.remove_circle_outline,
+                                size: 18,
+                                color: Colors.red,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Remove from Batch',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: assignedBatchObjects.isNotEmpty
+                          ? const Color(0xFFF0FDF4)
+                          : const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      assignedBatchObjects.isNotEmpty
+                          ? '${assignedBatchObjects.length} ${assignedBatchObjects.length == 1 ? "Batch" : "Batches"}'
+                          : 'No Batches',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: assignedBatchObjects.isNotEmpty
+                            ? const Color(0xFF15803D)
+                            : const Color(0xFFB45309),
                       ),
                     ),
-                    const PopupMenuItem(
-                      value: 'remove',
-                      child: Row(
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Tap to view student profile & manage batches',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              if (assignedBatchObjects.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: assignedBatchObjects.map((b) {
+                    final sessionText = b.effectiveSession.isNotEmpty
+                        ? ' (${b.effectiveSession})'
+                        : '';
+                    return Chip(
+                      label: Text(
+                        '${b.name}$sessionText',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF1E40AF),
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFFEFF6FF),
+                      side: const BorderSide(color: Color(0xFFBFDBFE)),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showStudentProfileModal(OrganizationMemberModel student) {
+    final parentCtx = context;
+    showModalBottomSheet(
+      context: parentCtx,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) {
+          final batches = widget.controller.batches;
+          final assignedBatches = batches
+              .where((b) => student.assignedBatchIds.contains(b.id))
+              .toList();
+
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetCtx).size.height * 0.85,
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Drag Handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Student Identity Card
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: const Color(0xFFEEF2FF),
+                      foregroundColor: AppColors.primary,
+                      child: Text(
+                        student.name.isNotEmpty
+                            ? student.name[0].toUpperCase()
+                            : 'S',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.remove_circle_outline,
-                            size: 18,
-                            color: Colors.red,
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  student.name,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCFCE7),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'Student',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF15803D),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(height: 2),
                           Text(
-                            'Remove from Batch',
-                            style: TextStyle(color: Colors.red),
+                            student.email,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Enrolled since ${DateFormat('MMM yyyy').format(student.joinedAt)}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF94A3B8),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ],
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (assignedBatchObjects.isNotEmpty) ...[
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: assignedBatchObjects.map((b) {
-                return Chip(
-                  label: Text(b.name, style: const TextStyle(fontSize: 11)),
-                  backgroundColor: const Color(0xFFEFF6FF),
-                  padding: const EdgeInsets.all(0),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                );
-              }).toList(),
+                ),
+                const Divider(height: 28),
+
+                // Batches Header with Add Button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Enrolled Batches',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          '${assignedBatches.length} active ${assignedBatches.length == 1 ? "enrollment" : "enrollments"}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(sheetCtx);
+                        _showEnrollBatchDialog(student);
+                      },
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Add Batch'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Batches List
+                if (assignedBatches.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.folder_off_outlined,
+                          size: 36,
+                          color: Color(0xFF94A3B8),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Not enrolled in any batch yet',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Click "+ Add Batch" above to assign this student to one or more batches.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: assignedBatches.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (ctx, index) {
+                        final b = assignedBatches[index];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEEF2FF),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.class_rounded,
+                                  color: AppColors.primary,
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      b.name,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Session: ${b.effectiveSession.isNotEmpty ? b.effectiveSession : "All"} • Monthly Fee: ₹${b.monthlyFee.toStringAsFixed(0)}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.remove_circle_outline,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                                tooltip: 'Remove from this batch',
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: parentCtx,
+                                    builder: (c) => AlertDialog(
+                                      title: const Text('Remove from Batch?'),
+                                      content: Text(
+                                        'Remove ${student.name} from "${b.name}"? '
+                                        'Student will remain in their other enrolled batches and in the institute.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(c, false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                          ),
+                                          onPressed: () => Navigator.pop(c, true),
+                                          child: const Text(
+                                            'Remove',
+                                            style: TextStyle(color: Colors.white),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirm == true) {
+                                    try {
+                                      await _orgService.removeStudentFromBatch(
+                                        orgId: widget.controller.orgId,
+                                        batchId: b.id,
+                                        studentUid: student.uid,
+                                      );
+                                      student.assignedBatchIds.remove(b.id);
+                                      setSheetState(() {});
+                                      setState(() {});
+                                      CustomSnackbar.showSuccess(
+                                        context: parentCtx,
+                                        title: 'Removed from Batch',
+                                        message: '${student.name} removed from ${b.name}.',
+                                      );
+                                    } catch (e) {
+                                      CustomSnackbar.showError(
+                                        context: parentCtx,
+                                        title: 'Error',
+                                        message: 'Failed to remove: $e',
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    if (assignedBatches.isNotEmpty) ...[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(sheetCtx);
+                            _showTransferStudentDialog(student);
+                          },
+                          icon: const Icon(Icons.swap_horiz, size: 16),
+                          label: const Text('Transfer Batch'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(sheetCtx),
+                        child: const Text('Close'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ] else ...[
-            const Text(
-              'No batches assigned',
-              style: TextStyle(fontSize: 11, color: Colors.orange),
-            ),
-          ],
-        ],
+          );
+        },
       ),
     );
   }
 
   void _showEnrollBatchDialog(OrganizationMemberModel student) {
+    final parentCtx = context;
     final availableBatches = widget.controller.batches
         .where((b) => !student.assignedBatchIds.contains(b.id) && !b.isArchived)
         .toList();
 
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Enroll ${student.name}'),
+      context: parentCtx,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text('Enroll ${student.name} in Batch'),
         content: availableBatches.isEmpty
             ? const Text('Student is already enrolled in all active batches.')
             : SizedBox(
@@ -2483,17 +3098,19 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
                   shrinkWrap: true,
                   itemCount: availableBatches.length,
                   separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
+                  itemBuilder: (ctx, index) {
                     final b = availableBatches[index];
                     return ListTile(
-                      title: Text(b.name),
-                      subtitle: Text(b.subject ?? ''),
+                      title: Text(b.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        'Session: ${b.effectiveSession.isNotEmpty ? b.effectiveSession : "All"} • Fee: ₹${b.monthlyFee.toStringAsFixed(0)}',
+                      ),
                       trailing: const Icon(
                         Icons.add_circle_outline,
                         color: AppColors.primary,
                       ),
                       onTap: () async {
-                        Navigator.pop(context);
+                        Navigator.pop(dialogCtx);
                         try {
                           await _orgService.enrollStudentInBatch(
                             orgId: widget.controller.orgId,
@@ -2503,14 +3120,16 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
                             studentName: student.name,
                             studentEmail: student.email,
                           );
+                          student.assignedBatchIds.add(b.id);
+                          setState(() {});
                           CustomSnackbar.showSuccess(
-                            context: context,
+                            context: parentCtx,
                             title: 'Enrolled',
                             message: '${student.name} enrolled in ${b.name}.',
                           );
                         } catch (e) {
                           CustomSnackbar.showError(
-                            context: context,
+                            context: parentCtx,
                             title: 'Error',
                             message: 'Enrollment failed: $e',
                           );
@@ -2522,7 +3141,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
               ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogCtx),
             child: const Text('Cancel'),
           ),
         ],
@@ -2531,6 +3150,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
   }
 
   void _showTransferStudentDialog(OrganizationMemberModel student) {
+    final parentCtx = context;
     final currentBatches = widget.controller.batches
         .where((b) => student.assignedBatchIds.contains(b.id))
         .toList();
@@ -2540,7 +3160,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
 
     if (currentBatches.isEmpty || otherBatches.isEmpty) {
       CustomSnackbar.showInfo(
-        context: context,
+        context: parentCtx,
         title: 'Transfer Not Possible',
         message: 'No alternative batches available to transfer to.',
       );
@@ -2551,9 +3171,9 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
     String toBatchId = otherBatches.first.id;
 
     showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+      context: parentCtx,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) => AlertDialog(
           title: Text('Transfer ${student.name}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2590,7 +3210,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogCtx),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -2598,7 +3218,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
                 backgroundColor: AppColors.primary,
               ),
               onPressed: () async {
-                Navigator.pop(context);
+                Navigator.pop(dialogCtx);
                 final targetBatch = otherBatches.firstWhere(
                   (b) => b.id == toBatchId,
                 );
@@ -2612,15 +3232,18 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
                     studentName: student.name,
                     studentEmail: student.email,
                   );
+                  student.assignedBatchIds.remove(fromBatchId);
+                  student.assignedBatchIds.add(toBatchId);
+                  setState(() {});
                   CustomSnackbar.showSuccess(
-                    context: context,
+                    context: parentCtx,
                     title: 'Transferred',
                     message:
                         '${student.name} transferred to ${targetBatch.name}.',
                   );
                 } catch (e) {
                   CustomSnackbar.showError(
-                    context: context,
+                    context: parentCtx,
                     title: 'Error',
                     message: 'Transfer failed: $e',
                   );
@@ -2638,13 +3261,14 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
   }
 
   void _showRemoveFromBatchDialog(OrganizationMemberModel student) {
+    final parentCtx = context;
     final currentBatches = widget.controller.batches
         .where((b) => student.assignedBatchIds.contains(b.id))
         .toList();
 
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: parentCtx,
+      builder: (dialogCtx) => AlertDialog(
         title: Text('Remove from Batch: ${student.name}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2660,21 +3284,23 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
                 title: Text(b.name),
                 trailing: const Icon(Icons.remove_circle, color: Colors.red),
                 onTap: () async {
-                  Navigator.pop(context);
+                  Navigator.pop(dialogCtx);
                   try {
                     await _orgService.removeStudentFromBatch(
                       orgId: widget.controller.orgId,
                       batchId: b.id,
                       studentUid: student.uid,
                     );
+                    student.assignedBatchIds.remove(b.id);
+                    setState(() {});
                     CustomSnackbar.showSuccess(
-                      context: context,
+                      context: parentCtx,
                       title: 'Removed from Batch',
                       message: '${student.name} removed from ${b.name}.',
                     );
                   } catch (e) {
                     CustomSnackbar.showError(
-                      context: context,
+                      context: parentCtx,
                       title: 'Error',
                       message: 'Action failed: $e',
                     );
@@ -2686,7 +3312,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogCtx),
             child: const Text('Cancel'),
           ),
         ],
@@ -3322,23 +3948,26 @@ class _OwnerBatchesTabState extends State<_OwnerBatchesTab> {
   }
 
   void _showCreateBatchSheet() {
+    final parentCtx = context;
     final nameCtrl = TextEditingController();
-    final subjectCtrl = TextEditingController();
-    final scheduleCtrl = TextEditingController();
+    final sessionCtrl = TextEditingController(
+      text: '${DateTime.now().year}-${DateTime.now().year + 1}',
+    );
     final descCtrl = TextEditingController();
     final feeCtrl = TextEditingController();
+    final selectedTeacherUids = <String>[];
     bool feeEnabled = true;
 
     showModalBottomSheet(
-      context: context,
+      context: parentCtx,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
+            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
             top: 20,
             left: 16,
             right: 16,
@@ -3361,25 +3990,16 @@ class _OwnerBatchesTabState extends State<_OwnerBatchesTab> {
                   controller: nameCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Batch Name *',
-                    hintText: 'e.g. Class 12 Advanced Physics',
+                    hintText: 'e.g. Class 12 Science',
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: subjectCtrl,
+                  controller: sessionCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Subject',
-                    hintText: 'e.g. Physics',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: scheduleCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Class Schedule',
-                    hintText: 'e.g. Mon, Wed, Fri 4:00 PM - 5:30 PM',
+                    labelText: 'Session',
+                    hintText: 'e.g. 2025-2026',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -3388,7 +4008,7 @@ class _OwnerBatchesTabState extends State<_OwnerBatchesTab> {
                   controller: feeCtrl,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Monthly Fee (₹)',
+                    labelText: 'Monthly Fees (₹)',
                     hintText: '0 for free',
                     border: OutlineInputBorder(),
                   ),
@@ -3398,10 +4018,42 @@ class _OwnerBatchesTabState extends State<_OwnerBatchesTab> {
                   controller: descCtrl,
                   maxLines: 2,
                   decoration: const InputDecoration(
-                    labelText: 'Description',
+                    labelText: 'Description (Optional)',
                     border: OutlineInputBorder(),
                   ),
                 ),
+                if (widget.controller.teachers.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Assign Teachers (Optional)',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: widget.controller.teachers.map((teacher) {
+                      final isSelected = selectedTeacherUids.contains(teacher.uid);
+                      return FilterChip(
+                        label: Text(teacher.name),
+                        selected: isSelected,
+                        onSelected: (sel) {
+                          setSheetState(() {
+                            if (sel) {
+                              selectedTeacherUids.add(teacher.uid);
+                            } else {
+                              selectedTeacherUids.remove(teacher.uid);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
                 const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
@@ -3413,8 +4065,14 @@ class _OwnerBatchesTabState extends State<_OwnerBatchesTab> {
                     ),
                     onPressed: () async {
                       final name = nameCtrl.text.trim();
-                      if (name.isEmpty) return;
-                      Navigator.pop(context);
+                      if (name.isEmpty) {
+                        CustomSnackbar.showError(
+                          context: parentCtx,
+                          message: 'Please enter a batch name',
+                        );
+                        return;
+                      }
+                      Navigator.pop(sheetCtx);
                       final fee = double.tryParse(feeCtrl.text.trim()) ?? 0.0;
                       final user = FirebaseAuth.instance.currentUser;
                       final ownerUid = user?.uid ?? '';
@@ -3424,20 +4082,22 @@ class _OwnerBatchesTabState extends State<_OwnerBatchesTab> {
                           orgId: widget.controller.orgId,
                           name: name,
                           ownerUid: ownerUid,
-                          subject: subjectCtrl.text.trim(),
-                          schedule: scheduleCtrl.text.trim(),
-                          description: descCtrl.text.trim(),
+                          session: sessionCtrl.text.trim(),
+                          description: descCtrl.text.trim().isNotEmpty
+                              ? descCtrl.text.trim()
+                              : null,
                           monthlyFee: fee,
                           feeTrackingEnabled: feeEnabled,
+                          assignedTeacherIds: selectedTeacherUids,
                         );
                         CustomSnackbar.showSuccess(
-                          context: context,
+                          context: parentCtx,
                           title: 'Batch Created',
                           message: 'Batch "$name" has been created.',
                         );
                       } catch (e) {
                         CustomSnackbar.showError(
-                          context: context,
+                          context: parentCtx,
                           title: 'Error',
                           message: 'Failed to create batch: $e',
                         );
@@ -3476,7 +4136,7 @@ class _OwnerMoreTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
         const Text(
-          'Institute Features & Settings',
+          'Institute Operations & Settings',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -3484,6 +4144,22 @@ class _OwnerMoreTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
+        _buildFeatureTile(
+          title: 'Teacher Salary Management',
+          subtitle:
+              'Configure base salaries and disburse monthly teacher compensation',
+          icon: Icons.account_balance_wallet_outlined,
+          color: const Color(0xFF059669),
+          onTap: () => Get.toNamed(AppRoutes.ownerTeacherSalaries),
+        ),
+        _buildFeatureTile(
+          title: 'Student Fee Management',
+          subtitle:
+              'Track monthly student fee dues, collections, and receipt ledger',
+          icon: Icons.receipt_long_outlined,
+          color: const Color(0xFFD97706),
+          onTap: () => Get.toNamed(AppRoutes.ownerStudentFees),
+        ),
         _buildFeatureTile(
           title: 'Exam Management',
           subtitle: 'Create, schedule, and grade institute exams',
@@ -3499,56 +4175,206 @@ class _OwnerMoreTab extends StatelessWidget {
           onTap: () => Get.toNamed(AppRoutes.attendanceOverview),
         ),
         _buildFeatureTile(
-          title: 'Notices & Announcements',
-          subtitle: 'Publish institute-wide or batch announcements',
+          title: 'Important Notices & Bulletins',
+          subtitle: 'Publish institute-wide announcements to teachers & students',
           icon: Icons.campaign_outlined,
           color: const Color(0xFF7C3AED),
           onTap: () => Get.toNamed(AppRoutes.noticeList),
         ),
         _buildFeatureTile(
-          title: 'Student Fee Management',
-          subtitle:
-              'Track monthly student fee dues, collections, and receipt ledger',
-          icon: Icons.receipt_long_outlined,
-          color: const Color(0xFFD97706),
-          onTap: () => Get.toNamed(AppRoutes.ownerStudentFees),
-        ),
-        _buildFeatureTile(
-          title: 'Teacher Salary Management',
-          subtitle:
-              'Configure base salaries and disburse monthly teacher compensation',
-          icon: Icons.account_balance_wallet_outlined,
-          color: const Color(0xFF059669),
-          onTap: () => Get.toNamed(AppRoutes.ownerTeacherSalaries),
-        ),
-        _buildFeatureTile(
-          title: 'Performance Analytics',
-          subtitle: 'Student benchmarks, leaderboard, and score distributions',
-          icon: Icons.insights_outlined,
-          color: const Color(0xFF0284C7),
-          onTap: () => Get.toNamed(AppRoutes.performanceAnalytics),
-        ),
-        _buildFeatureTile(
-          title: 'Teacher Invitations',
-          subtitle: 'Generate and manage expiring single-use invite codes',
-          icon: Icons.mark_email_read_outlined,
-          color: const Color(0xFF4F46E5),
-          onTap: () => Get.toNamed(AppRoutes.manageInvitations),
+          title: 'Profile & Settings',
+          subtitle: 'Institute administrator profile, settings & credentials',
+          icon: Icons.person_outline_rounded,
+          color: const Color(0xFF2563EB),
+          onTap: () => showOwnerProfileModal(
+            context,
+            tenantCtx,
+            () => _confirmSignOut(context),
+          ),
         ),
         const Divider(height: 32),
-        _buildFeatureTile(
-          title: 'Switch Workspace',
-          subtitle: 'Toggle between coaching institutes and private workspaces',
-          icon: Icons.swap_horiz,
-          color: const Color(0xFF475569),
-          onTap: () => Get.toNamed(AppRoutes.organizationSwitcher),
-        ),
         _buildFeatureTile(
           title: 'Sign Out',
           subtitle: 'Log out of your Owner account',
           icon: Icons.logout,
           color: Colors.red,
           onTap: () => _confirmSignOut(context),
+        ),
+      ],
+    );
+  }
+
+  static void showOwnerProfileModal(
+    BuildContext context,
+    ActiveTenantContext tenantCtx,
+    VoidCallback onSignOut,
+  ) {
+    final user = FirebaseAuth.instance.currentUser;
+    final ownerName = user?.displayName?.isNotEmpty == true
+        ? user!.displayName!
+        : (tenantCtx.activeOrg?.ownerName.isNotEmpty == true
+            ? tenantCtx.activeOrg!.ownerName
+            : 'Institute Owner');
+    final ownerEmail = user?.email ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: const Color(0xFFEFF6FF),
+                  child: Text(
+                    ownerName.isNotEmpty ? ownerName[0].toUpperCase() : 'O',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ownerName,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        ownerEmail,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'COACHING INSTITUTE OWNER',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF2563EB),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 32),
+            _buildProfileInfoItem(
+              icon: Icons.business_rounded,
+              title: 'Institute Name',
+              value: tenantCtx.activeOrgName.isNotEmpty
+                  ? tenantCtx.activeOrgName
+                  : 'Coaching Institute',
+            ),
+            const SizedBox(height: 12),
+            _buildProfileInfoItem(
+              icon: Icons.tag_rounded,
+              title: 'Institute ID',
+              value: tenantCtx.activeOrgId,
+            ),
+            const SizedBox(height: 12),
+            _buildProfileInfoItem(
+              icon: Icons.shield_outlined,
+              title: 'Role Authority',
+              value: 'Central Institute Administrator',
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.logout, size: 18),
+                label: const Text('Sign Out'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade50,
+                  foregroundColor: Colors.red,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.red.shade200),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  onSignOut();
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildProfileInfoItem({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: const Color(0xFF64748B)),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+            ),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+          ],
         ),
       ],
     );

@@ -152,6 +152,7 @@ class OrganizationMemberModel {
   bool get isStudent => role == OrganizationRole.student;
   bool get isActive => status == OrganizationStatus.active;
   bool get isSuspended => status == OrganizationStatus.suspended;
+  List<String> get batchIds => assignedBatchIds;
 
   factory OrganizationMemberModel.fromMap(
     Map<String, dynamic> map,
@@ -163,7 +164,7 @@ class OrganizationMemberModel {
       return DateTime.now();
     }
 
-    final rawBatches = map['assignedBatchIds'];
+    final rawBatches = map['assignedBatchIds'] ?? map['batchIds'] ?? map['batch_ids'];
     List<String> batches = [];
     if (rawBatches is List) {
       batches = rawBatches.map((e) => e.toString()).toList();

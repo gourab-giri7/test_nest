@@ -32,6 +32,7 @@ class InstituteAdminDashboardController extends ChangeNotifier {
   int _totalStudents = 0;
   int _totalTeachers = 0;
   int _totalBatches = 0;
+  int _totalExams = 0;
   int _activeExams = 0;
   int _pendingJoinRequests = 0;
   int _todayAttendancePresent = 0;
@@ -59,6 +60,7 @@ class InstituteAdminDashboardController extends ChangeNotifier {
   int get totalStudents => _totalStudents;
   int get totalTeachers => _totalTeachers;
   int get totalBatches => _totalBatches;
+  int get totalExams => _totalExams;
   int get activeExams => _activeExams;
   int get pendingJoinRequests => _pendingJoinRequests;
   int get todayAttendancePresent => _todayAttendancePresent;
@@ -197,12 +199,14 @@ class InstituteAdminDashboardController extends ChangeNotifier {
                   }
                 }
               }
+              _totalExams = exams.length;
               _activeExams = active;
               _recentExams = exams.take(5).toList();
               _checkLoadingComplete();
             },
             onError: (e) {
               // Silent fail for exams if none exist
+              _totalExams = 0;
               _activeExams = 0;
               _recentExams = [];
               _checkLoadingComplete();

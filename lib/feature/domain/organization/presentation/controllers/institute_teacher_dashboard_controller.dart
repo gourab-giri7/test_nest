@@ -6,6 +6,7 @@ import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/model/batch_student_model.dart';
 import 'package:test_nest/model/exam_model.dart';
 import 'package:test_nest/model/notice_model.dart';
+import 'package:test_nest/model/organization_model.dart';
 
 class TeacherAssignedStudent {
   final String studentUid;
@@ -63,6 +64,8 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
   String? _errorMessage;
 
   List<BatchModel> _batches = [];
+  List<BatchModel> _allInstituteBatches = [];
+  Set<String> _teacherAssignedBatchIds = {};
   final Map<String, List<BatchStudentModel>> _batchStudentsMap = {};
   List<TeacherAssignedStudent> _instituteStudents = [];
   List<ExamModel> _exams = [];
@@ -74,6 +77,7 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
   String _examSearchQuery = '';
   String _examStatusFilter = 'all';
 
+  StreamSubscription? _teacherMemberSub;
   StreamSubscription? _batchSub;
   StreamSubscription? _studentSub;
   final Map<String, StreamSubscription> _batchStudentSubs = {};
@@ -108,22 +112,35 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
       .where((b) => b.schedule != null && b.schedule!.trim().isNotEmpty)
       .toList();
 
-  /// Returns deduplicated students across the entire Coaching Institute.
-  /// No batch restriction: includes unassigned students and students across all batches.
+  /// Returns deduplicated students across the entire institute directory.
+  /// All active Teachers can see all students in their organization, regardless of batch assignment.
   List<TeacherAssignedStudent> get deduplicatedStudents {
     final map = <String, TeacherAssignedStudent>{};
 
-    // 1. Seed with all institute students from organizations/{orgId}/students
+    // 1. First populate all institute students
     for (final s in _instituteStudents) {
-      map[s.studentUid] = s;
+      final batchNames = <String>[];
+      for (final bid in s.batchIds) {
+        final bObj = _allInstituteBatches.where((b) => b.id == bid).firstOrNull;
+        if (bObj != null) batchNames.add(bObj.name);
+      }
+      map[s.studentUid] = TeacherAssignedStudent(
+        studentUid: s.studentUid,
+        studentName: s.studentName,
+        studentEmail: s.studentEmail,
+        studentPhone: s.studentPhone,
+        batchIds: s.batchIds,
+        batchNames: batchNames.isNotEmpty ? batchNames : s.batchNames,
+        status: s.status,
+        enrolledAt: s.enrolledAt,
+      );
     }
 
-    // 2. Merge with any batch-enrolled students from batches/{bid}/students
+    // 2. Incorporate batch students from batches/{bid}/students
     for (final entry in _batchStudentsMap.entries) {
       final batchId = entry.key;
       final studentList = entry.value;
-
-      final batchObj = _batches.firstWhere(
+      final batchObj = _allInstituteBatches.firstWhere(
         (b) => b.id == batchId,
         orElse: () => BatchModel(
           id: batchId,
@@ -300,7 +317,27 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Stream all batches for this institute so teacher can view and filter
+      // 1. Listen to teacher's membership document for assignedBatchIds
+      _teacherMemberSub = _firestore
+          .collection('organizations')
+          .doc(currentOrgId)
+          .collection('members')
+          .doc(currentTeacherUid)
+          .snapshots()
+          .listen((memberDoc) {
+            if (memberDoc.exists) {
+              final data = memberDoc.data() ?? {};
+              if (data['assignedBatchIds'] is List) {
+                _teacherAssignedBatchIds = (data['assignedBatchIds'] as List)
+                    .map((e) => e.toString().trim())
+                    .where((e) => e.isNotEmpty)
+                    .toSet();
+                _filterAssignedBatches();
+              }
+            }
+          }, onError: (_) {});
+
+      // 2. Stream batches for this institute and filter strictly to assigned batches
       _batchSub = _firestore
           .collection('organizations')
           .doc(currentOrgId)
@@ -308,15 +345,12 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
           .snapshots()
           .listen(
             (snapshot) {
-              final updatedBatches = snapshot.docs
+              _allInstituteBatches = snapshot.docs
                   .map((doc) => BatchModel.fromJson(doc.data(), docId: doc.id))
                   .where((b) => !b.isArchived)
                   .toList();
 
-              _batches = updatedBatches;
-              _updateBatchStudentSubscriptions(currentOrgId, updatedBatches);
-              _isLoading = false;
-              notifyListeners();
+              _filterAssignedBatches();
             },
             onError: (e) {
               _errorMessage = 'Failed to load batches: $e';
@@ -325,68 +359,7 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
             },
           );
 
-      // 2. Stream all institute students directly (no batch restriction)
-      _studentSub = _firestore
-          .collection('organizations')
-          .doc(currentOrgId)
-          .collection('students')
-          .snapshots()
-          .listen(
-            (snapshot) {
-              final list = <TeacherAssignedStudent>[];
-              for (final doc in snapshot.docs) {
-                final data = doc.data();
-                final uid =
-                    (data['auth_uid'] ?? data['id'] ?? doc.id).toString();
-                final name = (data['name'] ?? '').toString();
-                final email = (data['email'] ?? '').toString();
-                final phone = (data['phone'] ?? '').toString();
-                final status = (data['status'] ?? 'active').toString();
-                final batchName = (data['batch'] ?? '').toString();
-                final batchId =
-                    (data['batch_id'] ?? data['batchId'] ?? '').toString();
-
-                List<String> bIds = [];
-                List<String> bNames = [];
-
-                if (data['assigned_batch_ids'] is List) {
-                  bIds = (data['assigned_batch_ids'] as List)
-                      .map((e) => e.toString())
-                      .toList();
-                } else if (batchId.isNotEmpty) {
-                  bIds = [batchId];
-                }
-
-                for (final bId in bIds) {
-                  final bObj = _batches.where((b) => b.id == bId).firstOrNull;
-                  if (bObj != null) {
-                    bNames.add(bObj.name);
-                  }
-                }
-                if (bNames.isEmpty && batchName.isNotEmpty) {
-                  bNames.add(batchName);
-                }
-                if (bNames.isEmpty) {
-                  bNames.add('Unassigned');
-                }
-
-                list.add(TeacherAssignedStudent(
-                  studentUid: uid,
-                  studentName: name,
-                  studentEmail: email,
-                  studentPhone: phone,
-                  batchIds: bIds,
-                  batchNames: bNames,
-                  status: status,
-                ));
-              }
-              _instituteStudents = list;
-              notifyListeners();
-            },
-            onError: (_) {},
-          );
-
-      // 3. Stream exams for this institute
+      // 3. Stream exams for this institute (filtered to assigned batches or teacher-created)
       _examSub = _firestore
           .collection('organizations')
           .doc(currentOrgId)
@@ -426,6 +399,30 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
           .listen((snapshot) {
             _notices = snapshot.docs
                 .map((d) => NoticeModel.fromMap(d.data(), d.id))
+                .toList();
+            notifyListeners();
+          }, onError: (_) {});
+      // 4. Stream institute-wide students (all active teachers can see all students in their organization)
+      _studentSub = _firestore
+          .collection('organizations')
+          .doc(currentOrgId)
+          .collection('members')
+          .where('role', isEqualTo: 'student')
+          .snapshots()
+          .listen((snapshot) {
+            _instituteStudents = snapshot.docs
+                .map((d) => OrganizationMemberModel.fromMap(d.data(), d.id))
+                .where((m) => m.isActive)
+                .map((m) => TeacherAssignedStudent(
+                      studentUid: m.uid,
+                      studentName: m.name,
+                      studentEmail: m.email,
+                      studentPhone: m.phone ?? '',
+                      batchIds: m.batchIds,
+                      batchNames: m.batchIds.isEmpty ? ['Unassigned'] : m.batchIds,
+                      status: m.status,
+                      enrolledAt: m.joinedAt,
+                    ))
                 .toList();
             notifyListeners();
           }, onError: (_) {});
@@ -476,9 +473,29 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
     }
   }
 
+  void _filterAssignedBatches() {
+    final currentTeacherUid = effectiveTeacherUid;
+    _batches = _allInstituteBatches.where((b) {
+      final isAssigned = b.assignedTeacherIds.contains(currentTeacherUid) ||
+          b.teacherId == currentTeacherUid ||
+          _teacherAssignedBatchIds.contains(b.id);
+      return isAssigned;
+    }).toList();
+
+    _updateBatchStudentSubscriptions(orgId, _batches);
+    _isLoading = false;
+    notifyListeners();
+  }
+
   void _cancelSubscriptions() {
+    _teacherMemberSub?.cancel();
+    _teacherMemberSub = null;
+    _teacherAssignedBatchIds.clear();
+
     _batchSub?.cancel();
     _batchSub = null;
+    _allInstituteBatches.clear();
+    _batches.clear();
 
     _studentSub?.cancel();
     _studentSub = null;

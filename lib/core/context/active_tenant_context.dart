@@ -35,7 +35,7 @@ class ActiveTenantContext extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   String get activeOrgId => _activeOrg?.id ?? (_currentUid ?? '');
-  String get activeOrgName => _activeOrg?.name ?? 'Personal Workspace';
+  String get activeOrgName => _activeOrg?.name ?? 'Coaching Institute';
   String get activeOrgType => _activeOrg?.type ?? OrganizationType.independent;
 
   bool get isInstitute => _activeOrg?.isInstitute ?? false;
@@ -91,11 +91,17 @@ class ActiveTenantContext extends ChangeNotifier {
       final savedOrgId = preferredOrgId ?? prefs.getString('$_prefPrefix$uid');
 
       String? targetOrgId;
-      if (savedOrgId != null &&
-          _memberships.any((m) => m.organizationId == savedOrgId)) {
-        targetOrgId = savedOrgId;
-      } else if (_memberships.isNotEmpty) {
-        targetOrgId = _memberships.first.organizationId;
+      if (_memberships.isNotEmpty) {
+        final instituteMembership =
+            _memberships.where((m) => m.isInstitute).firstOrNull;
+        if (savedOrgId != null &&
+            _memberships.any((m) => m.organizationId == savedOrgId)) {
+          targetOrgId = savedOrgId;
+        } else if (instituteMembership != null) {
+          targetOrgId = instituteMembership.organizationId;
+        } else {
+          targetOrgId = _memberships.first.organizationId;
+        }
       } else {
         targetOrgId = uid;
       }
@@ -171,7 +177,7 @@ class ActiveTenantContext extends ChangeNotifier {
     if (org == null) {
       org = OrganizationModel(
         id: orgId,
-        name: 'Personal Workspace',
+        name: 'Coaching Institute',
         type: OrganizationType.independent,
         ownerId: orgId,
         ownerName: 'Educator',

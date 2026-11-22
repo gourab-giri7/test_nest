@@ -3,6 +3,7 @@ class BatchModel {
   final String name;
   final String? classLevel;
   final String? academicYear;
+  final String? session;
   final String? subject;
   final String? description;
   final String? schedule;
@@ -21,6 +22,7 @@ class BatchModel {
     required this.name,
     this.classLevel,
     this.academicYear,
+    this.session,
     this.subject,
     this.description,
     this.schedule,
@@ -38,12 +40,20 @@ class BatchModel {
   /// Alias for name
   String get batchName => name;
 
+  /// Effective session display
+  String get effectiveSession =>
+      (session != null && session!.trim().isNotEmpty)
+          ? session!.trim()
+          : (academicYear?.trim() ?? '');
+
   factory BatchModel.fromJson(Map<String, dynamic> json, {String? docId}) {
+    final sess = json['session']?.toString() ?? json['academic_year']?.toString();
     return BatchModel(
       id: docId ?? (json['id'] ?? '').toString(),
       name: (json['name'] ?? '').toString().trim(),
       classLevel: json['class_level']?.toString(),
-      academicYear: json['academic_year']?.toString(),
+      academicYear: json['academic_year']?.toString() ?? sess,
+      session: sess,
       subject: json['subject']?.toString(),
       description: json['description']?.toString(),
       schedule: json['schedule']?.toString(),
@@ -86,7 +96,8 @@ class BatchModel {
       'id': id,
       'name': name.trim(),
       'class_level': classLevel?.trim(),
-      'academic_year': academicYear?.trim(),
+      'academic_year': (academicYear ?? session)?.trim(),
+      'session': (session ?? academicYear)?.trim(),
       'subject': subject?.trim(),
       'description': description?.trim(),
       if (schedule != null) 'schedule': schedule?.trim(),
@@ -106,6 +117,7 @@ class BatchModel {
     String? name,
     String? classLevel,
     String? academicYear,
+    String? session,
     String? subject,
     String? description,
     String? schedule,
@@ -124,6 +136,7 @@ class BatchModel {
       name: name ?? this.name,
       classLevel: classLevel ?? this.classLevel,
       academicYear: academicYear ?? this.academicYear,
+      session: session ?? this.session,
       subject: subject ?? this.subject,
       description: description ?? this.description,
       schedule: schedule ?? this.schedule,

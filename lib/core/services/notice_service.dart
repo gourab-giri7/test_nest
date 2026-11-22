@@ -190,9 +190,10 @@ class NoticeService {
         .map((d) => NoticeModel.fromMap(d.data(), d.id))
         .toList();
 
-    // In coaching institute mode, a teacher who is not admin should only see:
+    // In coaching institute mode, a teacher who is not admin should see:
     // 1. Notices they created
-    // 2. Notices targeting batches assigned to them
+    // 2. Published institute-wide notices (audienceType == 'all')
+    // 3. Notices targeting batches assigned to them
     if (resolver.isInstitute &&
         isTeacherInInstitute &&
         teacherUid != null &&
@@ -206,6 +207,11 @@ class NoticeService {
 
       notices = notices.where((n) {
         if (n.createdBy == teacherUid) return true;
+        if (n.audienceType == NoticeAudienceType.all &&
+            n.isPublished &&
+            !n.isArchived) {
+          return true;
+        }
         if (n.targetBatchIds.any((bId) => assignedBatchIds.contains(bId))) {
           return true;
         }

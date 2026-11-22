@@ -1585,13 +1585,6 @@ class _StudentProfileTab extends StatelessWidget {
         ),
         const Divider(height: 28),
         _buildSectionTile(
-          title: 'Switch Workspace',
-          subtitle: 'Switch institutes or join coaching',
-          icon: Icons.swap_horiz,
-          color: const Color(0xFF475569),
-          onTap: () => Get.toNamed(AppRoutes.organizationSwitcher),
-        ),
-        _buildSectionTile(
           title: 'Sign Out',
           subtitle: 'Log out of your student account',
           icon: Icons.logout,

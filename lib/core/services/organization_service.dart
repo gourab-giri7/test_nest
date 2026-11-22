@@ -759,6 +759,7 @@ class OrganizationService {
     required String orgId,
     required String name,
     required String ownerUid,
+    String? session,
     String? subject,
     String? description,
     String? schedule,
@@ -780,14 +781,20 @@ class OrganizationService {
         .doc();
     final batchId = batchRef.id;
 
+    final effectiveSession =
+        (session != null && session.trim().isNotEmpty)
+            ? session.trim()
+            : academicYear?.trim();
+
     final batchModel = BatchModel(
       id: batchId,
       name: cleanName,
+      session: effectiveSession,
       subject: subject?.trim(),
       description: description?.trim(),
       schedule: schedule?.trim(),
       classLevel: classLevel?.trim(),
-      academicYear: academicYear?.trim(),
+      academicYear: effectiveSession,
       monthlyFee: monthlyFee,
       feeTrackingEnabled: feeTrackingEnabled,
       activeJoinCode: '',

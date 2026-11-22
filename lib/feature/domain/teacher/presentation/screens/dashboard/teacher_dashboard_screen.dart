@@ -133,15 +133,18 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
       tenantCtx = null;
     }
 
-    // If active workspace is an Institute and the user is Admin (Owner),
-    // present the dedicated 5-tab Owner Management Panel directly.
-    if (tenantCtx != null && tenantCtx.isInstitute && tenantCtx.isAdmin) {
+    // If active user is Owner (Admin), present the dedicated 5-tab Owner Management Panel directly.
+    final loginController = Get.isRegistered<LoginController>() ? Get.find<LoginController>() : null;
+    final isOwner = (tenantCtx != null && tenantCtx.isAdmin) ||
+        (loginController?.role == 'owner') ||
+        (loginController?.portal == 'owner');
+    if (isOwner) {
       return const InstituteAdminDashboardScreen();
     }
 
     // If active workspace is an Institute and the user is a Teacher,
     // present the dedicated 5-tab Teacher Workspace directly.
-    if (tenantCtx != null && tenantCtx.isInstitute) {
+    if (tenantCtx != null && (tenantCtx.isInstitute || loginController?.role == 'teacher')) {
       return const InstituteTeacherDashboardScreen();
     }
 
@@ -774,13 +777,6 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
           color: const Color(0xFF8B5CF6),
           onTap: () => Get.toNamed(AppRoutes.manageInvitations),
         ),
-      _TeacherAction(
-        icon: Icons.domain_rounded,
-        title: 'Workspaces',
-        subtitle: 'Switch or create',
-        color: const Color(0xFF6366F1),
-        onTap: () => Get.toNamed(AppRoutes.organizationSwitcher),
-      ),
       if (isFeeEnabled)
         _TeacherAction(
           icon: Icons.account_balance_wallet_rounded,

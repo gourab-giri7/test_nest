@@ -221,7 +221,7 @@ void main() {
       expect(context.isIndependent, isTrue);
       expect(context.isInstitute, isFalse);
       expect(context.memberships, isEmpty);
-      expect(context.activeOrgName, 'Personal Workspace');
+      expect(context.activeOrgName, 'Coaching Institute');
     });
 
     test('clear() properly resets all tenant state', () {

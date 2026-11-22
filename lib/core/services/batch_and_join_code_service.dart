@@ -36,6 +36,7 @@ class BatchAndJoinCodeService {
     required String teacherId,
     required String teacherName,
     required String name,
+    String? session,
     String? classLevel,
     String? academicYear,
     String? subject,
@@ -47,6 +48,11 @@ class BatchAndJoinCodeService {
     if (cleanName.isEmpty) {
       throw ArgumentError('Batch name cannot be empty');
     }
+
+    final effectiveSession =
+        (session != null && session.trim().isNotEmpty)
+            ? session.trim()
+            : academicYear?.trim();
 
     final batchRef = _db
         .collection('user')
@@ -66,8 +72,9 @@ class BatchAndJoinCodeService {
     final batchData = {
       'id': batchId,
       'name': cleanName,
+      'session': effectiveSession,
       'class_level': classLevel?.trim(),
-      'academic_year': academicYear?.trim(),
+      'academic_year': effectiveSession,
       'subject': subject?.trim(),
       'description': description?.trim(),
       'monthly_fee': monthlyFee,

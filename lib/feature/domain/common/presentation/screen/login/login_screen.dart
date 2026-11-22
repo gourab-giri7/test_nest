@@ -58,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   : AppGradients.student);
 
           final topPadding = MediaQuery.of(context).padding.top;
-          final backdropHeight = (topPadding + 225.0).clamp(260.0, 320.0);
+          final backdropHeight = (topPadding + 210.0).clamp(240.0, 300.0);
 
           return Stack(
             children: [
@@ -80,6 +80,26 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
+              // Floating Back Button if navigation history allows pop
+              if (ModalRoute.of(context)?.canPop ?? false)
+                Positioned(
+                  top: topPadding + 6,
+                  left: 16,
+                  child: IconButton(
+                    onPressed: () => Get.back(),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white.withOpacity(0.18),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.all(8),
+                      minimumSize: const Size(36, 36),
+                    ),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 18,
+                    ),
+                  ),
+                ),
+
               SafeArea(
                 child: Align(
                   alignment: Alignment.topCenter,
@@ -88,47 +108,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.only(
-                      left: 22.0,
-                      right: 22.0,
-                      top: 6.0,
+                      left: 20.0,
+                      right: 20.0,
+                      top: 10.0,
                       bottom: 24.0,
                     ),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 430),
                       child: Column(
                         children: [
-                          // Top Bar with optional back button if canPop
-                          if (ModalRoute.of(context)?.canPop ?? false)
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 4.0),
-                                child: IconButton(
-                                  onPressed: () => Get.back(),
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: Colors.white.withOpacity(
-                                      0.16,
-                                    ),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.all(8),
-                                    minimumSize: const Size(36, 36),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.arrow_back_ios_new_rounded,
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
-
                           // Brand Logo & Greeting Header
                           Container(
-                            width: 62,
-                            height: 62,
+                            width: 58,
+                            height: 58,
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.18),
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: Colors.white.withOpacity(0.30),
                                 width: 1.5,
@@ -143,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 errorBuilder: (_, __, ___) => const Icon(
                                   Icons.school_rounded,
                                   color: Colors.white,
-                                  size: 32,
+                                  size: 30,
                                 ),
                               ),
                             ),
@@ -153,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             'Welcome Back',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 24,
+                              fontSize: 22,
                               fontWeight: FontWeight.w900,
                               color: Colors.white,
                               letterSpacing: -0.5,
@@ -168,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     : 'Sign in to your Student Learning Portal'),
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 12.5,
                               color: Colors.white.withOpacity(0.92),
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.1,

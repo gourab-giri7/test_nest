@@ -60,14 +60,8 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
         teacherId: tData.id,
         teacherName: tData.name,
         name: _nameController.text.trim(),
-        classLevel: _classController.text.trim().isNotEmpty
-            ? _classController.text.trim()
-            : null,
-        academicYear: _yearController.text.trim().isNotEmpty
+        session: _yearController.text.trim().isNotEmpty
             ? _yearController.text.trim()
-            : null,
-        subject: _subjectController.text.trim().isNotEmpty
-            ? _subjectController.text.trim()
             : null,
         description: _descriptionController.text.trim().isNotEmpty
             ? _descriptionController.text.trim()
@@ -226,41 +220,25 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
               ),
               const SizedBox(height: 14),
 
-              // Class / Level & Academic Year in a Row
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _classController,
-                      decoration: const InputDecoration(
-                        labelText: 'Class / Level',
-                        hintText: 'e.g. Class 11',
-                        prefixIcon: Icon(Icons.school_outlined),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _yearController,
-                      decoration: const InputDecoration(
-                        labelText: 'Academic Year',
-                        hintText: 'e.g. 2025-2026',
-                        prefixIcon: Icon(Icons.calendar_today_outlined),
-                      ),
-                    ),
-                  ),
-                ],
+              // Session
+              TextFormField(
+                controller: _yearController,
+                decoration: const InputDecoration(
+                  labelText: 'Session',
+                  hintText: 'e.g. 2025-2026',
+                  prefixIcon: Icon(Icons.calendar_today_outlined),
+                ),
               ),
               const SizedBox(height: 14),
 
-              // Subject
+              // Monthly Fee
               TextFormField(
-                controller: _subjectController,
+                controller: _feeController,
+                keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Subject (Optional)',
-                  hintText: 'e.g. Physics, Mathematics',
-                  prefixIcon: Icon(Icons.menu_book_rounded),
+                  labelText: 'Monthly Fees (Optional)',
+                  hintText: '0.00',
+                  prefixIcon: Icon(Icons.currency_rupee_rounded),
                 ),
               ),
               const SizedBox(height: 14),
@@ -271,23 +249,11 @@ class _CreateBatchScreenState extends State<CreateBatchScreen> {
                 maxLines: 2,
                 decoration: const InputDecoration(
                   labelText: 'Description (Optional)',
-                  hintText: 'e.g. Morning batch, 8:00 AM - 10:00 AM',
+                  hintText: 'e.g. Morning batch',
                   prefixIcon: Icon(Icons.notes_rounded),
                 ),
               ),
               const SizedBox(height: 14),
-
-              // Monthly Fee
-              TextFormField(
-                controller: _feeController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Monthly Fee (Optional)',
-                  hintText: '0.00',
-                  prefixIcon: Icon(Icons.currency_rupee_rounded),
-                ),
-              ),
-              const SizedBox(height: 12),
 
               // Fee Tracking Switch
               SwitchListTile(

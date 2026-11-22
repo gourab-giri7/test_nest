@@ -119,34 +119,56 @@ class _CreateOrganizationContent extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _typeCard(
-                          title: 'Institute Mode',
-                          subtitle: 'Multi-teacher & admin',
-                          icon: Icons.corporate_fare_rounded,
-                          isSelected:
-                              controller.selectedType ==
-                              OrganizationType.institute,
-                          onTap: () =>
-                              controller.setType(OrganizationType.institute),
-                        ),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.primary.withOpacity(0.2),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _typeCard(
-                          title: 'Single Teacher',
-                          subtitle: 'Personal workspace',
-                          icon: Icons.person_rounded,
-                          isSelected:
-                              controller.selectedType ==
-                              OrganizationType.independent,
-                          onTap: () =>
-                              controller.setType(OrganizationType.independent),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.corporate_fare_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Coaching Institute Portal',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Multi-teacher institute with student & batch management',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 22),
 
@@ -295,53 +317,5 @@ class _CreateOrganizationContent extends StatelessWidget {
     );
   }
 
-  Widget _typeCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withOpacity(0.08)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? AppColors.primary : const Color(0xFF64748B),
-              size: 24,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w800,
-                color: isSelected ? AppColors.primary : const Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 }
