@@ -6,6 +6,7 @@ import '../../model/batch_model.dart';
 import '../../model/batch_student_model.dart';
 import '../../model/join_request_model.dart';
 import '../../model/organization_model.dart';
+import 'batch_and_join_code_service.dart';
 import 'teacher_salary_service.dart';
 
 class OrganizationService {
@@ -786,6 +787,9 @@ class OrganizationService {
             ? session.trim()
             : academicYear?.trim();
 
+    // Generate unique joining code for batch
+    String joinCode = BatchAndJoinCodeService.generateJoiningCode();
+
     final batchModel = BatchModel(
       id: batchId,
       name: cleanName,
@@ -797,7 +801,7 @@ class OrganizationService {
       academicYear: effectiveSession,
       monthlyFee: monthlyFee,
       feeTrackingEnabled: feeTrackingEnabled,
-      activeJoinCode: '',
+      activeJoinCode: joinCode,
       isArchived: false,
       studentCount: 0,
       pendingRequestCount: 0,
@@ -806,12 +810,36 @@ class OrganizationService {
       assignedTeacherIds: assignedTeacherIds,
     );
 
+    // Fetch org name for join code metadata
+    String orgName = 'Institute';
+    try {
+      final orgSnap = await _firestore.collection('organizations').doc(orgId).get();
+      if (orgSnap.exists) {
+        orgName = (orgSnap.data()?['name'] ?? 'Institute').toString();
+      }
+    } catch (_) {}
+
     final batch = _firestore.batch();
     batch.set(batchRef, {
       ...batchModel.toJson(),
+      'active_join_code': joinCode,
       'created_at': FieldValue.serverTimestamp(),
       'updated_at': FieldValue.serverTimestamp(),
     });
+
+    // Save joining code index for resolution (both by joinCode and batchId)
+    final joinCodeData = {
+      'code': joinCode,
+      'teacher_id': ownerUid,
+      'teacher_name': orgName,
+      'batch_id': batchId,
+      'batch_name': cleanName,
+      'org_id': orgId,
+      'is_active': true,
+      'created_at': FieldValue.serverTimestamp(),
+    };
+    batch.set(_firestore.collection('joinCodes').doc(joinCode), joinCodeData);
+    batch.set(_firestore.collection('joinCodes').doc(batchId), joinCodeData);
 
     for (final teacherUid in assignedTeacherIds) {
       final memberRef = _firestore
@@ -881,6 +909,68 @@ class OrganizationService {
       'is_archived': isArchived,
       'updated_at': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// Permanently deletes an institute batch, cleaning up subcollections,
+  /// student & teacher assignments, and pending join requests.
+  Future<void> deleteInstituteBatch({
+    required String orgId,
+    required String batchId,
+  }) async {
+    final batchRef = _firestore
+        .collection('organizations')
+        .doc(orgId)
+        .collection('batches')
+        .doc(batchId);
+
+    // 1. Fetch and clean up enrolled students subcollection
+    final studentsSnap = await batchRef.collection('students').get();
+    final writeBatch = _firestore.batch();
+
+    for (final doc in studentsSnap.docs) {
+      final studentUid = doc.id;
+      final memberRef = _firestore
+          .collection('organizations')
+          .doc(orgId)
+          .collection('members')
+          .doc(studentUid);
+      writeBatch.update(memberRef, {
+        'assignedBatchIds': FieldValue.arrayRemove([batchId]),
+      });
+      writeBatch.delete(doc.reference);
+    }
+
+    // 2. Remove batchId from any teachers assigned to this batch
+    final teachersSnap = await _firestore
+        .collection('organizations')
+        .doc(orgId)
+        .collection('members')
+        .where('role', isEqualTo: 'teacher')
+        .where('assignedBatchIds', arrayContains: batchId)
+        .get();
+
+    for (final doc in teachersSnap.docs) {
+      writeBatch.update(doc.reference, {
+        'assignedBatchIds': FieldValue.arrayRemove([batchId]),
+      });
+    }
+
+    // 3. Remove any pending join requests for this batch
+    final requestsSnap = await _firestore
+        .collection('organizations')
+        .doc(orgId)
+        .collection('batch_join_requests')
+        .where('batchId', isEqualTo: batchId)
+        .get();
+
+    for (final doc in requestsSnap.docs) {
+      writeBatch.delete(doc.reference);
+    }
+
+    // 4. Delete the batch document
+    writeBatch.delete(batchRef);
+
+    await writeBatch.commit();
   }
 
   /// Streams all batches for an institute.
@@ -1148,5 +1238,66 @@ class OrganizationService {
       'monthlySalary': monthlySalary ?? 0.0,
       'status': 'active',
     };
+  }
+
+  /// Updates a teacher's profile details by the Owner.
+  Future<void> updateTeacherMemberProfile({
+    required String orgId,
+    required String teacherUid,
+    required String name,
+    required String subject,
+    String? phone,
+    String? gender,
+    String? qualification,
+    String? experience,
+    double? monthlySalary,
+  }) async {
+    final cleanName = name.trim();
+    final cleanSubject = subject.trim();
+    if (cleanName.isEmpty) throw ArgumentError('Teacher name cannot be empty');
+    if (cleanSubject.isEmpty) throw ArgumentError('Subject cannot be empty');
+
+    final memberRef = _firestore
+        .collection('organizations')
+        .doc(orgId)
+        .collection('members')
+        .doc(teacherUid);
+
+    final updateData = <String, dynamic>{
+      'name': cleanName,
+      'subject': cleanSubject,
+      'phone': phone?.trim() ?? '',
+      'mobile': phone?.trim() ?? '',
+      'gender': gender?.trim() ?? '',
+      'qualification': qualification?.trim() ?? '',
+      'experience': experience?.trim() ?? '',
+      if (monthlySalary != null) 'monthlySalary': monthlySalary,
+      if (monthlySalary != null) 'monthly_salary': monthlySalary,
+      'updated_at': FieldValue.serverTimestamp(),
+    };
+
+    final batch = _firestore.batch();
+    batch.set(memberRef, updateData, SetOptions(merge: true));
+
+    // Also update user profile in `user/{teacherUid}`
+    final userProfileRef = _firestore.collection('user').doc(teacherUid);
+    batch.set(userProfileRef, {
+      'name': cleanName,
+      'subject': cleanSubject,
+      'mobile': phone?.trim() ?? '',
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await batch.commit();
+
+    if (monthlySalary != null && monthlySalary > 0) {
+      try {
+        await TeacherSalaryService.setTeacherDefaultSalary(
+          orgId: orgId,
+          teacherUid: teacherUid,
+          baseSalary: monthlySalary,
+        );
+      } catch (_) {}
+    }
   }
 }

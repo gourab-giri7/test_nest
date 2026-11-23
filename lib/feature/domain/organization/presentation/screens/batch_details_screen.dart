@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:test_nest/core/services/batch_assignment_service.dart';
 import 'package:test_nest/core/services/organization_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/core/utils/custom_snackbar.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/batches/widgets/batch_qr_code_dialog.dart';
 import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/model/batch_student_model.dart';
 import 'package:test_nest/model/organization_model.dart';
@@ -66,6 +68,11 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen>
             tooltip: 'Edit Batch',
             icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
             onPressed: _showEditBatchDialog,
+          ),
+          IconButton(
+            tooltip: 'Delete Batch',
+            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+            onPressed: _confirmDeleteBatch,
           ),
         ],
       ),
@@ -224,6 +231,78 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen>
                 ),
               ],
             ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.vpn_key_rounded, size: 15, color: AppColors.primary),
+                const SizedBox(width: 6),
+                const Text(
+                  'Join Code: ',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                Text(
+                  _currentBatch.activeJoinCode.isNotEmpty
+                      ? _currentBatch.activeJoinCode
+                      : _currentBatch.id,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    final code = _currentBatch.activeJoinCode.isNotEmpty
+                        ? _currentBatch.activeJoinCode
+                        : _currentBatch.id;
+                    Clipboard.setData(ClipboardData(text: code));
+                    CustomSnackbar.showSuccess(
+                      context: context,
+                      title: 'Copied',
+                      message: 'Batch join code $code copied',
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: const Icon(Icons.copy_rounded, size: 14, color: AppColors.primary),
+                  ),
+                ),
+                const Spacer(),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.qr_code_2_rounded, size: 16),
+                  label: const Text('Show QR'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                  onPressed: () => BatchQrCodeDialog.show(context, _currentBatch),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -1131,6 +1210,57 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmDeleteBatch() {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Delete Batch?'),
+        content: Text(
+          'Are you sure you want to delete "${_currentBatch.name}"?\n\n'
+          'This will permanently remove the batch and unenroll all students. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              try {
+                await _orgService.deleteInstituteBatch(
+                  orgId: widget.orgId,
+                  batchId: _currentBatch.id,
+                );
+                if (mounted) {
+                  CustomSnackbar.showSuccess(
+                    context: context,
+                    title: 'Batch Deleted',
+                    message: 'Batch "${_currentBatch.name}" was successfully deleted.',
+                  );
+                  Navigator.pop(context);
+                }
+              } catch (e) {
+                if (mounted) {
+                  CustomSnackbar.showError(
+                    context: context,
+                    title: 'Delete Failed',
+                    message: 'Could not delete batch: $e',
+                  );
+                }
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
       ),
     );
   }

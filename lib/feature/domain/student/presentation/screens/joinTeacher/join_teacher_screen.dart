@@ -241,14 +241,14 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
                                           textCapitalization:
                                               TextCapitalization.characters,
                                           style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 2.0,
+                                            fontSize: 16.5,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 1.2,
                                             color: AppColors.primary,
                                           ),
                                           textAlign: TextAlign.center,
                                           decoration: InputDecoration(
-                                            hintText: 'TN-XXXXX',
+                                            hintText: 'TN-XXXXX or Batch Code',
                                             prefixIcon: const Icon(
                                               Icons.vpn_key_rounded,
                                             ),

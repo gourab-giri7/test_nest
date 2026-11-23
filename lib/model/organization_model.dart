@@ -216,6 +216,42 @@ class OrganizationMemberModel {
       if (monthlySalary != null) 'monthly_salary': monthlySalary,
     };
   }
+
+  OrganizationMemberModel copyWith({
+    String? uid,
+    String? email,
+    String? name,
+    String? role,
+    String? status,
+    DateTime? joinedAt,
+    List<String>? assignedBatchIds,
+    String? inviteCode,
+    String? teacherId,
+    String? subject,
+    String? phone,
+    String? gender,
+    String? qualification,
+    String? experience,
+    double? monthlySalary,
+  }) {
+    return OrganizationMemberModel(
+      uid: uid ?? this.uid,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      role: role ?? this.role,
+      status: status ?? this.status,
+      joinedAt: joinedAt ?? this.joinedAt,
+      assignedBatchIds: assignedBatchIds ?? this.assignedBatchIds,
+      inviteCode: inviteCode ?? this.inviteCode,
+      teacherId: teacherId ?? this.teacherId,
+      subject: subject ?? this.subject,
+      phone: phone ?? this.phone,
+      gender: gender ?? this.gender,
+      qualification: qualification ?? this.qualification,
+      experience: experience ?? this.experience,
+      monthlySalary: monthlySalary ?? this.monthlySalary,
+    );
+  }
 }
 
 /// Represents an indexing membership document in `users/{uid}/memberships/{orgId}`.

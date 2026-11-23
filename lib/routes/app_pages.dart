@@ -16,7 +16,6 @@ import 'package:test_nest/feature/domain/organization/presentation/screens/manag
 import 'package:test_nest/feature/domain/organization/presentation/screens/notice_detail_screen.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/notice_editor_screen.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/notice_list_screen.dart';
-import 'package:test_nest/feature/domain/organization/presentation/screens/organization_switcher_screen.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/owner_student_fees_screen.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/owner_teacher_salaries_screen.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/performance_overview_screen.dart';
@@ -449,7 +448,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.organizationSwitcher,
-      page: () => const OrganizationSwitcherScreen(),
+      page: () => const InstituteAdminDashboardScreen(),
     ),
     GetPage(
       name: AppRoutes.joinOrganization,

@@ -4,6 +4,7 @@ class JoinCodeModel {
   final String teacherName;
   final String batchId;
   final String batchName;
+  final String? orgId;
   final bool isActive;
   final DateTime? createdAt;
 
@@ -13,6 +14,7 @@ class JoinCodeModel {
     required this.teacherName,
     required this.batchId,
     required this.batchName,
+    this.orgId,
     this.isActive = true,
     this.createdAt,
   });
@@ -24,6 +26,7 @@ class JoinCodeModel {
       teacherName: (json['teacher_name'] ?? '').toString().trim(),
       batchId: (json['batch_id'] ?? '').toString().trim(),
       batchName: (json['batch_name'] ?? '').toString().trim(),
+      orgId: json['org_id']?.toString().trim(),
       isActive: json['is_active'] != false,
       createdAt: json['created_at'] != null
           ? (json['created_at'] is DateTime
@@ -40,6 +43,7 @@ class JoinCodeModel {
       'teacher_name': teacherName.trim(),
       'batch_id': batchId.trim(),
       'batch_name': batchName.trim(),
+      if (orgId != null && orgId!.isNotEmpty) 'org_id': orgId!.trim(),
       'is_active': isActive,
     };
   }

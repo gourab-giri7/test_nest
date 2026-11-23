@@ -206,6 +206,23 @@ void main() {
       expect(fromMap.isTeacher, isTrue);
       expect(fromMap.isActive, isTrue);
       expect(fromMap.isSuspended, isFalse);
+
+      // Verify copyWith supports editing teacher details
+      final updated = fromMap.copyWith(
+        name: 'Prof. Rajesh Kumar Sharma',
+        subject: 'Applied Physics & Quantum Mechanics',
+        phone: '+91 9999988888',
+        monthlySalary: 75000.0,
+        experience: '14 Years',
+      );
+
+      expect(updated.name, 'Prof. Rajesh Kumar Sharma');
+      expect(updated.subject, 'Applied Physics & Quantum Mechanics');
+      expect(updated.phone, '+91 9999988888');
+      expect(updated.monthlySalary, 75000.0);
+      expect(updated.experience, '14 Years');
+      expect(updated.teacherId, 'TN-TEA-0001'); // permanent ID preserved
+      expect(updated.email, 'sharma.physics@institute.com'); // email preserved
     });
 
     test('ActiveTenantContext reflects active and suspended member status', () {

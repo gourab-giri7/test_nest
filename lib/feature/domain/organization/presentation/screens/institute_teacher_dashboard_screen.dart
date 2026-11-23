@@ -35,71 +35,57 @@ class InstituteTeacherDashboardScreen extends StatelessWidget {
       ),
       child: Consumer<InstituteTeacherDashboardController>(
         builder: (context, controller, _) {
-          return Scaffold(
-            backgroundColor: AppColors.background,
-            body: SafeArea(
-              child: IndexedStack(
-                index: controller.currentTabIndex,
-                children: [
-                  _TeacherHomeTab(controller: controller, tenantCtx: tenantCtx),
-                  _TeacherBatchesTab(
-                    controller: controller,
-                    tenantCtx: tenantCtx,
-                  ),
-                  _TeacherExamsTab(
-                    controller: controller,
-                    tenantCtx: tenantCtx,
-                  ),
-                  _TeacherStudentsTab(
-                    controller: controller,
-                    tenantCtx: tenantCtx,
-                  ),
-                  _TeacherMoreTab(controller: controller, tenantCtx: tenantCtx),
-                ],
+          return PopScope(
+            canPop: controller.currentTabIndex == 0,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop && controller.currentTabIndex != 0) {
+                controller.switchTab(0);
+              }
+            },
+            child: Scaffold(
+              backgroundColor: AppColors.background,
+              appBar: controller.currentTabIndex == 0
+                  ? null
+                  : AppBar(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0F172A),
+                      elevation: 0,
+                      leading: IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                        onPressed: () => controller.switchTab(0),
+                      ),
+                      title: Text(
+                        controller.currentTabIndex == 1
+                            ? 'My Assigned Batches'
+                            : controller.currentTabIndex == 2
+                                ? 'Exams Management'
+                                : controller.currentTabIndex == 3
+                                    ? 'My Students'
+                                    : 'Teacher Settings & Profile',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                      ),
+                    ),
+              body: SafeArea(
+                child: IndexedStack(
+                  index: controller.currentTabIndex,
+                  children: [
+                    _TeacherHomeTab(controller: controller, tenantCtx: tenantCtx),
+                    _TeacherBatchesTab(
+                      controller: controller,
+                      tenantCtx: tenantCtx,
+                    ),
+                    _TeacherExamsTab(
+                      controller: controller,
+                      tenantCtx: tenantCtx,
+                    ),
+                    _TeacherStudentsTab(
+                      controller: controller,
+                      tenantCtx: tenantCtx,
+                    ),
+                    _TeacherMoreTab(controller: controller, tenantCtx: tenantCtx),
+                  ],
+                ),
               ),
-            ),
-            bottomNavigationBar: BottomNavigationBar(
-              currentIndex: controller.currentTabIndex,
-              onTap: controller.switchTab,
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: _surface,
-              selectedItemColor: AppColors.primary,
-              unselectedItemColor: _muted,
-              selectedLabelStyle: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 12,
-              ),
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.dashboard_outlined),
-                  activeIcon: Icon(Icons.dashboard_rounded),
-                  label: 'Home',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.class_outlined),
-                  activeIcon: Icon(Icons.class_rounded),
-                  label: 'Batches',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.assignment_outlined),
-                  activeIcon: Icon(Icons.assignment_rounded),
-                  label: 'Exams',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.people_outline_rounded),
-                  activeIcon: Icon(Icons.people_rounded),
-                  label: 'Students',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.more_horiz_rounded),
-                  activeIcon: Icon(Icons.more_horiz_rounded),
-                  label: 'More',
-                ),
-              ],
             ),
           );
         },
@@ -174,13 +160,13 @@ class _TeacherHomeTab extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+            backgroundColor: const Color(0xFF0D9488).withValues(alpha: 0.12),
             child: Text(
               teacherName.isNotEmpty ? teacherName[0].toUpperCase() : 'T',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: AppColors.primary,
+                color: Color(0xFF0D9488),
               ),
             ),
           ),
@@ -220,13 +206,23 @@ class _TeacherHomeTab extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     const Text(
-                      '• Teacher Workspace',
+                      '• Teacher Portal',
                       style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
               ],
             ),
+          ),
+          IconButton(
+            tooltip: 'Notices',
+            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF0D9488)),
+            onPressed: () => Get.toNamed(AppRoutes.noticeList),
+          ),
+          IconButton(
+            tooltip: 'Profile & Salary',
+            icon: const Icon(Icons.person_outline, color: Color(0xFF0D9488)),
+            onPressed: () => controller.switchTab(4),
           ),
         ],
       ),
@@ -249,25 +245,29 @@ class _TeacherHomeTab extends StatelessWidget {
               title: 'Assigned Batches',
               count: '${controller.assignedBatchesCount}',
               icon: Icons.class_outlined,
-              color: const Color(0xFF3B82F6),
+              color: const Color(0xFF0D9488),
+              onTap: () => controller.switchTab(1),
             ),
             _buildMetricCard(
-              title: 'Institute Students',
+              title: 'My Students',
               count: '${controller.assignedStudentsCount}',
               icon: Icons.people_outline_rounded,
-              color: const Color(0xFF10B981),
+              color: const Color(0xFF0284C7),
+              onTap: () => controller.switchTab(3),
             ),
             _buildMetricCard(
               title: 'Active Exams',
               count: '${controller.activeExamsCount}',
               icon: Icons.assignment_outlined,
               color: const Color(0xFFF59E0B),
+              onTap: () => controller.switchTab(2),
             ),
             _buildMetricCard(
-              title: 'Scheduled Classes',
-              count: '${controller.todayScheduledBatches.length}',
-              icon: Icons.event_note_outlined,
-              color: const Color(0xFF8B5CF6),
+              title: 'Salary Records',
+              count: 'View',
+              icon: Icons.account_balance_wallet_outlined,
+              color: const Color(0xFF10B981),
+              onTap: () => controller.switchTab(4),
             ),
           ],
         );
@@ -280,53 +280,58 @@ class _TeacherHomeTab extends StatelessWidget {
     required String count,
     required IconData icon,
     required Color color,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF64748B),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: color, size: 16),
                 ),
-                child: Icon(icon, color: color, size: 16),
-              ),
-            ],
-          ),
-          Text(
-            count,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF0F172A),
+              ],
             ),
-          ),
-        ],
+            Text(
+              count,
+              style: TextStyle(
+                fontSize: count.length > 3 ? 18 : 22,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -353,10 +358,10 @@ class _TeacherHomeTab extends StatelessWidget {
       children: [
         Expanded(
           child: _buildActionBtn(
-            label: 'Take Attendance',
-            icon: Icons.fact_check_outlined,
+            label: 'My Batches',
+            icon: Icons.class_outlined,
             color: const Color(0xFF0D9488),
-            onTap: () => _showBatchPickerForAttendance(context),
+            onTap: () => controller.switchTab(1),
           ),
         ),
         const SizedBox(width: 8),
@@ -364,17 +369,26 @@ class _TeacherHomeTab extends StatelessWidget {
           child: _buildActionBtn(
             label: 'Create Exam',
             icon: Icons.add_circle_outline,
-            color: AppColors.primary,
+            color: const Color(0xFF0D9488),
             onTap: () => _openCreateExamModal(context),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: _buildActionBtn(
-            label: 'View Students',
+            label: 'My Students',
             icon: Icons.people_outline,
-            color: const Color(0xFF6366F1),
+            color: const Color(0xFF0D9488),
             onTap: () => controller.switchTab(3),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildActionBtn(
+            label: 'Attendance',
+            icon: Icons.fact_check_outlined,
+            color: const Color(0xFF0D9488),
+            onTap: () => _showBatchPickerForAttendance(context),
           ),
         ),
       ],

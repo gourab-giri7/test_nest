@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:test_nest/core/context/active_tenant_context.dart';
+import 'package:test_nest/core/services/batch_and_join_code_service.dart';
 import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/model/exam_model.dart';
 import 'package:test_nest/model/join_request_model.dart';
@@ -148,6 +149,7 @@ class InstituteAdminDashboardController extends ChangeNotifier {
               _pendingJoinRequests = pendingCount;
               _totalFeeDue = calculatedFeeDue;
               _checkLoadingComplete();
+              _syncBatchJoinCodes(currentOrgId, list);
             },
             onError: (e) {
               _errorMessage = 'Failed to load batches: $e';
@@ -275,6 +277,45 @@ class InstituteAdminDashboardController extends ChangeNotifier {
   void _checkLoadingComplete() {
     _isLoading = false;
     notifyListeners();
+  }
+
+  void _syncBatchJoinCodes(String currentOrgId, List<BatchModel> batches) {
+    for (final b in batches) {
+      if (b.isArchived) continue;
+      final code = b.activeJoinCode.isNotEmpty
+          ? b.activeJoinCode
+          : BatchAndJoinCodeService.generateJoiningCode();
+
+      if (b.activeJoinCode.isEmpty) {
+        _firestore
+            .collection('organizations')
+            .doc(currentOrgId)
+            .collection('batches')
+            .doc(b.id)
+            .update({'active_join_code': code}).catchError((_) {});
+      }
+
+      final joinData = {
+        'code': code,
+        'teacher_id': b.teacherId.isNotEmpty ? b.teacherId : currentOrgId,
+        'teacher_name': orgName,
+        'batch_id': b.id,
+        'batch_name': b.name,
+        'org_id': currentOrgId,
+        'is_active': true,
+        'created_at': FieldValue.serverTimestamp(),
+      };
+      _firestore
+          .collection('joinCodes')
+          .doc(code)
+          .set(joinData, SetOptions(merge: true))
+          .catchError((_) {});
+      _firestore
+          .collection('joinCodes')
+          .doc(b.id)
+          .set(joinData, SetOptions(merge: true))
+          .catchError((_) {});
+    }
   }
 
   void refresh() {

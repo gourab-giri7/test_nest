@@ -39,62 +39,48 @@ class StudentDashboardScreen extends StatelessWidget {
       ),
       child: Consumer<StudentWorkspaceController>(
         builder: (context, controller, _) {
-          return Scaffold(
-            backgroundColor: AppColors.background,
-            body: SafeArea(
-              child: IndexedStack(
-                index: controller.currentTabIndex,
-                children: [
-                  _StudentHomeTab(controller: controller),
-                  _StudentExamsTab(controller: controller),
-                  _StudentResultsTab(controller: controller),
-                  _StudentNoticesTab(controller: controller),
-                  _StudentProfileTab(controller: controller),
-                ],
+          return PopScope(
+            canPop: controller.currentTabIndex == 0,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop && controller.currentTabIndex != 0) {
+                controller.switchTab(0);
+              }
+            },
+            child: Scaffold(
+              backgroundColor: AppColors.background,
+              appBar: controller.currentTabIndex == 0
+                  ? null
+                  : AppBar(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0F172A),
+                      elevation: 0,
+                      leading: IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                        onPressed: () => controller.switchTab(0),
+                      ),
+                      title: Text(
+                        controller.currentTabIndex == 1
+                            ? 'My Exams'
+                            : controller.currentTabIndex == 2
+                                ? 'Exam Results'
+                                : controller.currentTabIndex == 3
+                                    ? 'Notices & Bulletins'
+                                    : 'Student Profile & Fees',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                      ),
+                    ),
+              body: SafeArea(
+                child: IndexedStack(
+                  index: controller.currentTabIndex,
+                  children: [
+                    _StudentHomeTab(controller: controller),
+                    _StudentExamsTab(controller: controller),
+                    _StudentResultsTab(controller: controller),
+                    _StudentNoticesTab(controller: controller),
+                    _StudentProfileTab(controller: controller),
+                  ],
+                ),
               ),
-            ),
-            bottomNavigationBar: BottomNavigationBar(
-              currentIndex: controller.currentTabIndex,
-              onTap: controller.switchTab,
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: _surface,
-              selectedItemColor: AppColors.primary,
-              unselectedItemColor: _muted,
-              selectedLabelStyle: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 12,
-              ),
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.home_outlined),
-                  activeIcon: Icon(Icons.home_rounded),
-                  label: 'Home',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.assignment_outlined),
-                  activeIcon: Icon(Icons.assignment_rounded),
-                  label: 'Exams',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.analytics_outlined),
-                  activeIcon: Icon(Icons.analytics_rounded),
-                  label: 'Results',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.campaign_outlined),
-                  activeIcon: Icon(Icons.campaign_rounded),
-                  label: 'Notices',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person_outline_rounded),
-                  activeIcon: Icon(Icons.person_rounded),
-                  label: 'Profile',
-                ),
-              ],
             ),
           );
         },
@@ -168,13 +154,13 @@ class _StudentHomeTab extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+            backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.12),
             child: Text(
               studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: AppColors.primary,
+                color: Color(0xFF7C3AED),
               ),
             ),
           ),
@@ -200,7 +186,7 @@ class _StudentHomeTab extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -208,7 +194,7 @@ class _StudentHomeTab extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
+                          color: Color(0xFF7C3AED),
                         ),
                       ),
                     ),
@@ -221,6 +207,16 @@ class _StudentHomeTab extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            tooltip: 'Notices',
+            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF7C3AED)),
+            onPressed: () => controller.switchTab(3),
+          ),
+          IconButton(
+            tooltip: 'Profile',
+            icon: const Icon(Icons.person_outline, color: Color(0xFF7C3AED)),
+            onPressed: () => controller.switchTab(4),
           ),
         ],
       ),

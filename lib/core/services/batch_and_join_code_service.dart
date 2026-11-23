@@ -345,19 +345,193 @@ class BatchAndJoinCodeService {
 
   /// Validates a joining code. Returns the code metadata if valid and active.
   static Future<JoinCodeModel?> validateJoiningCode(String inputCode) async {
-    final normalized = normalizeCode(inputCode);
-    if (normalized.isEmpty) return null;
+    final clean = inputCode.trim();
+    if (clean.isEmpty) return null;
+    final normalized = normalizeCode(clean);
 
-    final doc = await _db.collection('joinCodes').doc(normalized).get();
-    if (!doc.exists || doc.data() == null) return null;
+    // 1. Try direct lookup in `joinCodes` by normalized code, clean code, uppercase clean
+    for (final key in [normalized, clean, clean.toUpperCase()]) {
+      if (key.isEmpty) continue;
+      try {
+        final doc = await _db.collection('joinCodes').doc(key).get();
+        if (doc.exists && doc.data() != null) {
+          final model = JoinCodeModel.fromJson(doc.data()!, codeId: doc.id);
+          if (model.isActive) return model;
+        }
+      } catch (_) {}
+    }
 
-    final model = JoinCodeModel.fromJson(doc.data()!, codeId: doc.id);
-    if (!model.isActive) return null;
+    // 2. Try query in `joinCodes` where batch_id == clean or batch_id == inputCode
+    try {
+      final queryByBatch = await _db
+          .collection('joinCodes')
+          .where('batch_id', isEqualTo: clean)
+          .limit(1)
+          .get();
+      if (queryByBatch.docs.isNotEmpty) {
+        final model = JoinCodeModel.fromJson(
+          queryByBatch.docs.first.data(),
+          codeId: queryByBatch.docs.first.id,
+        );
+        if (model.isActive) return model;
+      }
+    } catch (_) {}
 
-    return model;
+    // 3. Try query in `joinCodes` where code == normalized or code == clean
+    try {
+      final queryByCode = await _db
+          .collection('joinCodes')
+          .where('code', isEqualTo: normalized)
+          .limit(1)
+          .get();
+      if (queryByCode.docs.isNotEmpty) {
+        final model = JoinCodeModel.fromJson(
+          queryByCode.docs.first.data(),
+          codeId: queryByCode.docs.first.id,
+        );
+        if (model.isActive) return model;
+      }
+    } catch (_) {}
+
+    // 4. Try collectionGroup('batches') query safely by 'id' and 'active_join_code'
+    try {
+      // 4a. Check by active_join_code
+      final groupSnapByCode = await _db
+          .collectionGroup('batches')
+          .where('active_join_code', isEqualTo: normalized)
+          .limit(1)
+          .get();
+      if (groupSnapByCode.docs.isNotEmpty) {
+        final batchDoc = groupSnapByCode.docs.first;
+        final data = batchDoc.data();
+        final parentOrgId = batchDoc.reference.parent.parent?.id ?? '';
+        final model = JoinCodeModel(
+          code: normalized,
+          teacherId: (data['teacher_id'] ?? '').toString(),
+          teacherName: (data['teacher_name'] ?? 'Institute').toString(),
+          batchId: batchDoc.id,
+          batchName: (data['name'] ?? 'Batch').toString(),
+          orgId: parentOrgId,
+          isActive: data['is_archived'] != true,
+        );
+        return model;
+      }
+
+      // 4b. Check by 'id' field (standard field on BatchModel)
+      final groupSnapById = await _db
+          .collectionGroup('batches')
+          .where('id', isEqualTo: clean)
+          .limit(1)
+          .get();
+      if (groupSnapById.docs.isNotEmpty) {
+        final batchDoc = groupSnapById.docs.first;
+        final data = batchDoc.data();
+        final parentOrgId = batchDoc.reference.parent.parent?.id ?? '';
+        final activeCode = (data['active_join_code'] ?? '').toString().trim();
+        final resolvedCode = activeCode.isNotEmpty ? activeCode : clean;
+        final model = JoinCodeModel(
+          code: resolvedCode,
+          teacherId: (data['teacher_id'] ?? '').toString(),
+          teacherName: (data['teacher_name'] ?? 'Institute').toString(),
+          batchId: batchDoc.id,
+          batchName: (data['name'] ?? 'Batch').toString(),
+          orgId: parentOrgId,
+          isActive: data['is_archived'] != true,
+        );
+        return model;
+      }
+    } catch (_) {}
+
+    // 5. Fallback: Search organizations collection directly
+    try {
+      final orgsSnap = await _db.collection('organizations').limit(50).get();
+      for (final orgDoc in orgsSnap.docs) {
+        final orgData = orgDoc.data();
+        final ownerName = (orgData['ownerName'] ?? orgData['name'] ?? 'Institute').toString();
+
+        // 5a. Direct document check by batchId (clean)
+        try {
+          final batchSnap = await orgDoc.reference
+              .collection('batches')
+              .doc(clean)
+              .get();
+          if (batchSnap.exists && batchSnap.data() != null) {
+            final data = batchSnap.data()!;
+            final activeCode = (data['active_join_code'] ?? '').toString().trim();
+            final resolvedCode = activeCode.isNotEmpty ? activeCode : clean;
+            return JoinCodeModel(
+              code: resolvedCode,
+              teacherId: (data['teacher_id'] ?? orgDoc.id).toString(),
+              teacherName: ownerName,
+              batchId: batchSnap.id,
+              batchName: (data['name'] ?? 'Batch').toString(),
+              orgId: orgDoc.id,
+              isActive: data['is_archived'] != true,
+            );
+          }
+        } catch (_) {}
+
+        // 5b. Query by active_join_code inside org batches
+        try {
+          final bCodeSnap = await orgDoc.reference
+              .collection('batches')
+              .where('active_join_code', isEqualTo: normalized)
+              .limit(1)
+              .get();
+          if (bCodeSnap.docs.isNotEmpty) {
+            final bDoc = bCodeSnap.docs.first;
+            final data = bDoc.data();
+            return JoinCodeModel(
+              code: normalized,
+              teacherId: (data['teacher_id'] ?? orgDoc.id).toString(),
+              teacherName: ownerName,
+              batchId: bDoc.id,
+              batchName: (data['name'] ?? 'Batch').toString(),
+              orgId: orgDoc.id,
+              isActive: data['is_archived'] != true,
+            );
+          }
+        } catch (_) {}
+
+        // 5c. Scan org batches for ID or code match (supports prefixes or case-insensitive ID)
+        try {
+          final allBatchesSnap = await orgDoc.reference
+              .collection('batches')
+              .limit(50)
+              .get();
+          for (final bDoc in allBatchesSnap.docs) {
+            final data = bDoc.data();
+            final bId = bDoc.id;
+            final activeCode = (data['active_join_code'] ?? '').toString().trim();
+
+            final idMatches = bId == clean ||
+                bId.toLowerCase() == clean.toLowerCase() ||
+                (clean.length >= 6 && bId.toUpperCase().startsWith(clean.toUpperCase()));
+            final codeMatches = activeCode.isNotEmpty &&
+                (normalizeCode(activeCode) == normalized ||
+                    activeCode.toLowerCase() == clean.toLowerCase());
+
+            if (idMatches || codeMatches) {
+              final resolvedCode = activeCode.isNotEmpty ? activeCode : clean;
+              return JoinCodeModel(
+                code: resolvedCode,
+                teacherId: (data['teacher_id'] ?? orgDoc.id).toString(),
+                teacherName: ownerName,
+                batchId: bDoc.id,
+                batchName: (data['name'] ?? 'Batch').toString(),
+                orgId: orgDoc.id,
+                isActive: data['is_archived'] != true,
+              );
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    return null;
   }
 
-  /// Submits a request for a student to join a teacher's batch.
+  /// Submits a request for a student to join a teacher's or institute's batch.
   static Future<JoinRequestModel> submitJoinRequest({
     required String studentUid,
     required String studentName,
@@ -365,39 +539,83 @@ class BatchAndJoinCodeService {
     String? studentPhone,
     required JoinCodeModel codeModel,
   }) async {
-    // Check if duplicate pending or approved request already exists
-    final existingSnap = await _db
-        .collection('joinRequests')
-        .where('student_uid', isEqualTo: studentUid)
-        .where('teacher_id', isEqualTo: codeModel.teacherId)
-        .where('batch_id', isEqualTo: codeModel.batchId)
-        .get();
+    final orgId = codeModel.orgId?.trim() ?? '';
+    final isInstitute = orgId.isNotEmpty;
 
-    for (final doc in existingSnap.docs) {
-      final status = (doc.data()['status'] ?? '').toString().toLowerCase();
-      if (status == 'pending') {
-        throw StateError('You already have a pending request for this batch.');
-      } else if (status == 'approved') {
-        throw StateError('You are already an approved member of this batch.');
+    // Check duplicate in institute if applicable
+    if (isInstitute) {
+      // 1. Check if already enrolled in member doc
+      try {
+        final memberSnap = await _db
+            .collection('organizations')
+            .doc(orgId)
+            .collection('members')
+            .doc(studentUid)
+            .get();
+        if (memberSnap.exists) {
+          final assigned = List<String>.from(memberSnap.data()?['assignedBatchIds'] ?? []);
+          if (assigned.contains(codeModel.batchId)) {
+            throw StateError('You are already enrolled in "${codeModel.batchName}".');
+          }
+        }
+      } catch (e) {
+        if (e is StateError) rethrow;
       }
-    }
 
-    // Also verify directly against teacher's student collection to prevent duplicate enrollments
-    final existingStudentSnap = await _db
-        .collection('user')
-        .doc(codeModel.teacherId)
-        .collection('students')
-        .where('auth_uid', isEqualTo: studentUid)
-        .get();
-    for (final doc in existingStudentSnap.docs) {
-      final bId = (doc.data()['batch_id'] ?? '').toString();
-      final bName = (doc.data()['batch'] ?? '').toString();
-      if (bId == codeModel.batchId ||
-          (bName.isNotEmpty &&
-              bName.toLowerCase() == codeModel.batchName.toLowerCase())) {
-        throw StateError(
-          'You are already enrolled in "${codeModel.batchName}" with ${codeModel.teacherName}.',
-        );
+      // 2. Check pending join request in org
+      try {
+        final orgReqSnap = await _db
+            .collection('organizations')
+            .doc(orgId)
+            .collection('joinRequests')
+            .where('student_uid', isEqualTo: studentUid)
+            .where('batch_id', isEqualTo: codeModel.batchId)
+            .get();
+        for (final doc in orgReqSnap.docs) {
+          final st = (doc.data()['status'] ?? '').toString().toLowerCase();
+          if (st == 'pending') {
+            throw StateError('You already have a pending request for this batch.');
+          } else if (st == 'approved') {
+            throw StateError('You are already an approved member of this batch.');
+          }
+        }
+      } catch (e) {
+        if (e is StateError) rethrow;
+      }
+    } else {
+      // Legacy teacher check
+      final existingSnap = await _db
+          .collection('joinRequests')
+          .where('student_uid', isEqualTo: studentUid)
+          .where('teacher_id', isEqualTo: codeModel.teacherId)
+          .where('batch_id', isEqualTo: codeModel.batchId)
+          .get();
+
+      for (final doc in existingSnap.docs) {
+        final status = (doc.data()['status'] ?? '').toString().toLowerCase();
+        if (status == 'pending') {
+          throw StateError('You already have a pending request for this batch.');
+        } else if (status == 'approved') {
+          throw StateError('You are already an approved member of this batch.');
+        }
+      }
+
+      final existingStudentSnap = await _db
+          .collection('user')
+          .doc(codeModel.teacherId)
+          .collection('students')
+          .where('auth_uid', isEqualTo: studentUid)
+          .get();
+      for (final doc in existingStudentSnap.docs) {
+        final bId = (doc.data()['batch_id'] ?? '').toString();
+        final bName = (doc.data()['batch'] ?? '').toString();
+        if (bId == codeModel.batchId ||
+            (bName.isNotEmpty &&
+                bName.toLowerCase() == codeModel.batchName.toLowerCase())) {
+          throw StateError(
+            'You are already enrolled in "${codeModel.batchName}" with ${codeModel.teacherName}.',
+          );
+        }
       }
     }
 
@@ -414,22 +632,35 @@ class BatchAndJoinCodeService {
       'teacher_name': codeModel.teacherName.trim(),
       'batch_id': codeModel.batchId.trim(),
       'batch_name': codeModel.batchName.trim(),
+      if (isInstitute) 'orgId': orgId,
+      if (isInstitute) 'org_id': orgId,
       'status': 'pending',
       'requested_at': FieldValue.serverTimestamp(),
+      'created_at': FieldValue.serverTimestamp(),
     };
 
     final batch = _db.batch();
     batch.set(reqRef, requestData);
 
-    // Increment pending count on batch doc
-    batch.update(
-      _db
-          .collection('user')
-          .doc(codeModel.teacherId)
-          .collection('batches')
-          .doc(codeModel.batchId),
-      {'pending_request_count': FieldValue.increment(1)},
-    );
+    if (isInstitute) {
+      // Also write directly to organization's joinRequests collection
+      final orgReqRef = _db
+          .collection('organizations')
+          .doc(orgId)
+          .collection('joinRequests')
+          .doc(reqId);
+      batch.set(orgReqRef, requestData);
+    } else {
+      // Increment pending count on teacher batch doc
+      batch.update(
+        _db
+            .collection('user')
+            .doc(codeModel.teacherId)
+            .collection('batches')
+            .doc(codeModel.batchId),
+        {'pending_request_count': FieldValue.increment(1)},
+      );
+    }
 
     await batch.commit();
 

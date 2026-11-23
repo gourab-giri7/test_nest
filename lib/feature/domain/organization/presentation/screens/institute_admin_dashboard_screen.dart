@@ -15,6 +15,7 @@ import 'package:test_nest/feature/domain/organization/presentation/screens/batch
 import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/model/join_request_model.dart';
 import 'package:test_nest/model/organization_model.dart';
+import 'package:test_nest/feature/domain/teacher/presentation/screens/batches/widgets/batch_qr_code_dialog.dart';
 import 'package:test_nest/routes/app_routes.dart';
 import 'package:test_nest/main.dart';
 
@@ -75,7 +76,7 @@ class InstituteAdminDashboardScreen extends StatelessWidget {
                 const BottomNavigationBarItem(
                   icon: Icon(Icons.dashboard_outlined),
                   activeIcon: Icon(Icons.dashboard),
-                  label: 'Home',
+                  label: 'Dashboard',
                 ),
                 const BottomNavigationBarItem(
                   icon: Icon(Icons.people_outline),
@@ -103,9 +104,9 @@ class InstituteAdminDashboardScreen extends StatelessWidget {
                   label: 'Batches',
                 ),
                 const BottomNavigationBarItem(
-                  icon: Icon(Icons.grid_view_outlined),
-                  activeIcon: Icon(Icons.grid_view),
-                  label: 'More',
+                  icon: Icon(Icons.person_outline),
+                  activeIcon: Icon(Icons.person),
+                  label: 'Profile',
                 ),
               ],
             ),
@@ -137,6 +138,103 @@ class _OwnerHomeTab extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
           _buildTopHeader(context),
+          if (controller.pendingJoinRequests > 0) ...[
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () => controller.switchTab(2),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFDC2626),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'New Joining Requests',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF991B1B),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDC2626),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${controller.pendingJoinRequests}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Students are waiting for your approval to join batches',
+                            style: TextStyle(fontSize: 11.5, color: Color(0xFFB91C1C)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDC2626),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Review',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(Icons.arrow_forward_ios, size: 10, color: Colors.white),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           _buildSummaryStatsGrid(),
           const SizedBox(height: 20),
@@ -3861,6 +3959,45 @@ class _OwnerBatchesTabState extends State<_OwnerBatchesTab> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: const Icon(Icons.more_vert, size: 20, color: Color(0xFF64748B)),
+                    onSelected: (val) {
+                      if (val == 'delete') {
+                        _confirmDeleteBatch(b);
+                      } else if (val == 'archive') {
+                        _toggleBatchArchive(b);
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem(
+                        value: 'archive',
+                        child: Row(
+                          children: [
+                            Icon(
+                              b.isArchived ? Icons.unarchive_outlined : Icons.archive_outlined,
+                              size: 18,
+                              color: const Color(0xFF475569),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(b.isArchived ? 'Unarchive' : 'Archive'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Delete Batch', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
               if (b.schedule != null && b.schedule!.isNotEmpty) ...[
@@ -3937,6 +4074,87 @@ class _OwnerBatchesTabState extends State<_OwnerBatchesTab> {
                     Icons.arrow_forward_ios,
                     size: 11,
                     color: Color(0xFF2563EB),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFDBEAFE)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.vpn_key_rounded, size: 12, color: Color(0xFF2563EB)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Code: ${b.activeJoinCode.isNotEmpty ? b.activeJoinCode : b.id}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                            color: Color(0xFF1D4ED8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      final code = b.activeJoinCode.isNotEmpty ? b.activeJoinCode : b.id;
+                      Clipboard.setData(ClipboardData(text: code));
+                      CustomSnackbar.showSuccess(
+                        context: context,
+                        title: 'Copied',
+                        message: 'Batch code copied: $code',
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => BatchQrCodeDialog.show(context, b),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFC7D2FE)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.qr_code_2_rounded, size: 15, color: Color(0xFF4F46E5)),
+                          SizedBox(width: 4),
+                          Text(
+                            'QR Code',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF4F46E5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -4116,6 +4334,81 @@ class _OwnerBatchesTabState extends State<_OwnerBatchesTab> {
         ),
       ),
     );
+  }
+
+  void _confirmDeleteBatch(BatchModel b) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Delete Batch?'),
+        content: Text(
+          'Are you sure you want to delete "${b.name}"?\n\n'
+          'This will permanently remove the batch and unenroll all students. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              try {
+                await _orgService.deleteInstituteBatch(
+                  orgId: widget.controller.orgId,
+                  batchId: b.id,
+                );
+                if (mounted) {
+                  CustomSnackbar.showSuccess(
+                    context: context,
+                    title: 'Batch Deleted',
+                    message: 'Batch "${b.name}" was successfully deleted.',
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  CustomSnackbar.showError(
+                    context: context,
+                    title: 'Delete Failed',
+                    message: 'Failed to delete batch: $e',
+                  );
+                }
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleBatchArchive(BatchModel b) async {
+    try {
+      await _orgService.toggleBatchArchive(
+        orgId: widget.controller.orgId,
+        batchId: b.id,
+        isArchived: !b.isArchived,
+      );
+      if (mounted) {
+        CustomSnackbar.showSuccess(
+          context: context,
+          title: b.isArchived ? 'Batch Unarchived' : 'Batch Archived',
+          message: 'Batch "${b.name}" status updated.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomSnackbar.showError(
+          context: context,
+          title: 'Error',
+          message: 'Failed to update batch: $e',
+        );
+      }
+    }
   }
 }
 
