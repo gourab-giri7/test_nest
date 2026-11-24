@@ -337,13 +337,42 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
                 value: e.resultPublished,
                 activeColor: AppColors.success,
                 onChanged: (val) async {
-                  await ref.update({
+                  final updatePayload = {
                     'result_published': val,
                     if (val)
                       'result_published_at': FieldValue.serverTimestamp()
                     else
                       'result_published_at': FieldValue.delete(),
-                  });
+                  };
+
+                  try {
+                    await ref.update(updatePayload);
+                  } catch (_) {}
+
+                  final effectiveOrgId = e.orgId ?? widget.exam.orgId;
+
+                  if (effectiveOrgId != null && effectiveOrgId.isNotEmpty) {
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('organizations')
+                          .doc(effectiveOrgId)
+                          .collection('exams')
+                          .doc(e.examId)
+                          .update(updatePayload);
+                    } catch (_) {}
+                  } else {
+                    try {
+                      final orgMatches = await FirebaseFirestore.instance
+                          .collectionGroup('exams')
+                          .where('exam_id', isEqualTo: e.examId)
+                          .get();
+                      for (final doc in orgMatches.docs) {
+                        if (doc.reference.path.contains('organizations/')) {
+                          await doc.reference.update(updatePayload);
+                        }
+                      }
+                    } catch (_) {}
+                  }
                 },
               ),
             ],

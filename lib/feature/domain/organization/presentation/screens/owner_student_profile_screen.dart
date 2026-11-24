@@ -231,6 +231,7 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
     try {
       final List<StudentExamSubmissionSummary> summaries = [];
       final studentUid = _currentStudent.uid.trim();
+      final inviteCode = _currentStudent.inviteCode?.trim() ?? '';
 
       // 1. Fetch organization exams
       final orgExamsSnap = await _firestore
@@ -241,12 +242,111 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
 
       for (final examDoc in orgExamsSnap.docs) {
         try {
-          final subDoc = await examDoc.reference
-              .collection('submissions')
-              .doc(studentUid)
-              .get();
+          DocumentSnapshot<Map<String, dynamic>>? subDoc;
 
-          if (subDoc.exists && subDoc.data() != null) {
+          // A. Check by studentUid
+          if (studentUid.isNotEmpty) {
+            final doc = await examDoc.reference
+                .collection('submissions')
+                .doc(studentUid)
+                .get();
+            if (doc.exists && doc.data() != null) {
+              subDoc = doc;
+            }
+          }
+
+          // B. Check by inviteCode / student roll
+          if (subDoc == null && inviteCode.isNotEmpty) {
+            final doc = await examDoc.reference
+                .collection('submissions')
+                .doc(inviteCode)
+                .get();
+            if (doc.exists && doc.data() != null) {
+              subDoc = doc;
+            }
+          }
+
+          // C. Query by student_id or auth_uid in organization exam submissions
+          if (subDoc == null && studentUid.isNotEmpty) {
+            final q = await examDoc.reference
+                .collection('submissions')
+                .where('student_id', isEqualTo: studentUid)
+                .limit(1)
+                .get();
+            if (q.docs.isNotEmpty) {
+              subDoc = q.docs.first;
+            }
+          }
+          if (subDoc == null && inviteCode.isNotEmpty) {
+            final q = await examDoc.reference
+                .collection('submissions')
+                .where('student_id', isEqualTo: inviteCode)
+                .limit(1)
+                .get();
+            if (q.docs.isNotEmpty) {
+              subDoc = q.docs.first;
+            }
+          }
+
+          // D. Fallback: Check teacher's user collection if not yet in organization
+          if (subDoc == null) {
+            final examData = examDoc.data();
+            final teacherId = (examData['teacher_id'] ??
+                    examData['teacherId'] ??
+                    '')
+                .toString()
+                .trim();
+            if (teacherId.isNotEmpty) {
+              final candIds = [
+                if (studentUid.isNotEmpty) studentUid,
+                if (inviteCode.isNotEmpty) inviteCode,
+              ];
+              for (final cId in candIds) {
+                final tDoc = await _firestore
+                    .collection('user')
+                    .doc(teacherId)
+                    .collection('exams')
+                    .doc(examDoc.id)
+                    .collection('submissions')
+                    .doc(cId)
+                    .get();
+                if (tDoc.exists && tDoc.data() != null) {
+                  subDoc = tDoc;
+                  // Replicate to organization for future instant lookups
+                  try {
+                    await examDoc.reference
+                        .collection('submissions')
+                        .doc(studentUid.isNotEmpty ? studentUid : cId)
+                        .set(tDoc.data()!);
+                  } catch (_) {}
+                  break;
+                }
+              }
+
+              if (subDoc == null && studentUid.isNotEmpty) {
+                final q = await _firestore
+                    .collection('user')
+                    .doc(teacherId)
+                    .collection('exams')
+                    .doc(examDoc.id)
+                    .collection('submissions')
+                    .where('student_id', isEqualTo: studentUid)
+                    .limit(1)
+                    .get();
+                if (q.docs.isNotEmpty) {
+                  subDoc = q.docs.first;
+                  try {
+                    await examDoc.reference
+                        .collection('submissions')
+                        .doc(studentUid)
+                        .set(subDoc.data()!);
+                  } catch (_) {}
+                }
+              }
+            }
+          }
+
+          if (subDoc != null && subDoc.exists && subDoc.data() != null) {
             final subData = subDoc.data()!;
             final examData = examDoc.data();
             final examModel = ExamModel.fromJson(examData);
@@ -254,7 +354,9 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
             summaries.add(
               StudentExamSubmissionSummary(
                 examId: examDoc.id,
-                examName: (examData['name'] ?? examData['exam_name'] ?? 'Exam')
+                examName: (examData['name'] ??
+                        examData['exam_name'] ??
+                        examModel.examName)
                     .toString(),
                 examDate: examModel.examDate,
                 startTime: examModel.examStart != null
@@ -263,10 +365,16 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
                 endTime: examModel.examEnd != null
                     ? DateFormat('hh:mm a').format(examModel.examEnd!)
                     : '',
-                batch: (examData['batch'] ?? examData['batch_name'] ?? '')
+                batch: (examData['batch'] ??
+                        examData['batch_name'] ??
+                        examModel.batch)
                     .toString(),
                 score: (subData['score'] ?? '0').toString(),
-                fullMarks: (examData['full_marks'] ?? '100').toString(),
+                fullMarks: (examData['full_marks'] ??
+                        (examModel.fullMarks.isNotEmpty
+                            ? examModel.fullMarks
+                            : '100'))
+                    .toString(),
                 status: (subData['status'] ?? 'Completed').toString(),
                 submittedAt: (subData['submitted_at'] is Timestamp)
                     ? (subData['submitted_at'] as Timestamp).toDate()

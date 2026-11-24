@@ -13,6 +13,8 @@ import 'package:test_nest/model/exam_model.dart';
 import 'package:test_nest/model/notice_model.dart';
 import 'package:test_nest/model/payment_model.dart';
 import 'package:test_nest/routes/app_routes.dart';
+import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
+import 'package:test_nest/feature/domain/student/presentation/screens/examResult/exam_result_review_screen.dart';
 import 'package:test_nest/main.dart';
 
 class StudentDashboardScreen extends StatelessWidget {
@@ -974,13 +976,17 @@ class _StudentExamsTab extends StatelessWidget {
         Expanded(
           child: exams.isEmpty
               ? _buildEmptyExams()
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: exams.length,
-                  itemBuilder: (context, i) {
-                    final exam = exams[i];
-                    return _buildExamCard(context, exam);
-                  },
+              : RefreshIndicator(
+                  onRefresh: () async => controller.refreshWorkspace(),
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: exams.length,
+                    itemBuilder: (context, i) {
+                      final exam = exams[i];
+                      return _buildExamCard(context, exam);
+                    },
+                  ),
                 ),
         ),
       ],
@@ -1034,95 +1040,399 @@ class _StudentExamsTab extends StatelessWidget {
     );
   }
 
-  Widget _buildExamCard(BuildContext context, ExamModel exam) {
-    final isLive = exam.status.toLowerCase() == 'active';
+  Widget _buildExamStatusBadge(String status) {
+    final s = status.toLowerCase();
+    Color bg;
+    Color fg;
+    String label;
+    IconData? dot;
+
+    if (s == 'active') {
+      bg = const Color(0xFFDCFCE7);
+      fg = const Color(0xFF15803D);
+      label = 'LIVE';
+      dot = Icons.fiber_manual_record;
+    } else if (s == 'upcoming') {
+      bg = const Color(0xFFFEF3C7);
+      fg = const Color(0xFFB45309);
+      label = 'UPCOMING';
+    } else {
+      bg = const Color(0xFFF1F5F9);
+      fg = const Color(0xFF64748B);
+      label = 'COMPLETED';
+    }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (dot != null) ...[
+            Icon(dot, size: 8, color: fg),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: fg,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailItem(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: const Color(0xFF64748B)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1E293B),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExamCard(BuildContext context, ExamModel exam) {
+    final status = exam.status;
+    final isLive = status.toLowerCase() == 'active';
+    final isUpcoming = status.toLowerCase() == 'upcoming';
+    final isCompleted = status.toLowerCase() == 'completed';
+    final hasSubmitted = controller.hasSubmittedExam(exam.examId);
+
+    // Subject display
+    final subjectText = (exam.subject != null && exam.subject!.trim().isNotEmpty)
+        ? exam.subject!.trim()
+        : null;
+
+    final batchText = exam.batches.isNotEmpty
+        ? exam.batches.join(', ')
+        : (exam.batch.isNotEmpty ? exam.batch : 'All Batches');
+
+    final dateStr = exam.examStart != null
+        ? DateFormat('dd MMM yyyy').format(exam.examStart!)
+        : 'Date Flexible';
+
+    final timeStr = (exam.examStart != null && exam.examEnd != null)
+        ? '${DateFormat('hh:mm a').format(exam.examStart!)} - ${DateFormat('hh:mm a').format(exam.examEnd!)}'
+        : (exam.examStart != null
+            ? DateFormat('hh:mm a').format(exam.examStart!)
+            : 'Flexible Time');
+
+    final durationMinutes = (exam.examStart != null && exam.examEnd != null)
+        ? exam.examEnd!.difference(exam.examStart!).inMinutes
+        : null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isLive ? const Color(0xFFBFDBFE) : const Color(0xFFE2E8F0),
+          color: isLive
+              ? const Color(0xFF3B82F6)
+              : (isUpcoming ? const Color(0xFFCBD5E1) : const Color(0xFFE2E8F0)),
+          width: isLive ? 1.5 : 1.0,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: isLive
+                ? const Color(0xFF2563EB).withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header: Exam Name & Status Badge
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Text(
                   exam.examName,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF0F172A),
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              _buildExamStatusBadge(status),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Subject & Batch Row
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              if (subjectText != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFC7D2FE)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.menu_book_rounded, size: 12, color: Color(0xFF4F46E5)),
+                      const SizedBox(width: 4),
+                      Text(
+                        subjectText,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF4338CA),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isLive
-                      ? const Color(0xFF10B981).withValues(alpha: 0.1)
-                      : const Color(0xFFF1F5F9),
+                  color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(
-                  exam.status.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: isLive
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFF475569),
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.people_outline, size: 12, color: Color(0xFF64748B)),
+                    const SizedBox(width: 4),
+                    Text(
+                      batchText,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF475569),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Batch: ${exam.batch} • Full Marks: ${exam.fullMarks}',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Start: ${exam.examStart != null ? DateFormat('MMM dd, yyyy - hh:mm a').format(exam.examStart!) : 'Flexible'}',
-            style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-          ),
-          const Divider(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (isLive)
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Get.toNamed(AppRoutes.studentTakeExam, arguments: exam);
-                  },
-                  icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                  label: const Text('Start Exam'),
-                  style: ElevatedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: const Color(0xFF2563EB),
-                    foregroundColor: Colors.white,
-                  ),
-                )
-              else
-                OutlinedButton(
-                  onPressed: () {
-                    controller.switchTab(2);
-                  },
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: const Text('View Results'),
+
+          const SizedBox(height: 12),
+
+          // Exam Details Grid
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDetailItem(
+                        Icons.calendar_today_outlined,
+                        'Date',
+                        dateStr,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildDetailItem(
+                        Icons.access_time_rounded,
+                        'Time',
+                        timeStr,
+                      ),
+                    ),
+                  ],
                 ),
-            ],
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDetailItem(
+                        Icons.emoji_events_outlined,
+                        'Full Marks',
+                        '${exam.fullMarks} Marks',
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildDetailItem(
+                        Icons.quiz_outlined,
+                        'Questions',
+                        '${exam.questions.length} Qs${durationMinutes != null ? ' • $durationMinutes m' : ''}',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
+
+          if (exam.instruction.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, size: 14, color: Color(0xFFB45309)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      exam.instruction.trim(),
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (exam.teacherName.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.person_outline, size: 14, color: Color(0xFF94A3B8)),
+                const SizedBox(width: 4),
+                Text(
+                  'Created by: ${exam.teacherName.trim()}${exam.createdByRole != null ? ' (${exam.createdByRole})' : ''}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          // Action Section: COMPLETELY HIDDEN for Upcoming Exams!
+          if (!isUpcoming) ...[
+            const Divider(height: 22),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (isLive) ...[
+                  if (hasSubmitted)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
+                          SizedBox(width: 6),
+                          Text(
+                            'Submitted',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF15803D),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Get.toNamed(AppRoutes.studentTakeExam, arguments: exam);
+                      },
+                      icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                      label: const Text('Start Exam'),
+                      style: ElevatedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                ] else if (isCompleted) ...[
+                  if (hasSubmitted || exam.resultPublished)
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        controller.switchTab(2);
+                      },
+                      icon: const Icon(Icons.assessment_outlined, size: 16),
+                      label: Text(exam.resultPublished ? 'View Results' : 'View Submission'),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        foregroundColor: const Color(0xFF2563EB),
+                        side: const BorderSide(color: Color(0xFF93C5FD)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'Exam Ended',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1187,13 +1497,17 @@ class _StudentResultsTab extends StatelessWidget {
         Expanded(
           child: results.isEmpty
               ? _buildEmptyResults()
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: results.length,
-                  itemBuilder: (context, i) {
-                    final item = results[i];
-                    return _buildResultCard(context, item);
-                  },
+              : RefreshIndicator(
+                  onRefresh: () async => controller.refreshWorkspace(),
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: results.length,
+                    itemBuilder: (context, i) {
+                      final item = results[i];
+                      return _buildResultCard(context, item);
+                    },
+                  ),
                 ),
         ),
       ],
@@ -1229,106 +1543,166 @@ class _StudentResultsTab extends StatelessWidget {
     BuildContext context,
     StudentSubmissionResultItem item,
   ) {
+    final isPublished = item.status == 'Published' || (item.exam?.resultPublished ?? false);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  item.examName,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: item.status == 'Published'
-                      ? const Color(0xFF10B981).withValues(alpha: 0.1)
-                      : const Color(0xFFF59E0B).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  item.status.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: item.status == 'Published'
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFFF59E0B),
-                  ),
-                ),
-              ),
-            ],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Batch: ${item.batch}${item.subject.isNotEmpty ? ' • ${item.subject}' : ''}',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Score Obtained',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                  ),
-                  Text(
-                    '${item.obtainedMarks.toStringAsFixed(0)} / ${item.totalMarks.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    'Percentage',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                  ),
-                  Text(
-                    '${item.percentage.toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: item.percentage >= 50
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFEF4444),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          if (item.examDate != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Date: ${DateFormat('MMM dd, yyyy').format(item.examDate!)}',
-              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-            ),
-          ],
         ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            if (isPublished && item.exam != null) {
+              Get.to(
+                () => ExamResultReviewScreen(
+                  exam: item.exam!,
+                  submission: item.submissionData,
+                ),
+              );
+            } else {
+              customSnackbar(
+                context: context,
+                message:
+                    'Result is currently under review. Full answer analysis will be visible once published.',
+                color: Colors.orange,
+                ico: Icons.lock_clock,
+              );
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.examName,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isPublished
+                            ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                            : const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        isPublished ? 'PUBLISHED' : 'UNDER REVIEW',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: isPublished
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFF59E0B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Batch: ${item.batch}${item.subject.isNotEmpty ? ' • ${item.subject}' : ''}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Score Obtained',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        ),
+                        Text(
+                          '${item.obtainedMarks.toStringAsFixed(0)} / ${item.totalMarks.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        const Text(
+                          'Percentage',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        ),
+                        Text(
+                          '${item.percentage.toStringAsFixed(1)}%',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: item.percentage >= 50
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFEF4444),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                if (item.examDate != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Date: ${DateFormat('MMM dd, yyyy').format(item.examDate!)}',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                  ),
+                ],
+                if (isPublished) ...[
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: const [
+                      Text(
+                        'View Answers & Review',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 11,
+                        color: Color(0xFF2563EB),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

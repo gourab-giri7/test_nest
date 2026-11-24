@@ -510,8 +510,12 @@ class TakeExamController extends ChangeNotifier {
           ? (reassignedMap[studentId] as num).toInt() + 1
           : 1;
 
-      await subRef.set({
+      final currentAuthUid = FirebaseAuth.instance.currentUser?.uid;
+
+      final subPayload = {
         'student_id': studentId,
+        'student_uid': currentAuthUid ?? studentId,
+        'auth_uid': currentAuthUid,
         'student_name': s.name.trim(),
         'exam_id': exam.examId,
         'exam_name': exam.examName,
@@ -534,7 +538,62 @@ class TakeExamController extends ChangeNotifier {
             if (selectedAnswers.containsKey(exam.questions[i].id))
               i.toString(): selectedAnswers[exam.questions[i].id]!,
         },
-      });
+      };
+
+      await subRef.set(subPayload);
+
+      // Also ensure teacher doc has it under currentAuthUid if different
+      if (currentAuthUid != null && currentAuthUid.isNotEmpty && currentAuthUid != studentId) {
+        try {
+          await examRef.collection('submissions').doc(currentAuthUid).set(subPayload);
+        } catch (_) {}
+      }
+
+      // Replicate to organization collection so Owner and Student Workspace see it immediately
+      String? targetOrgId = exam.orgId;
+      if (targetOrgId == null || targetOrgId.isEmpty) {
+        targetOrgId = enrollment?.orgId;
+      }
+      if (targetOrgId == null || targetOrgId.isEmpty) {
+        targetOrgId = s.orgId;
+      }
+      if (targetOrgId == null || targetOrgId.isEmpty) {
+        try {
+          final orgSnap = await FirebaseFirestore.instance
+              .collectionGroup('exams')
+              .where('exam_id', isEqualTo: exam.examId)
+              .limit(5)
+              .get();
+          for (final doc in orgSnap.docs) {
+            if (doc.reference.path.contains('organizations/')) {
+              final parent = doc.reference.parent.parent;
+              if (parent != null) {
+                targetOrgId = parent.id;
+                break;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (targetOrgId != null && targetOrgId.isNotEmpty) {
+        final orgExamRef = FirebaseFirestore.instance
+            .collection('organizations')
+            .doc(targetOrgId)
+            .collection('exams')
+            .doc(exam.examId);
+
+        if (currentAuthUid != null && currentAuthUid.isNotEmpty) {
+          try {
+            await orgExamRef.collection('submissions').doc(currentAuthUid).set(subPayload);
+          } catch (_) {}
+        }
+        if (studentId.isNotEmpty && studentId != currentAuthUid) {
+          try {
+            await orgExamRef.collection('submissions').doc(studentId).set(subPayload);
+          } catch (_) {}
+        }
+      }
 
       // Clear in-progress draft attempt
       try {

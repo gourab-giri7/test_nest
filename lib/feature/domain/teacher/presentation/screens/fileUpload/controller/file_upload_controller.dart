@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/manualQuestions/controller/question_controller.dart';
 import 'package:test_nest/model/Q&A_model.dart';
@@ -15,26 +16,32 @@ class FileUploadController extends ChangeNotifier {
   List<QAModel> questions = [];
 
   // ============================================================
-  // DOWNLOAD EXCEL TEMPLATE
+  // DOWNLOAD & SHARE EXCEL TEMPLATE
   // ============================================================
 
-  static Future<bool> downloadTemplate() async {
+  static Future<File> getOrExtractTemplateFile() async {
+    const assetPath = 'assets/Sample questions sheet.xlsx';
+    final ByteData data = await rootBundle.load(assetPath);
+    final Directory tempDir = await getTemporaryDirectory();
+    final File file = File('${tempDir.path}/Sample_Question_Template.xlsx');
+    await file.writeAsBytes(data.buffer.asUint8List(), flush: true);
+    return file;
+  }
+
+  /// Downloads and saves the Excel template via system file picker.
+  /// Returns `true` if saved, `false` if cancelled by user, `null` if error occurred.
+  static Future<bool?> downloadTemplate() async {
     try {
-      const assetPath = 'assets/Sample questions sheet.xlsx';
-
-      final ByteData data = await rootBundle.load(assetPath);
-
-      final Directory tempDir = await getTemporaryDirectory();
-
-      final File file = File('${tempDir.path}/Template_sheet.xlsx');
-
-      await file.writeAsBytes(data.buffer.asUint8List(), flush: true);
+      final file = await getOrExtractTemplateFile();
 
       final String? savedPath = await FlutterFileDialog.saveFile(
         params: SaveFileDialogParams(
           sourceFilePath: file.path,
-          fileName:
-              'Template_sheet_${DateTime.now().millisecondsSinceEpoch}.xlsx',
+          fileName: 'Sample_Question_Template.xlsx',
+          mimeTypesFilter: const [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
+          ],
         ),
       );
 
@@ -43,11 +50,33 @@ class FileUploadController extends ChangeNotifier {
         return true;
       }
 
-      log('User cancelled saving');
+      log('User cancelled saving in file picker');
       return false;
     } catch (e, stackTrace) {
       log('Download error', error: e, stackTrace: stackTrace);
+      return null;
+    }
+  }
 
+  /// Directly shares or opens the template with Excel, Google Sheets, Drive, etc.
+  static Future<bool> shareTemplate({Rect? sharePositionOrigin}) async {
+    try {
+      final file = await getOrExtractTemplateFile();
+      await Share.shareXFiles(
+        [
+          XFile(
+            file.path,
+            mimeType:
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            name: 'Sample_Question_Template.xlsx',
+          ),
+        ],
+        text: 'Test Nest - Sample Questions Excel Template',
+        sharePositionOrigin: sharePositionOrigin,
+      );
+      return true;
+    } catch (e, stackTrace) {
+      log('Share template error', error: e, stackTrace: stackTrace);
       return false;
     }
   }

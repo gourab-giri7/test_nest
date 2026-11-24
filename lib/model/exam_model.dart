@@ -21,6 +21,7 @@ class ExamModel {
   final String? subject;
   final List<String> batches;
   final String? createdByRole;
+  final String? orgId;
 
   const ExamModel({
     required this.examId,
@@ -40,6 +41,7 @@ class ExamModel {
     this.teacherName = '',
     this.subject,
     this.createdByRole,
+    this.orgId,
   });
 
   factory ExamModel.fromJson(
@@ -137,6 +139,12 @@ class ExamModel {
       ),
       teacherId: resolvedTeacherId,
       teacherName: resolvedTeacherName,
+      orgId: (json['org_id'] ??
+              json['orgId'] ??
+              details['org_id'] ??
+              details['orgId'])
+          ?.toString()
+          .trim(),
       subject:
           (details['subject'] ??
                   json['subject'] ??
@@ -209,6 +217,7 @@ class ExamModel {
     'exam_id': examId,
     'teacher_id': teacherId,
     'teacher_name': teacherName,
+    if (orgId != null && orgId!.isNotEmpty) 'org_id': orgId,
     if (createdByRole != null) 'created_by_role': createdByRole,
     'batches': batches.isNotEmpty ? batches : (batch.isNotEmpty ? [batch] : const []),
     'exam_details': {
@@ -220,6 +229,7 @@ class ExamModel {
       'batches': batches.isNotEmpty ? batches : (batch.isNotEmpty ? [batch] : const []),
       'teacher_id': teacherId,
       'teacher_name': teacherName,
+      if (orgId != null && orgId!.isNotEmpty) 'org_id': orgId,
       if (createdByRole != null) 'created_by_role': createdByRole,
       if (subject != null && subject!.isNotEmpty) 'subject': subject,
       'exam_start': examStart == null ? null : Timestamp.fromDate(examStart!),

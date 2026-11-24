@@ -90,6 +90,7 @@ class StudentWorkspaceController extends ChangeNotifier {
   StreamSubscription? _attendanceSub;
   StreamSubscription? _feeSub;
   StreamSubscription? _noticeSub;
+  Timer? _statusTickerTimer;
 
   // ── Getters ─────────────────────────────────────────────────────────────
   int get currentTabIndex => _currentTabIndex;
@@ -108,6 +109,14 @@ class StudentWorkspaceController extends ChangeNotifier {
   String get examFilter => _examFilter;
   String get resultSearchQuery => _resultSearchQuery;
   String get noticeSearchQuery => _noticeSearchQuery;
+
+  bool hasSubmittedExam(String examId) {
+    return _results.any((r) => r.examId == examId);
+  }
+
+  void refreshWorkspace() {
+    initListeners();
+  }
 
   int get unreadNoticeCount =>
       _notices.where((n) => !_readNoticeIds.contains(n.id)).length;
@@ -282,6 +291,12 @@ class StudentWorkspaceController extends ChangeNotifier {
   void initListeners() {
     _cancelSubscriptions();
 
+    // Periodic ticker so exam status dynamically updates in real time
+    _statusTickerTimer?.cancel();
+    _statusTickerTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      notifyListeners();
+    });
+
     final currentOrgId = orgId;
     final currentStudentUid = studentUid;
 
@@ -451,11 +466,20 @@ class StudentWorkspaceController extends ChangeNotifier {
               .map((d) => ExamModel.fromJson(d.data()))
               .toList();
 
-          // Keep exams for enrolled batches
+          // Keep exams for enrolled batches (including multi-batch support)
           _exams = allExams.where((exam) {
             final b = exam.batch.trim().toLowerCase();
-            return batchNamesAndIds.contains(b) ||
-                batchNamesAndIds.contains(exam.batch.trim());
+            if (batchNamesAndIds.contains(b) ||
+                batchNamesAndIds.contains(exam.batch.trim())) {
+              return true;
+            }
+            for (final eb in exam.batches) {
+              if (batchNamesAndIds.contains(eb.trim().toLowerCase()) ||
+                  batchNamesAndIds.contains(eb.trim())) {
+                return true;
+              }
+            }
+            return false;
           }).toList();
 
           await _fetchSubmissionsForExams(currentOrgId, _exams);
@@ -468,19 +492,150 @@ class StudentWorkspaceController extends ChangeNotifier {
     List<ExamModel> activeExams,
   ) async {
     final resultList = <StudentSubmissionResultItem>[];
+    final effectiveStudentUid = studentUid.isNotEmpty ? studentUid : _resolveCurrentUid();
+    final localId = studentData?.id.trim() ?? '';
 
     for (final exam in activeExams) {
       try {
-        final subDoc = await _firestore
-            .collection('organizations')
-            .doc(currentOrgId)
-            .collection('exams')
-            .doc(exam.examId)
-            .collection('submissions')
-            .doc(studentUid)
-            .get();
+        DocumentSnapshot<Map<String, dynamic>>? subDoc;
 
-        if (subDoc.exists && subDoc.data() != null) {
+        // 1. Try finding submission in organization exams by studentUid
+        if (effectiveStudentUid.isNotEmpty) {
+          final doc = await _firestore
+              .collection('organizations')
+              .doc(currentOrgId)
+              .collection('exams')
+              .doc(exam.examId)
+              .collection('submissions')
+              .doc(effectiveStudentUid)
+              .get();
+          if (doc.exists && doc.data() != null) {
+            subDoc = doc;
+          }
+        }
+
+        // 2. Try by student's local/assigned id
+        if (subDoc == null && localId.isNotEmpty) {
+          final doc = await _firestore
+              .collection('organizations')
+              .doc(currentOrgId)
+              .collection('exams')
+              .doc(exam.examId)
+              .collection('submissions')
+              .doc(localId)
+              .get();
+          if (doc.exists && doc.data() != null) {
+            subDoc = doc;
+          }
+        }
+
+        // 3. Try query in organization submissions
+        if (subDoc == null && effectiveStudentUid.isNotEmpty) {
+          final q = await _firestore
+              .collection('organizations')
+              .doc(currentOrgId)
+              .collection('exams')
+              .doc(exam.examId)
+              .collection('submissions')
+              .where('student_id', isEqualTo: effectiveStudentUid)
+              .limit(1)
+              .get();
+          if (q.docs.isNotEmpty) {
+            subDoc = q.docs.first;
+          }
+        }
+
+        // 4. Fallback to teacher's collection
+        if (subDoc == null && exam.teacherId.isNotEmpty) {
+          final candIds = [
+            if (effectiveStudentUid.isNotEmpty) effectiveStudentUid,
+            if (localId.isNotEmpty) localId,
+          ];
+          for (final cand in candIds) {
+            final tDoc = await _firestore
+                .collection('user')
+                .doc(exam.teacherId)
+                .collection('exams')
+                .doc(exam.examId)
+                .collection('submissions')
+                .doc(cand)
+                .get();
+            if (tDoc.exists && tDoc.data() != null) {
+              subDoc = tDoc;
+              // Replicate to organization for future instant lookups
+              try {
+                await _firestore
+                    .collection('organizations')
+                    .doc(currentOrgId)
+                    .collection('exams')
+                    .doc(exam.examId)
+                    .collection('submissions')
+                    .doc(effectiveStudentUid.isNotEmpty ? effectiveStudentUid : cand)
+                    .set(tDoc.data()!);
+              } catch (_) {}
+              break;
+            }
+          }
+
+          if (subDoc == null && effectiveStudentUid.isNotEmpty) {
+            final q = await _firestore
+                .collection('user')
+                .doc(exam.teacherId)
+                .collection('exams')
+                .doc(exam.examId)
+                .collection('submissions')
+                .where('student_id', isEqualTo: effectiveStudentUid)
+                .limit(1)
+                .get();
+            if (q.docs.isNotEmpty) {
+              subDoc = q.docs.first;
+              try {
+                await _firestore
+                    .collection('organizations')
+                    .doc(currentOrgId)
+                    .collection('exams')
+                    .doc(exam.examId)
+                    .collection('submissions')
+                    .doc(effectiveStudentUid)
+                    .set(subDoc.data()!);
+              } catch (_) {}
+            }
+          }
+        }
+
+        // Check if teacher collection has published results even if org exam doc isn't updated yet
+        bool isResultPublished = exam.resultPublished;
+        if (!isResultPublished && exam.teacherId.isNotEmpty) {
+          try {
+            final tExamDoc = await _firestore
+                .collection('user')
+                .doc(exam.teacherId)
+                .collection('exams')
+                .doc(exam.examId)
+                .get();
+            if (tExamDoc.exists) {
+              final tData = tExamDoc.data();
+              if (tData != null &&
+                  (tData['result_published'] == true ||
+                      tData['exam_details']?['result_published'] == true)) {
+                isResultPublished = true;
+                try {
+                  await _firestore
+                      .collection('organizations')
+                      .doc(currentOrgId)
+                      .collection('exams')
+                      .doc(exam.examId)
+                      .update({
+                        'result_published': true,
+                        'result_published_at': FieldValue.serverTimestamp(),
+                      });
+                } catch (_) {}
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (subDoc != null && subDoc.exists && subDoc.data() != null) {
           final data = subDoc.data()!;
           final score = (data['score'] ?? data['obtained_marks'] ?? 0)
               .toDouble();
@@ -505,7 +660,7 @@ class StudentWorkspaceController extends ChangeNotifier {
               obtainedMarks: score,
               totalMarks: total,
               percentage: pct,
-              status: exam.resultPublished ? 'Published' : 'Under Review',
+              status: isResultPublished ? 'Published' : 'Under Review',
               submissionData: data,
               exam: exam,
             ),
@@ -526,6 +681,8 @@ class StudentWorkspaceController extends ChangeNotifier {
   }
 
   void _cancelSubscriptions() {
+    _statusTickerTimer?.cancel();
+    _statusTickerTimer = null;
     _memberSub?.cancel();
     _memberSub = null;
 

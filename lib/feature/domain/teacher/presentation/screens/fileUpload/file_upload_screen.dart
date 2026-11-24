@@ -25,6 +25,151 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
     });
   }
 
+  void _handleTemplateDownload(BuildContext context) {
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    final Rect? originRect =
+        box != null ? box.localToGlobal(Offset.zero) & box.size : null;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const Text(
+                  'Get Sample Excel Template',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Save the template file to your device or open/share it directly with Excel or Google Sheets.',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 18),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.download_rounded,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  title: const Text(
+                    'Save to Device',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'Choose a folder and tap SAVE in the file picker',
+                  ),
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    final result = await FileUploadController.downloadTemplate();
+                    if (!context.mounted) return;
+                    if (result == true) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Template saved successfully to your device!',
+                          ),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } else if (result == false) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text(
+                            'Save was cancelled. You can also share or open directly.',
+                          ),
+                          action: SnackBarAction(
+                            label: 'Share / Open',
+                            textColor: Colors.yellowAccent,
+                            onPressed: () => FileUploadController.shareTemplate(
+                              sharePositionOrigin: originRect,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text(
+                            'Unable to save file directly. Tap Share to open.',
+                          ),
+                          backgroundColor: Colors.redAccent,
+                          action: SnackBarAction(
+                            label: 'Share / Open',
+                            textColor: Colors.white,
+                            onPressed: () => FileUploadController.shareTemplate(
+                              sharePositionOrigin: originRect,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3E8FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.share_rounded,
+                      color: Color(0xFF7C3AED),
+                    ),
+                  ),
+                  title: const Text(
+                    'Open with App / Share',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'Open directly in Excel, Google Sheets, or share to Drive/WhatsApp',
+                  ),
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    await FileUploadController.shareTemplate(
+                      sharePositionOrigin: originRect,
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -201,20 +346,7 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
                   width: double.infinity,
                   height: 46,
                   child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final success =
-                          await FileUploadController.downloadTemplate();
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            success
-                                ? 'Template downloaded successfully'
-                                : 'Template download cancelled',
-                          ),
-                        ),
-                      );
-                    },
+                    onPressed: () => _handleTemplateDownload(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       side: const BorderSide(color: AppColors.primary),

@@ -153,6 +153,7 @@ class Publishexamcontroller extends ChangeNotifier {
         teacherId: tData.id.trim(),
         teacherName: creatorName,
         createdByRole: details.creatorRole ?? 'Teacher',
+        orgId: isInstitute ? tenantCtx!.activeOrgId : null,
       );
 
       await teacherRef.collection('exams').doc(examId).set(exam.toJson());
@@ -209,21 +210,48 @@ class Publishexamcontroller extends ChangeNotifier {
   Future<void> setResultPublished({
     required String examId,
     required bool published,
+    String? orgId,
   }) async {
     final teacherId = teacherData?.id.trim();
     if (teacherId == null || teacherId.isEmpty)
       throw StateError('Teacher session not found');
+
+    final updatePayload = {
+      'result_published': published,
+      'result_published_at': published
+          ? FieldValue.serverTimestamp()
+          : FieldValue.delete(),
+    };
+
     await firestore
         .collection('user')
         .doc(teacherId)
         .collection('exams')
         .doc(examId)
-        .update({
-          'result_published': published,
-          'result_published_at': published
-              ? FieldValue.serverTimestamp()
-              : FieldValue.delete(),
-        });
+        .update(updatePayload);
+
+    if (orgId != null && orgId.isNotEmpty) {
+      try {
+        await firestore
+            .collection('organizations')
+            .doc(orgId)
+            .collection('exams')
+            .doc(examId)
+            .update(updatePayload);
+      } catch (_) {}
+    } else {
+      try {
+        final matches = await firestore
+            .collectionGroup('exams')
+            .where('exam_id', isEqualTo: examId)
+            .get();
+        for (final doc in matches.docs) {
+          if (doc.reference.path.contains('organizations/')) {
+            await doc.reference.update(updatePayload);
+          }
+        }
+      } catch (_) {}
+    }
     notifyListeners();
   }
 
