@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/core/context/active_tenant_context.dart';
 import 'package:test_nest/core/services/exam_firestore_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
@@ -182,15 +183,33 @@ class TeacherExamsScreen extends StatelessWidget {
               ],
             ],
           ),
-          body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream:
-                examStream ??
-                FirebaseFirestore.instance
-                    .collection('user')
-                    .doc(tData.id.trim())
-                    .collection('exams')
-                    .orderBy('exam_id', descending: true)
-                    .snapshots(),
+          body: Builder(
+            builder: (ctx) {
+              ActiveTenantContext? tenantCtx;
+              try {
+                tenantCtx = ctx.watch<ActiveTenantContext>();
+              } catch (_) {}
+              final isInstitute = tenantCtx != null &&
+                  tenantCtx.isInstitute &&
+                  tenantCtx.activeOrgId.isNotEmpty;
+              final orgId = tenantCtx?.activeOrgId ?? '';
+
+              final resolvedStream = examStream ??
+                  (isInstitute
+                      ? FirebaseFirestore.instance
+                          .collection('organizations')
+                          .doc(orgId)
+                          .collection('exams')
+                          .snapshots()
+                      : FirebaseFirestore.instance
+                          .collection('user')
+                          .doc(tData.id.trim())
+                          .collection('exams')
+                          .orderBy('exam_id', descending: true)
+                          .snapshots());
+
+              return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: resolvedStream,
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Center(
@@ -328,29 +347,45 @@ class TeacherExamsScreen extends StatelessWidget {
                             ),
                           ),
                         ] else ...[
-                          _buildSummary(exams, isWide: isWide),
-                          const SizedBox(height: 16),
-                          _buildSearch(controller),
-                          const SizedBox(height: 12),
-                          _buildFilters(controller),
-                          const SizedBox(height: 10),
-                          _buildBatchFilter(
-                            tData.batch,
-                            activeBatch,
-                            controller,
-                          ),
-                          const SizedBox(height: 16),
-                        ],
+                              _buildSummary(
+                                exams,
+                                isWide: isWide,
+                                controller: controller,
+                              ),
+                              const SizedBox(height: 16),
+                              _buildSearch(controller),
+                              const SizedBox(height: 12),
+                              _buildFilters(controller),
+                              const SizedBox(height: 10),
+                              _buildBatchFilter(
+                                () {
+                                  final bSet = <String>{...tData.batch};
+                                  for (final e in exams) {
+                                    if (e.batches.isNotEmpty) {
+                                      bSet.addAll(e.batches);
+                                    } else if (e.batch.trim().isNotEmpty) {
+                                      bSet.add(e.batch.trim());
+                                    }
+                                  }
+                                  return bSet.where((b) => b.trim().isNotEmpty).toList();
+                                }(),
+                                activeBatch,
+                                controller,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
 
-                        Expanded(
-                          child: _buildExamList(
-                            visibleExams,
-                            controller,
-                            isWide: isWide,
-                          ),
+                            Expanded(
+                              child: _buildExamList(
+                                visibleExams,
+                                controller,
+                                isWide: isWide,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   );
                 },
               );
@@ -361,20 +396,37 @@ class TeacherExamsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSummary(List<ExamModel> exams, {required bool isWide}) {
-    final upcoming = exams.where((exam) => exam.status == "Upcoming").length;
-    final completed = exams.where((exam) => exam.status == "Completed").length;
+  Widget _buildSummary(
+    List<ExamModel> exams, {
+    required bool isWide,
+    TeacherExamController? controller,
+  }) {
+    final now = DateTime.now();
+    final live = exams.where((exam) => exam.status == "Live" || (exam.examStart != null && exam.examEnd != null && now.isAfter(exam.examStart!) && now.isBefore(exam.examEnd!))).length;
+    final upcoming = exams.where((exam) => exam.status == "Upcoming" || (exam.examStart != null && now.isBefore(exam.examStart!))).length;
+    final completed = exams.where((exam) => exam.status == "Completed" || (exam.examEnd != null && now.isAfter(exam.examEnd!))).length;
 
     final cards = [
-      _summaryCard(
-        icon: Icons.event_available_rounded,
-        title: "Upcoming",
-        value: upcoming.toString(),
-      ),
       _summaryCard(
         icon: Icons.task_alt_rounded,
         title: "Completed",
         value: completed.toString(),
+        color: const Color(0xFF10B981),
+        onTap: controller != null ? () => controller.setFilter("Completed") : null,
+      ),
+      _summaryCard(
+        icon: Icons.play_circle_outline_rounded,
+        title: "Live",
+        value: live.toString(),
+        color: const Color(0xFF2563EB),
+        onTap: controller != null ? () => controller.setFilter("Active") : null,
+      ),
+      _summaryCard(
+        icon: Icons.event_available_rounded,
+        title: "Upcoming",
+        value: upcoming.toString(),
+        color: const Color(0xFF7C3AED),
+        onTap: controller != null ? () => controller.setFilter("Upcoming") : null,
       ),
     ];
 
@@ -398,6 +450,8 @@ class TeacherExamsScreen extends StatelessWidget {
         Expanded(child: cards[0]),
         const SizedBox(width: 8),
         Expanded(child: cards[1]),
+        const SizedBox(width: 8),
+        Expanded(child: cards[2]),
       ],
     );
   }
@@ -406,55 +460,66 @@ class TeacherExamsScreen extends StatelessWidget {
     required IconData icon,
     required String title,
     required String value,
+    Color color = AppColors.primary,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x080F172A),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x080F172A),
+              blurRadius: 8,
+              offset: Offset(0, 2),
             ),
-            child: Icon(icon, color: AppColors.primary, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.text,
-                ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -126,10 +126,18 @@ service cloud.firestore {
     match /joinCodes/{code} {
       // Any authenticated student/user can validate an active joining code
       allow read: if isAuthenticated();
-      // Only the owning teacher can create or update their batch joining codes
-      allow create: if isAuthenticated() && request.resource.data.teacher_id == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.teacher_id == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.teacher_id == request.auth.uid;
+      // Teachers and Org Admins can create or update joining codes
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated() && (
+        resource.data.teacher_id == request.auth.uid ||
+        ('org_id' in resource.data && isOrgAdmin(resource.data.org_id))
+      );
+    }
+
+    // Collection Group Query rule for batches subcollections
+    // Allows students to resolve batch joining codes across teachers and institutes
+    match /{path=**}/batches/{batchId} {
+      allow read: if isAuthenticated();
     }
 
     // -------------------------------------------------------------------------

@@ -23,6 +23,51 @@ class TeacherSalaryService {
   // ---------------------------------------------------------------------------
   // Firestore references
   // ---------------------------------------------------------------------------
+  /// Backward compatibility aliases
+  Future<List<TeacherSalaryModel>> fetchSalaryHistory({
+    required String orgId,
+    required String teacherUid,
+  }) =>
+      getTeacherSalaryHistory(orgId: orgId, teacherUid: teacherUid);
+
+  Future<void> setTeacherBaseSalary({
+    required String orgId,
+    required String teacherUid,
+    required double baseSalary,
+  }) =>
+      setTeacherDefaultSalary(
+        orgId: orgId,
+        teacherUid: teacherUid,
+        baseSalary: baseSalary,
+      );
+
+  Future<SalaryPaymentEntry> recordPayment({
+    required String orgId,
+    required String teacherUid,
+    required String teacherName,
+    required String billingMonth,
+    required double amount,
+    required DateTime paymentDate,
+    required String paymentMethod,
+    String? referenceNumber,
+    String? note,
+    required String recordedBy,
+    double? baseSalary,
+  }) =>
+      recordSalaryPayment(
+        orgId: orgId,
+        teacherUid: teacherUid,
+        teacherName: teacherName,
+        billingMonth: billingMonth,
+        amount: amount,
+        paymentDate: paymentDate,
+        paymentMethod: paymentMethod,
+        referenceNumber: referenceNumber,
+        note: note,
+        recordedBy: recordedBy,
+        baseSalary: baseSalary,
+      );
+
   static DocumentReference<Map<String, dynamic>> _teacherDocRef(
     String orgId,
     String teacherUid,

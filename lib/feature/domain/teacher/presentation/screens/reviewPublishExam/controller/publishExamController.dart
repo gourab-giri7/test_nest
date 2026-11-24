@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import "package:provider/provider.dart";
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:test_nest/core/context/active_tenant_context.dart';
 import 'package:test_nest/feature/domain/common/presentation/widget/custom_Snackbar.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/CreateExam/controller/create_exam_controller.dart';
@@ -47,9 +48,31 @@ class Publishexamcontroller extends ChangeNotifier {
       );
       return;
     }
+    ActiveTenantContext? tenantCtx;
+    try {
+      tenantCtx = context.read<ActiveTenantContext>();
+    } catch (_) {}
+    final isInstitute =
+        tenantCtx != null &&
+        tenantCtx.isInstitute &&
+        tenantCtx.activeOrgId.isNotEmpty;
+
     // Re-read the students from Firestore before publishing. This prevents
     // stale/legacy/removed IDs from being written into assigned_student_ids.
-    final studentSnap = await teacherRefStudents(tData.id.trim()).get();
+    QuerySnapshot<Map<String, dynamic>> studentSnap;
+    if (isInstitute) {
+      studentSnap = await firestore
+          .collection('organizations')
+          .doc(tenantCtx!.activeOrgId)
+          .collection('students')
+          .get();
+      if (studentSnap.docs.isEmpty) {
+        studentSnap = await teacherRefStudents(tData.id.trim()).get();
+      }
+    } else {
+      studentSnap = await teacherRefStudents(tData.id.trim()).get();
+    }
+
     final studentModels = studentSnap.docs
         .map((doc) => StudentModel.fromJson(doc.data(), docId: doc.id))
         .where((s) => s.isActive && s.id.isNotEmpty)
@@ -57,8 +80,14 @@ class Publishexamcontroller extends ChangeNotifier {
 
     final validStudentIds = studentModels.map((s) => s.id).toSet();
 
+    final effectiveBatches = details.batches.isNotEmpty
+        ? details.batches
+        : (details.batch.isNotEmpty ? [details.batch] : <String>[]);
+
     final validBatchStudentIds = studentModels
-        .where((s) => StudentModel.isSameBatch(s.batch, details.batch))
+        .where((s) => effectiveBatches.any((b) =>
+            StudentModel.isSameBatch(s.batch, b) ||
+            (s.batchId != null && s.batchId!.trim() == b.trim())))
         .map((s) => s.id)
         .toSet();
 
@@ -104,6 +133,10 @@ class Publishexamcontroller extends ChangeNotifier {
       });
 
       final examId = generateExamId(tData.name, sequence);
+      final creatorName = (details.creatorName != null && details.creatorName!.isNotEmpty)
+          ? details.creatorName!
+          : tData.name.trim();
+
       final exam = ExamModel(
         examId: examId,
         examName: details.examName,
@@ -111,16 +144,28 @@ class Publishexamcontroller extends ChangeNotifier {
         examKey: details.examKey,
         instruction: details.instruction,
         batch: details.batch,
+        batches: effectiveBatches,
         examStart: details.examStart,
         examEnd: details.examEnd,
         questions: List.from(questions),
         resultPublished: false,
         assignedStudentIds: assignedIds.toList(growable: false),
         teacherId: tData.id.trim(),
-        teacherName: tData.name.trim(),
+        teacherName: creatorName,
+        createdByRole: details.creatorRole ?? 'Teacher',
       );
 
       await teacherRef.collection('exams').doc(examId).set(exam.toJson());
+
+      // If in institute mode, also publish to the organization's exams collection
+      if (isInstitute) {
+        await firestore
+            .collection('organizations')
+            .doc(tenantCtx!.activeOrgId)
+            .collection('exams')
+            .doc(examId)
+            .set(exam.toJson());
+      }
       tData.lastExamId = sequence.toString();
       TeacherData.updateTeacherLocalData();
 

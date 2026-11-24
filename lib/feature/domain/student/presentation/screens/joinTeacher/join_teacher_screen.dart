@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -35,7 +36,10 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
     if (scannedCode != null &&
         scannedCode is String &&
         scannedCode.trim().isNotEmpty) {
-      final cleanCode = BatchAndJoinCodeService.normalizeCode(scannedCode);
+      final trimmed = scannedCode.trim();
+      final cleanCode = (trimmed.toUpperCase().startsWith('TN-') || trimmed.length <= 8)
+          ? BatchAndJoinCodeService.normalizeCode(trimmed)
+          : trimmed;
       _codeController.text = cleanCode;
       if (mounted) {
         customSnackbar(
@@ -43,6 +47,24 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
           message: 'Code $cleanCode scanned! Review and submit your request.',
           color: Colors.green,
           ico: Icons.qr_code_scanner_rounded,
+        );
+      }
+    }
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim() ?? '';
+    if (text.isNotEmpty) {
+      setState(() {
+        _codeController.text = text;
+      });
+      if (mounted) {
+        customSnackbar(
+          context: context,
+          message: 'Pasted: $text',
+          color: Colors.blue,
+          ico: Icons.paste_rounded,
         );
       }
     }
@@ -236,42 +258,75 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
                                           ),
                                         ),
                                         const SizedBox(height: 24),
-                                        TextFormField(
-                                          controller: _codeController,
-                                          textCapitalization:
-                                              TextCapitalization.characters,
-                                          style: const TextStyle(
-                                            fontSize: 16.5,
-                                            fontWeight: FontWeight.w800,
-                                            letterSpacing: 1.2,
-                                            color: AppColors.primary,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                          decoration: InputDecoration(
-                                            hintText: 'TN-XXXXX or Batch Code',
-                                            prefixIcon: const Icon(
-                                              Icons.vpn_key_rounded,
-                                            ),
-                                            suffixIcon: IconButton(
-                                              icon: const Icon(
-                                                Icons.qr_code_scanner_rounded,
-                                                color: AppColors.secondary,
+                                        ValueListenableBuilder<TextEditingValue>(
+                                          valueListenable: _codeController,
+                                          builder: (context, val, _) {
+                                            final text = val.text.trim();
+                                            final isLong = text.length > 12;
+                                            return TextFormField(
+                                              controller: _codeController,
+                                              textCapitalization:
+                                                  TextCapitalization.none,
+                                              style: TextStyle(
+                                                fontSize: isLong ? 13.0 : 16.5,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: isLong ? 0.3 : 1.2,
+                                                color: AppColors.primary,
                                               ),
-                                              tooltip: 'Scan QR Code',
-                                              onPressed: controller.isLoading
-                                                  ? null
-                                                  : _openQrScanner,
-                                            ),
-                                          ),
-                                          validator: (val) {
-                                            if (val == null ||
-                                                val.trim().isEmpty) {
-                                              return 'Please enter a valid joining code';
-                                            }
-                                            if (val.trim().length < 4) {
-                                              return 'Joining code is too short';
-                                            }
-                                            return null;
+                                              textAlign: isLong ? TextAlign.start : TextAlign.center,
+                                              decoration: InputDecoration(
+                                                hintText: 'TN-XXXXX or Batch Code',
+                                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                                prefixIcon: const Icon(
+                                                  Icons.vpn_key_rounded,
+                                                ),
+                                                suffixIcon: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    if (text.isNotEmpty)
+                                                      IconButton(
+                                                        icon: const Icon(
+                                                          Icons.cancel_rounded,
+                                                          size: 18,
+                                                          color: Colors.grey,
+                                                        ),
+                                                        tooltip: 'Clear',
+                                                        onPressed: () => _codeController.clear(),
+                                                      )
+                                                    else
+                                                      IconButton(
+                                                        icon: const Icon(
+                                                          Icons.content_paste_rounded,
+                                                          size: 18,
+                                                          color: AppColors.secondary,
+                                                        ),
+                                                        tooltip: 'Paste from Clipboard',
+                                                        onPressed: _pasteFromClipboard,
+                                                      ),
+                                                    IconButton(
+                                                      icon: const Icon(
+                                                        Icons.qr_code_scanner_rounded,
+                                                        color: AppColors.secondary,
+                                                      ),
+                                                      tooltip: 'Scan QR Code',
+                                                      onPressed: controller.isLoading
+                                                          ? null
+                                                          : _openQrScanner,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              validator: (val) {
+                                                if (val == null ||
+                                                    val.trim().isEmpty) {
+                                                  return 'Please enter a valid joining code';
+                                                }
+                                                if (val.trim().length < 4) {
+                                                  return 'Joining code is too short';
+                                                }
+                                                return null;
+                                              },
+                                            );
                                           },
                                         ),
                                         const SizedBox(height: 14),

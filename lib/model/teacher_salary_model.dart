@@ -24,6 +24,8 @@ class SalaryPaymentEntry {
     this.createdAt,
   });
 
+  String get method => paymentMethod;
+
   factory SalaryPaymentEntry.fromJson(
     Map<String, dynamic> json, {
     String? docId,
@@ -112,7 +114,8 @@ class TeacherSalaryModel {
     required this.orgId,
     required this.teacherUid,
     required this.teacherName,
-    required this.amount,
+    double amount = 0.0,
+    double? baseSalary,
     this.amountPaid = 0.0,
     double? remainingAmount,
     required this.month,
@@ -123,21 +126,29 @@ class TeacherSalaryModel {
     this.paymentMode,
     this.referenceNumber,
     this.notes,
-  }) : status =
+  }) : amount = amount > 0 ? amount : (baseSalary ?? 0.0),
+       status =
            status ??
-           ((amount <= 0 || (amountPaid >= amount && amount > 0))
+           (((amount > 0 ? amount : (baseSalary ?? 0.0)) <= 0 ||
+                   (amountPaid >= (amount > 0 ? amount : (baseSalary ?? 0.0)) &&
+                       (amount > 0 ? amount : (baseSalary ?? 0.0)) > 0))
                ? 'paid'
                : (amountPaid > 0 ? 'partial' : 'pending')),
        remainingAmount =
            remainingAmount ??
-           ((amount - amountPaid) > 0 ? (amount - amountPaid) : 0.0);
+           ((((amount > 0 ? amount : (baseSalary ?? 0.0)) - amountPaid) > 0)
+               ? ((amount > 0 ? amount : (baseSalary ?? 0.0)) - amountPaid)
+               : 0.0);
 
   double get baseSalary => amount;
   double get balance => remainingAmount;
+  double get balanceDue => remainingAmount;
+  String get displayMonth => month;
 
   bool get isPaid => status.toLowerCase() == 'paid';
   bool get isPartial => status.toLowerCase() == 'partial';
   bool get isPending => status.toLowerCase() == 'pending';
+  List<SalaryPaymentEntry> get payments => const [];
 
   factory TeacherSalaryModel.fromJson(
     Map<String, dynamic> json, {

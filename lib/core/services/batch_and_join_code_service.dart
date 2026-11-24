@@ -91,8 +91,8 @@ class BatchAndJoinCodeService {
     final batch = _db.batch();
     batch.set(batchRef, batchData);
 
-    // Save joining code index for fast, secure resolution
-    batch.set(_db.collection('joinCodes').doc(joinCode), {
+    // Save joining code index for fast, secure resolution (both by joinCode and batchId)
+    final joinIndexData = {
       'code': joinCode,
       'teacher_id': teacherId.trim(),
       'teacher_name': teacherName.trim(),
@@ -100,7 +100,9 @@ class BatchAndJoinCodeService {
       'batch_name': cleanName,
       'is_active': true,
       'created_at': FieldValue.serverTimestamp(),
-    });
+    };
+    batch.set(_db.collection('joinCodes').doc(joinCode), joinIndexData);
+    batch.set(_db.collection('joinCodes').doc(batchId), joinIndexData);
 
     // Ensure backwards compatibility with legacy teacherData.batch string array
     batch.set(_db.collection('user').doc(teacherId), {
@@ -349,8 +351,8 @@ class BatchAndJoinCodeService {
     if (clean.isEmpty) return null;
     final normalized = normalizeCode(clean);
 
-    // 1. Try direct lookup in `joinCodes` by normalized code, clean code, uppercase clean
-    for (final key in [normalized, clean, clean.toUpperCase()]) {
+    // 1. Try direct lookup in `joinCodes` by multiple key variations
+    for (final key in [clean, normalized, clean.toUpperCase(), clean.toLowerCase()]) {
       if (key.isEmpty) continue;
       try {
         final doc = await _db.collection('joinCodes').doc(key).get();
@@ -361,41 +363,46 @@ class BatchAndJoinCodeService {
       } catch (_) {}
     }
 
-    // 2. Try query in `joinCodes` where batch_id == clean or batch_id == inputCode
-    try {
-      final queryByBatch = await _db
-          .collection('joinCodes')
-          .where('batch_id', isEqualTo: clean)
-          .limit(1)
-          .get();
-      if (queryByBatch.docs.isNotEmpty) {
-        final model = JoinCodeModel.fromJson(
-          queryByBatch.docs.first.data(),
-          codeId: queryByBatch.docs.first.id,
-        );
-        if (model.isActive) return model;
-      }
-    } catch (_) {}
+    // 2. Try query in `joinCodes` where batch_id matches clean, normalized, or lowercase
+    for (final bVal in [clean, normalized, clean.toLowerCase()]) {
+      if (bVal.isEmpty) continue;
+      try {
+        final queryByBatch = await _db
+            .collection('joinCodes')
+            .where('batch_id', isEqualTo: bVal)
+            .limit(1)
+            .get();
+        if (queryByBatch.docs.isNotEmpty) {
+          final model = JoinCodeModel.fromJson(
+            queryByBatch.docs.first.data(),
+            codeId: queryByBatch.docs.first.id,
+          );
+          if (model.isActive) return model;
+        }
+      } catch (_) {}
+    }
 
     // 3. Try query in `joinCodes` where code == normalized or code == clean
-    try {
-      final queryByCode = await _db
-          .collection('joinCodes')
-          .where('code', isEqualTo: normalized)
-          .limit(1)
-          .get();
-      if (queryByCode.docs.isNotEmpty) {
-        final model = JoinCodeModel.fromJson(
-          queryByCode.docs.first.data(),
-          codeId: queryByCode.docs.first.id,
-        );
-        if (model.isActive) return model;
-      }
-    } catch (_) {}
+    for (final cVal in [normalized, clean, clean.toUpperCase()]) {
+      if (cVal.isEmpty) continue;
+      try {
+        final queryByCode = await _db
+            .collection('joinCodes')
+            .where('code', isEqualTo: cVal)
+            .limit(1)
+            .get();
+        if (queryByCode.docs.isNotEmpty) {
+          final model = JoinCodeModel.fromJson(
+            queryByCode.docs.first.data(),
+            codeId: queryByCode.docs.first.id,
+          );
+          if (model.isActive) return model;
+        }
+      } catch (_) {}
+    }
 
-    // 4. Try collectionGroup('batches') query safely by 'id' and 'active_join_code'
+    // 4. Try collectionGroup('batches') queries safely in isolated blocks
     try {
-      // 4a. Check by active_join_code
       final groupSnapByCode = await _db
           .collectionGroup('batches')
           .where('active_join_code', isEqualTo: normalized)
@@ -414,10 +421,12 @@ class BatchAndJoinCodeService {
           orgId: parentOrgId,
           isActive: data['is_archived'] != true,
         );
+        _cacheJoinCode(model);
         return model;
       }
+    } catch (_) {}
 
-      // 4b. Check by 'id' field (standard field on BatchModel)
+    try {
       final groupSnapById = await _db
           .collectionGroup('batches')
           .where('id', isEqualTo: clean)
@@ -438,6 +447,7 @@ class BatchAndJoinCodeService {
           orgId: parentOrgId,
           isActive: data['is_archived'] != true,
         );
+        _cacheJoinCode(model);
         return model;
       }
     } catch (_) {}
@@ -449,27 +459,31 @@ class BatchAndJoinCodeService {
         final orgData = orgDoc.data();
         final ownerName = (orgData['ownerName'] ?? orgData['name'] ?? 'Institute').toString();
 
-        // 5a. Direct document check by batchId (clean)
-        try {
-          final batchSnap = await orgDoc.reference
-              .collection('batches')
-              .doc(clean)
-              .get();
-          if (batchSnap.exists && batchSnap.data() != null) {
-            final data = batchSnap.data()!;
-            final activeCode = (data['active_join_code'] ?? '').toString().trim();
-            final resolvedCode = activeCode.isNotEmpty ? activeCode : clean;
-            return JoinCodeModel(
-              code: resolvedCode,
-              teacherId: (data['teacher_id'] ?? orgDoc.id).toString(),
-              teacherName: ownerName,
-              batchId: batchSnap.id,
-              batchName: (data['name'] ?? 'Batch').toString(),
-              orgId: orgDoc.id,
-              isActive: data['is_archived'] != true,
-            );
-          }
-        } catch (_) {}
+        // 5a. Direct document check by batchId (clean or lowercase)
+        for (final docCheck in [clean, clean.toLowerCase()]) {
+          try {
+            final batchSnap = await orgDoc.reference
+                .collection('batches')
+                .doc(docCheck)
+                .get();
+            if (batchSnap.exists && batchSnap.data() != null) {
+              final data = batchSnap.data()!;
+              final activeCode = (data['active_join_code'] ?? '').toString().trim();
+              final resolvedCode = activeCode.isNotEmpty ? activeCode : clean;
+              final foundModel = JoinCodeModel(
+                code: resolvedCode,
+                teacherId: (data['teacher_id'] ?? orgDoc.id).toString(),
+                teacherName: ownerName,
+                batchId: batchSnap.id,
+                batchName: (data['name'] ?? 'Batch').toString(),
+                orgId: orgDoc.id,
+                isActive: data['is_archived'] != true,
+              );
+              _cacheJoinCode(foundModel);
+              return foundModel;
+            }
+          } catch (_) {}
+        }
 
         // 5b. Query by active_join_code inside org batches
         try {
@@ -481,7 +495,7 @@ class BatchAndJoinCodeService {
           if (bCodeSnap.docs.isNotEmpty) {
             final bDoc = bCodeSnap.docs.first;
             final data = bDoc.data();
-            return JoinCodeModel(
+            final foundModel = JoinCodeModel(
               code: normalized,
               teacherId: (data['teacher_id'] ?? orgDoc.id).toString(),
               teacherName: ownerName,
@@ -490,14 +504,16 @@ class BatchAndJoinCodeService {
               orgId: orgDoc.id,
               isActive: data['is_archived'] != true,
             );
+            _cacheJoinCode(foundModel);
+            return foundModel;
           }
         } catch (_) {}
 
-        // 5c. Scan org batches for ID or code match (supports prefixes or case-insensitive ID)
+        // 5c. Scan org batches for ID, code, or substring match
         try {
           final allBatchesSnap = await orgDoc.reference
               .collection('batches')
-              .limit(50)
+              .limit(100)
               .get();
           for (final bDoc in allBatchesSnap.docs) {
             final data = bDoc.data();
@@ -506,14 +522,16 @@ class BatchAndJoinCodeService {
 
             final idMatches = bId == clean ||
                 bId.toLowerCase() == clean.toLowerCase() ||
-                (clean.length >= 6 && bId.toUpperCase().startsWith(clean.toUpperCase()));
+                (clean.length >= 5 && bId.toUpperCase().contains(clean.toUpperCase())) ||
+                (clean.length >= 5 && clean.toUpperCase().contains(bId.toUpperCase()));
             final codeMatches = activeCode.isNotEmpty &&
                 (normalizeCode(activeCode) == normalized ||
-                    activeCode.toLowerCase() == clean.toLowerCase());
+                    activeCode.toLowerCase() == clean.toLowerCase() ||
+                    (clean.length >= 4 && activeCode.toUpperCase().contains(normalized)));
 
             if (idMatches || codeMatches) {
               final resolvedCode = activeCode.isNotEmpty ? activeCode : clean;
-              return JoinCodeModel(
+              final foundModel = JoinCodeModel(
                 code: resolvedCode,
                 teacherId: (data['teacher_id'] ?? orgDoc.id).toString(),
                 teacherName: ownerName,
@@ -522,13 +540,172 @@ class BatchAndJoinCodeService {
                 orgId: orgDoc.id,
                 isActive: data['is_archived'] != true,
               );
+              _cacheJoinCode(foundModel);
+              return foundModel;
             }
           }
         } catch (_) {}
       }
     } catch (_) {}
 
+    // 6. Fallback: Search teacher user collection directly (`user/{teacherId}/batches`)
+    try {
+      final teachersSnap = await _db.collection('user').limit(50).get();
+      for (final teacherDoc in teachersSnap.docs) {
+        final teacherData = teacherDoc.data();
+        final teacherName =
+            (teacherData['name'] ?? teacherData['teacherName'] ?? 'Teacher')
+                .toString();
+
+        // 6a. Direct check by doc id
+        for (final docCheck in [clean, clean.toLowerCase()]) {
+          try {
+            final bSnap =
+                await teacherDoc.reference.collection('batches').doc(docCheck).get();
+            if (bSnap.exists && bSnap.data() != null) {
+              final data = bSnap.data()!;
+              final activeCode =
+                  (data['active_join_code'] ?? '').toString().trim();
+              final resolvedCode = activeCode.isNotEmpty ? activeCode : clean;
+              final foundModel = JoinCodeModel(
+                code: resolvedCode,
+                teacherId: teacherDoc.id,
+                teacherName: teacherName,
+                batchId: bSnap.id,
+                batchName: (data['name'] ?? 'Batch').toString(),
+                isActive: data['is_archived'] != true,
+              );
+              _cacheJoinCode(foundModel);
+              return foundModel;
+            }
+          } catch (_) {}
+        }
+
+        // 6b. Query by active_join_code inside teacher batches
+        try {
+          final bCodeSnap = await teacherDoc.reference
+              .collection('batches')
+              .where('active_join_code', isEqualTo: normalized)
+              .limit(1)
+              .get();
+          if (bCodeSnap.docs.isNotEmpty) {
+            final bDoc = bCodeSnap.docs.first;
+            final data = bDoc.data();
+            final foundModel = JoinCodeModel(
+              code: normalized,
+              teacherId: teacherDoc.id,
+              teacherName: teacherName,
+              batchId: bDoc.id,
+              batchName: (data['name'] ?? 'Batch').toString(),
+              isActive: data['is_archived'] != true,
+            );
+            _cacheJoinCode(foundModel);
+            return foundModel;
+          }
+        } catch (_) {}
+
+        // 6c. Scan teacher batches for ID or code match
+        try {
+          final allBatchesSnap =
+              await teacherDoc.reference.collection('batches').limit(100).get();
+          for (final bDoc in allBatchesSnap.docs) {
+            final data = bDoc.data();
+            final bId = bDoc.id;
+            final activeCode =
+                (data['active_join_code'] ?? '').toString().trim();
+
+            final idMatches = bId == clean ||
+                bId.toLowerCase() == clean.toLowerCase() ||
+                (clean.length >= 5 &&
+                    bId.toUpperCase().contains(clean.toUpperCase())) ||
+                (clean.length >= 5 &&
+                    clean.toUpperCase().contains(bId.toUpperCase()));
+            final codeMatches = activeCode.isNotEmpty &&
+                (normalizeCode(activeCode) == normalized ||
+                    activeCode.toLowerCase() == clean.toLowerCase() ||
+                    (clean.length >= 4 &&
+                        activeCode.toUpperCase().contains(normalized)));
+
+            if (idMatches || codeMatches) {
+              final resolvedCode = activeCode.isNotEmpty ? activeCode : clean;
+              final foundModel = JoinCodeModel(
+                code: resolvedCode,
+                teacherId: teacherDoc.id,
+                teacherName: teacherName,
+                batchId: bDoc.id,
+                batchName: (data['name'] ?? 'Batch').toString(),
+                isActive: data['is_archived'] != true,
+              );
+              _cacheJoinCode(foundModel);
+              return foundModel;
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    // 7. Fallback: Search `users` (plural) collection
+    try {
+      final usersSnap = await _db.collection('users').limit(50).get();
+      for (final uDoc in usersSnap.docs) {
+        final uData = uDoc.data();
+        final uName = (uData['name'] ?? 'Teacher').toString();
+
+        for (final docCheck in [clean, clean.toLowerCase()]) {
+          try {
+            final bSnap = await uDoc.reference.collection('batches').doc(docCheck).get();
+            if (bSnap.exists && bSnap.data() != null) {
+              final data = bSnap.data()!;
+              final activeCode = (data['active_join_code'] ?? '').toString().trim();
+              final resolvedCode = activeCode.isNotEmpty ? activeCode : clean;
+              final foundModel = JoinCodeModel(
+                code: resolvedCode,
+                teacherId: uDoc.id,
+                teacherName: uName,
+                batchId: bSnap.id,
+                batchName: (data['name'] ?? 'Batch').toString(),
+                isActive: data['is_archived'] != true,
+              );
+              _cacheJoinCode(foundModel);
+              return foundModel;
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+
     return null;
+  }
+
+  /// Helper to cache resolved join codes to root joinCodes collection for instant subsequent reads
+  static void _cacheJoinCode(JoinCodeModel model) {
+    try {
+      final json = model.toJson();
+      if (model.code.isNotEmpty) {
+        _db
+            .collection('joinCodes')
+            .doc(model.code)
+            .set(json, SetOptions(merge: true))
+            .catchError((_) {});
+        _db
+            .collection('joinCodes')
+            .doc(model.code.toUpperCase())
+            .set(json, SetOptions(merge: true))
+            .catchError((_) {});
+      }
+      if (model.batchId.isNotEmpty) {
+        _db
+            .collection('joinCodes')
+            .doc(model.batchId)
+            .set(json, SetOptions(merge: true))
+            .catchError((_) {});
+        _db
+            .collection('joinCodes')
+            .doc(model.batchId.toLowerCase())
+            .set(json, SetOptions(merge: true))
+            .catchError((_) {});
+      }
+    } catch (_) {}
   }
 
   /// Submits a request for a student to join a teacher's or institute's batch.

@@ -15,6 +15,8 @@ import 'package:test_nest/feature/domain/organization/presentation/screens/batch
 import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/model/join_request_model.dart';
 import 'package:test_nest/model/organization_model.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/owner_student_profile_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/owner_teacher_profile_screen.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/batches/widgets/batch_qr_code_dialog.dart';
 import 'package:test_nest/routes/app_routes.dart';
 import 'package:test_nest/main.dart';
@@ -578,7 +580,7 @@ class _OwnerHomeTab extends StatelessWidget {
       ),
       _ShortcutItem(
         title: 'Exams',
-        subtitle: 'Institute assessments',
+        subtitle: '${controller.completedExams} Completed • ${controller.totalExams} Total',
         icon: Icons.assignment_rounded,
         color: const Color(0xFF1D4ED8),
         onTap: () => Get.toNamed(AppRoutes.teacherExams),
@@ -939,9 +941,15 @@ class _OwnerHomeTab extends StatelessWidget {
                   color: Color(0xFF0F172A),
                 ),
               ),
-              TextButton(
+              TextButton.icon(
                 onPressed: () => Get.toNamed(AppRoutes.teacherExams),
-                child: const Text('All Exams'),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                label: Text(
+                  controller.completedExams > 0
+                      ? 'All Exams (${controller.completedExams} Completed)'
+                      : 'All Exams',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
             ],
           ),
@@ -1437,6 +1445,21 @@ class _OwnerTeachersTabState extends State<_OwnerTeachersTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              TextButton.icon(
+                icon: const Icon(Icons.person_outline_rounded, size: 16),
+                label: const Text('View Profile'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF1D4ED8),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                onPressed: () => Get.to(
+                  () => OwnerTeacherProfileScreen(
+                    teacher: teacher,
+                    orgId: widget.controller.orgId,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
               TextButton.icon(
                 icon: const Icon(Icons.assignment_ind_outlined, size: 16),
                 label: const Text('Manage Batches'),
@@ -2822,6 +2845,13 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
   }
 
   void _showStudentProfileModal(OrganizationMemberModel student) {
+    Get.to(
+      () => OwnerStudentProfileScreen(
+        student: student,
+        orgId: widget.controller.orgId,
+      ),
+    );
+    return;
     final parentCtx = context;
     showModalBottomSheet(
       context: parentCtx,

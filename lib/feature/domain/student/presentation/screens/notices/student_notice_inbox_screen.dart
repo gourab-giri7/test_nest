@@ -105,7 +105,7 @@ class _StudentNoticeInboxScreenState extends State<StudentNoticeInboxScreen> {
       }
     }
 
-    await _controller.loadNotices(
+    _controller.bindNoticeStream(
       resolver: resolver,
       studentUid: uid,
       enrolledBatchIds: batchIds,

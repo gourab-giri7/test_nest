@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:test_nest/core/services/batch_and_join_code_service.dart';
 import 'package:test_nest/core/services/batch_qr_service.dart';
 import 'package:test_nest/model/batch_model.dart';
 
@@ -24,14 +26,83 @@ class BatchQrCodeDialog extends StatefulWidget {
 class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
   final GlobalKey _repaintBoundaryKey = GlobalKey();
   bool _isSharingQr = false;
+  late String _currentCode;
+  bool _isGeneratingCode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentCode = widget.batch.activeJoinCode.trim();
+    if (_currentCode.isEmpty) {
+      _autoGenerateCode();
+    }
+  }
+
+  Future<void> _autoGenerateCode() async {
+    setState(() => _isGeneratingCode = true);
+    try {
+      final newCode = BatchAndJoinCodeService.generateJoiningCode();
+      final batchId = widget.batch.id.trim();
+      final teacherId = widget.batch.teacherId.trim();
+
+      // Update in Firestore
+      final db = FirebaseFirestore.instance;
+      final joinData = {
+        'code': newCode,
+        'teacher_id': teacherId,
+        'batch_id': batchId,
+        'batch_name': widget.batch.name,
+        'is_active': true,
+        'created_at': FieldValue.serverTimestamp(),
+      };
+
+      await db.collection('joinCodes').doc(newCode).set(joinData, SetOptions(merge: true));
+      await db.collection('joinCodes').doc(batchId).set(joinData, SetOptions(merge: true));
+
+      // Attempt to persist on teacher or org batch
+      try {
+        if (teacherId.isNotEmpty) {
+          await db
+              .collection('user')
+              .doc(teacherId)
+              .collection('batches')
+              .doc(batchId)
+              .set({'active_join_code': newCode}, SetOptions(merge: true));
+        }
+      } catch (_) {}
+
+      try {
+        final orgsSnap = await db.collection('organizations').limit(20).get();
+        for (final o in orgsSnap.docs) {
+          final bDoc = await o.reference.collection('batches').doc(batchId).get();
+          if (bDoc.exists) {
+            await bDoc.reference.set({'active_join_code': newCode}, SetOptions(merge: true));
+            break;
+          }
+        }
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          _currentCode = newCode;
+          _isGeneratingCode = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isGeneratingCode = false);
+      }
+    }
+  }
 
   Future<void> _handleShareQr() async {
     if (_isSharingQr) return;
     setState(() => _isSharingQr = true);
     try {
+      final effectiveBatch = widget.batch.copyWith(activeJoinCode: _currentCode);
       await BatchQrService.shareQrCodeImage(
         context: context,
-        batch: widget.batch,
+        batch: effectiveBatch,
         repaintBoundaryKey: _repaintBoundaryKey,
       );
     } finally {
@@ -44,7 +115,7 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
   @override
   Widget build(BuildContext context) {
     final batch = widget.batch;
-    final joinCode = batch.activeJoinCode.trim();
+    final joinCode = _currentCode;
     final hasActiveCode = joinCode.isNotEmpty;
 
     return Dialog(

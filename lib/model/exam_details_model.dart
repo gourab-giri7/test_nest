@@ -7,6 +7,9 @@ class ExamDetailsModel {
   final String examKey;
   final String instruction;
   final String batch;
+  final List<String> batches;
+  final String? creatorName;
+  final String? creatorRole;
 
   final DateTime examStart;
   final DateTime examEnd;
@@ -19,6 +22,9 @@ class ExamDetailsModel {
     required this.examKey,
     required this.instruction,
     required this.batch,
+    this.batches = const [],
+    this.creatorName,
+    this.creatorRole,
     required this.examStart,
     required this.examEnd,
     this.assignedStudentIds = const [],
@@ -32,6 +38,7 @@ class ExamDetailsModel {
         examKey: '',
         instruction: '',
         batch: '',
+        batches: const [],
         examStart: DateTime.now(),
         examEnd: DateTime.now(),
         assignedStudentIds: const [],
@@ -42,13 +49,24 @@ class ExamDetailsModel {
         ? Map<String, dynamic>.from(rawDetails)
         : json;
 
+    final resolvedBatch = (details['batch'] ?? json['batch'] ?? '').toString();
+    final rawBatches = details['batches'] ?? json['batches'];
+    final resolvedBatches = rawBatches is List
+        ? rawBatches.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList()
+        : (resolvedBatch.isNotEmpty
+            ? resolvedBatch.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+            : const <String>[]);
+
     return ExamDetailsModel(
       examName: (details['exam_name'] ?? json['exam_name'] ?? '').toString(),
       fullMarks: (details['full_marks'] ?? json['full_marks'] ?? '').toString(),
       examKey: (details['exam_key'] ?? json['exam_key'] ?? '').toString(),
       instruction: (details['instruction'] ?? json['instruction'] ?? '')
           .toString(),
-      batch: (details['batch'] ?? json['batch'] ?? '').toString(),
+      batch: resolvedBatch,
+      batches: resolvedBatches,
+      creatorName: (details['creator_name'] ?? json['creator_name'] ?? details['teacher_name'] ?? json['teacher_name'])?.toString(),
+      creatorRole: (details['creator_role'] ?? json['creator_role'] ?? details['created_by_role'] ?? json['created_by_role'])?.toString(),
       examStart: _timestampToDateTime(
         details['exam_start'] ?? json['exam_start'],
       ),
@@ -93,6 +111,9 @@ class ExamDetailsModel {
       'exam_key': examKey,
       'instruction': instruction,
       'batch': batch,
+      'batches': batches.isNotEmpty ? batches : (batch.isNotEmpty ? [batch] : const []),
+      if (creatorName != null) 'creator_name': creatorName,
+      if (creatorRole != null) 'creator_role': creatorRole,
       'exam_start': Timestamp.fromDate(examStart),
       'exam_end': Timestamp.fromDate(examEnd),
       'assigned_student_ids': assignedStudentIds,

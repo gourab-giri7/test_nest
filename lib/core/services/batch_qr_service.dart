@@ -425,9 +425,12 @@ Instructions:
 
     // Fall back to normalizing the whole string if it conforms to code alphanumeric rules
     final normalized = BatchAndJoinCodeService.normalizeCode(trimmed);
-    if (normalized.length >= 4 && normalized.length <= 15) {
-      // Basic sanity check: only letters, digits, and hyphens
-      if (RegExp(r'^[A-Z0-9\-]+$').hasMatch(normalized)) {
+    if (normalized.length >= 4 && normalized.length <= 64) {
+      // Basic sanity check: only letters, digits, underscores and hyphens
+      if (RegExp(r'^[A-Za-z0-9\-_]+$').hasMatch(trimmed)) {
+        return trimmed;
+      }
+      if (RegExp(r'^[A-Z0-9\-_]+$').hasMatch(normalized)) {
         return normalized;
       }
     }

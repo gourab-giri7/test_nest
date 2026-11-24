@@ -2,8 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:test_nest/core/context/active_tenant_context.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/feature/domain/teacher/data/datasources/get_student_data.dart';
+import 'package:test_nest/feature/domain/teacher/data/models/teacher_data_model.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/CreateExam/controller/create_exam_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/screens/manualQuestions/controller/question_controller.dart';
 import 'package:test_nest/feature/domain/teacher/presentation/widgets/exam_step_indicator.dart';
@@ -191,43 +193,62 @@ class _CreateExamScreenState extends State<CreateExamScreen> {
                             const SizedBox(height: 24),
 
                             // Next Button
-                            SizedBox(
-                              width: double.infinity,
-                              height: 52,
-                              child: ElevatedButton(
-                                onPressed: c.selectedCount > 0
-                                    ? () => c.next(context, qc)
-                                    : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  disabledBackgroundColor: AppColors.primary
-                                      .withOpacity(0.4),
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      c.selectedCount == 0
-                                          ? 'Select Students to Continue'
-                                          : 'Continue to Questions (${c.selectedCount} Students)',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
+                            Builder(
+                              builder: (ctx) {
+                                ActiveTenantContext? tCtx;
+                                try {
+                                  tCtx = ctx.watch<ActiveTenantContext>();
+                                } catch (_) {}
+                                final isOwner = tCtx != null && tCtx.isAdmin && tCtx.isInstitute;
+                                final creatorName = (isOwner && tCtx.activeOrgName.isNotEmpty)
+                                    ? tCtx.activeOrgName
+                                    : (teacherData?.name.trim() ?? 'Teacher');
+                                final creatorRole = isOwner ? 'Owner' : 'Teacher';
+
+                                return SizedBox(
+                                  width: double.infinity,
+                                  height: 52,
+                                  child: ElevatedButton(
+                                    onPressed: c.selectedCount > 0
+                                        ? () => c.next(
+                                              context,
+                                              qc,
+                                              explicitCreatorName: creatorName,
+                                              explicitCreatorRole: creatorRole,
+                                            )
+                                        : null,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      disabledBackgroundColor: AppColors.primary
+                                          .withOpacity(0.4),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    const Icon(
-                                      Icons.arrow_forward_rounded,
-                                      size: 18,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          c.selectedCount == 0
+                                              ? 'Select Students to Continue'
+                                              : 'Continue to Questions (${c.selectedCount} Students)',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Icon(
+                                          Icons.arrow_forward_rounded,
+                                          size: 18,
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
+                                  ),
+                                );
+                              },
                             ),
                             const SizedBox(height: 24),
                           ],
@@ -296,234 +317,320 @@ class _CreateExamScreenState extends State<CreateExamScreen> {
   }
 
   Widget _studentAssignment(CreateExamController c) {
+    ActiveTenantContext? tenantCtx;
+    try {
+      tenantCtx = context.watch<ActiveTenantContext>();
+    } catch (_) {
+      tenantCtx = null;
+    }
+
+    final isInstitute =
+        tenantCtx != null &&
+        tenantCtx.isInstitute &&
+        tenantCtx.activeOrgId.isNotEmpty;
+    final orgId = tenantCtx?.activeOrgId ?? '';
+    final teacherId = teacherData?.id.trim() ?? '';
+
+    final Stream<QuerySnapshot<Map<String, dynamic>>> batchStream = isInstitute
+        ? FirebaseFirestore.instance
+            .collection('organizations')
+            .doc(orgId)
+            .collection('batches')
+            .snapshots()
+        : (teacherId.isNotEmpty
+            ? FirebaseFirestore.instance
+                .collection('user')
+                .doc(teacherId)
+                .collection('batches')
+                .snapshots()
+            : const Stream.empty());
+
+    final Stream<QuerySnapshot<Map<String, dynamic>>> studentStream = isInstitute
+        ? FirebaseFirestore.instance
+            .collection('organizations')
+            .doc(orgId)
+            .collection('students')
+            .snapshots()
+        : GetStudentData.getAllStudent();
+
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: GetStudentData.getAllStudent(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-          return const Padding(
-            padding: EdgeInsets.all(20),
-            child: Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            ),
-          );
-        }
+      stream: batchStream,
+      builder: (context, batchSnap) {
+        final explicitBatches = (batchSnap.data?.docs ?? [])
+            .map((d) => (d.data()['name'] ?? '').toString().trim())
+            .where((name) => name.isNotEmpty)
+            .toList();
 
-        if (snap.hasError) {
-          return const Text(
-            'Unable to load students.',
-            style: TextStyle(color: Colors.red),
-          );
-        }
-
-        final docs = snap.data?.docs ?? [];
-        c.setStudentsFromSnapshot(docs);
-
-        final batches = c.classList;
-        final hasBatches =
-            batches.isNotEmpty && batches.first != 'select batch';
-
-        if (!hasBatches) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              'Please add batches/students before creating an exam',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
-            ),
-          );
-        }
-
-        final students = c.studentsForSelectedBatch;
-        final dropdownValue = batches.contains(c.selectedbatch)
-            ? c.selectedbatch
-            : batches.first;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _label('Target Batch'),
-            DropdownButtonFormField<String>(
-              value: dropdownValue,
-              isExpanded: true,
-              decoration: _dec(
-                hint: 'Select batch',
-                prefixIcon: Icons.class_outlined,
-              ),
-              items: batches
-                  .map(
-                    (b) => DropdownMenuItem(
-                      value: b,
-                      child: Text(
-                        b,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) c.setBatch(v);
-              },
-            ),
-            const SizedBox(height: 16),
-            if (students.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(16),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: studentStream,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+              return const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
                 ),
-                child: const Text(
-                  'No students found in this batch.',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
+              );
+            }
+
+            if (snap.hasError) {
+              return const Text(
+                'Unable to load students.',
+                style: TextStyle(color: Colors.red),
+              );
+            }
+
+            final docs = snap.data?.docs ?? [];
+            c.setStudentsFromSnapshot(docs, explicitBatches: explicitBatches);
+
+            final batches = c.classList;
+            final hasBatches =
+                batches.isNotEmpty && batches.first != 'select batch';
+
+            if (!hasBatches) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Please add batches/students before creating an exam',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
                 ),
-              )
-            else
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
+              );
+            }
+
+            final students = c.studentsForSelectedBatch;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          Checkbox(
-                            value: c.allStudentsSelected,
-                            activeColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            onChanged: (v) => c.toggleAllStudents(v ?? false),
+                    _label('Target Batches (Multiple selection)'),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
                           ),
-                          const Expanded(
-                            child: Text(
-                              'Select All Students',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: AppColors.text,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primarySoft,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '${c.selectedCount}/${students.length}',
-                              style: const TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 260),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: students.length,
-                        separatorBuilder: (_, __) => const Divider(
-                          height: 1,
-                          indent: 14,
-                          endIndent: 14,
-                          color: Color(0xFFEDF2F7),
+                          onPressed: () => c.selectAllBatches(),
+                          child: const Text('Select All', style: TextStyle(fontSize: 12)),
                         ),
-                        itemBuilder: (context, index) {
-                          final s = students[index];
-                          final isSelected = c.selectedStudentIds.contains(
-                            s.id.trim(),
-                          );
-                          return InkWell(
-                            onTap: () => c.toggleStudent(s.id, !isSelected),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              child: Row(
-                                children: [
-                                  Checkbox(
-                                    value: isSelected,
-                                    activeColor: AppColors.primary,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    onChanged: (v) =>
-                                        c.toggleStudent(s.id, v ?? false),
-                                  ),
-                                  CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: AppColors.primary
-                                        .withOpacity(0.1),
-                                    child: Text(
-                                      s.name.isNotEmpty
-                                          ? s.name[0].toUpperCase()
-                                          : 'S',
-                                      style: const TextStyle(
-                                        color: AppColors.primary,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          s.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                            color: AppColors.text,
-                                          ),
-                                        ),
-                                        Text(
-                                          'ID: ${s.id}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            foregroundColor: Colors.redAccent,
+                          ),
+                          onPressed: () => c.deselectAllBatches(),
+                          child: const Text('Clear', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ),
-          ],
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: batches.map((batchName) {
+                      final isSelected = c.isBatchSelected(batchName);
+                      return FilterChip(
+                        label: Text(
+                          batchName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? Colors.white : const Color(0xFF1E293B),
+                          ),
+                        ),
+                        selected: isSelected,
+                        checkmarkColor: Colors.white,
+                        selectedColor: AppColors.primary,
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(
+                            color: isSelected
+                                ? AppColors.primary
+                                : const Color(0xFFCBD5E1),
+                            width: isSelected ? 1.5 : 1.0,
+                          ),
+                        ),
+                        onSelected: (_) => c.toggleBatch(batchName),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (students.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: const Text(
+                      'No students found in this batch.',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              Checkbox(
+                                value: c.allStudentsSelected,
+                                activeColor: AppColors.primary,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                onChanged: (v) => c.toggleAllStudents(v ?? false),
+                              ),
+                              const Expanded(
+                                child: Text(
+                                  'Select All Students',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: AppColors.text,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primarySoft,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${c.selectedCount}/${students.length}',
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 260),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: students.length,
+                            separatorBuilder: (_, __) => const Divider(
+                              height: 1,
+                              indent: 14,
+                              endIndent: 14,
+                              color: Color(0xFFEDF2F7),
+                            ),
+                            itemBuilder: (context, index) {
+                              final s = students[index];
+                              final isSelected = c.selectedStudentIds.contains(
+                                s.id.trim(),
+                              );
+                              return InkWell(
+                                onTap: () => c.toggleStudent(s.id, !isSelected),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Checkbox(
+                                        value: isSelected,
+                                        activeColor: AppColors.primary,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        onChanged: (v) =>
+                                            c.toggleStudent(s.id, v ?? false),
+                                      ),
+                                      CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: AppColors.primary
+                                            .withOpacity(0.1),
+                                        child: Text(
+                                          s.name.isNotEmpty
+                                              ? s.name[0].toUpperCase()
+                                              : 'S',
+                                          style: const TextStyle(
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              s.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: AppColors.text,
+                                              ),
+                                            ),
+                                            Text(
+                                              'ID: ${s.id}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
         );
       },
     );

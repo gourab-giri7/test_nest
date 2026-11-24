@@ -35,6 +35,7 @@ class InstituteAdminDashboardController extends ChangeNotifier {
   int _totalBatches = 0;
   int _totalExams = 0;
   int _activeExams = 0;
+  int _completedExams = 0;
   int _pendingJoinRequests = 0;
   int _todayAttendancePresent = 0;
   int _todayAttendanceTotal = 0;
@@ -63,6 +64,7 @@ class InstituteAdminDashboardController extends ChangeNotifier {
   int get totalBatches => _totalBatches;
   int get totalExams => _totalExams;
   int get activeExams => _activeExams;
+  int get completedExams => _completedExams;
   int get pendingJoinRequests => _pendingJoinRequests;
   int get todayAttendancePresent => _todayAttendancePresent;
   int get todayAttendanceTotal => _todayAttendanceTotal;
@@ -194,15 +196,21 @@ class InstituteAdminDashboardController extends ChangeNotifier {
               final now = DateTime.now();
 
               int active = 0;
+              int completed = 0;
               for (final e in exams) {
-                if (e.examStart != null && e.examEnd != null) {
-                  if (now.isAfter(e.examStart!) && now.isBefore(e.examEnd!)) {
-                    active++;
-                  }
+                if (e.status == 'Completed' ||
+                    (e.examEnd != null && now.isAfter(e.examEnd!))) {
+                  completed++;
+                } else if (e.examStart != null &&
+                    e.examEnd != null &&
+                    now.isAfter(e.examStart!) &&
+                    now.isBefore(e.examEnd!)) {
+                  active++;
                 }
               }
               _totalExams = exams.length;
               _activeExams = active;
+              _completedExams = completed;
               _recentExams = exams.take(5).toList();
               _checkLoadingComplete();
             },
@@ -210,6 +218,7 @@ class InstituteAdminDashboardController extends ChangeNotifier {
               // Silent fail for exams if none exist
               _totalExams = 0;
               _activeExams = 0;
+              _completedExams = 0;
               _recentExams = [];
               _checkLoadingComplete();
             },
@@ -280,19 +289,29 @@ class InstituteAdminDashboardController extends ChangeNotifier {
   }
 
   void _syncBatchJoinCodes(String currentOrgId, List<BatchModel> batches) {
+    bool hasUpdates = false;
+    final updatedList = <BatchModel>[];
+
     for (final b in batches) {
-      if (b.isArchived) continue;
+      if (b.isArchived) {
+        updatedList.add(b);
+        continue;
+      }
       final code = b.activeJoinCode.isNotEmpty
           ? b.activeJoinCode
           : BatchAndJoinCodeService.generateJoiningCode();
 
       if (b.activeJoinCode.isEmpty) {
+        hasUpdates = true;
+        updatedList.add(b.copyWith(activeJoinCode: code));
         _firestore
             .collection('organizations')
             .doc(currentOrgId)
             .collection('batches')
             .doc(b.id)
             .update({'active_join_code': code}).catchError((_) {});
+      } else {
+        updatedList.add(b);
       }
 
       final joinData = {
@@ -315,6 +334,16 @@ class InstituteAdminDashboardController extends ChangeNotifier {
           .doc(b.id)
           .set(joinData, SetOptions(merge: true))
           .catchError((_) {});
+      _firestore
+          .collection('joinCodes')
+          .doc(b.id.toLowerCase())
+          .set(joinData, SetOptions(merge: true))
+          .catchError((_) {});
+    }
+
+    if (hasUpdates) {
+      _batches = updatedList;
+      notifyListeners();
     }
   }
 

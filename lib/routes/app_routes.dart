@@ -55,6 +55,8 @@ abstract class AppRoutes {
   static const instituteTeachers = '/organization/teachers';
   static const batchTeacherAssignment = '/organization/batch-assignment';
   static const ownerStudentFees = '/organization/owner-student-fees';
+  static const ownerStudentProfile = '/organization/owner-student-profile';
+  static const ownerTeacherProfile = '/organization/owner-teacher-profile';
   static const ownerTeacherSalaries = '/organization/owner-teacher-salaries';
 
   // Attendance Management (Phase 3)

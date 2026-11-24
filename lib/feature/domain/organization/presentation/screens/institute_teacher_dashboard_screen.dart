@@ -214,10 +214,32 @@ class _TeacherHomeTab extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'Notices',
-            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF0D9488)),
-            onPressed: () => Get.toNamed(AppRoutes.noticeList),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                tooltip: 'Notices',
+                icon: const Icon(Icons.notifications_outlined, color: Color(0xFF0D9488)),
+                onPressed: () {
+                  controller.markAllNoticesAsRead();
+                  Get.toNamed(AppRoutes.noticeList);
+                },
+              ),
+              if (controller.hasUnreadNotices)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                  ),
+                ),
+            ],
           ),
           IconButton(
             tooltip: 'Profile & Salary',
@@ -2692,7 +2714,7 @@ class _CreateTeacherExamModalState extends State<_CreateTeacherExamModal> {
                   child: _isSubmitting
                       ? const SizedBox(
                           width: 22,
-                          height: 22,
+                          height: 22,       
                           child: CircularProgressIndicator(
                             color: Colors.white,
                             strokeWidth: 2,

@@ -17,7 +17,10 @@ import 'package:test_nest/feature/domain/organization/presentation/screens/notic
 import 'package:test_nest/feature/domain/organization/presentation/screens/notice_editor_screen.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/notice_list_screen.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/owner_student_fees_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/owner_student_profile_screen.dart';
+import 'package:test_nest/feature/domain/organization/presentation/screens/owner_teacher_profile_screen.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/owner_teacher_salaries_screen.dart';
+import 'package:test_nest/model/organization_model.dart';
 import 'package:test_nest/feature/domain/organization/presentation/screens/performance_overview_screen.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/attendance/student_attendance_history_screen.dart';
 import 'package:test_nest/feature/domain/student/presentation/screens/notices/student_notice_detail_screen.dart';
@@ -496,6 +499,52 @@ class AppPages {
     GetPage(
       name: AppRoutes.ownerStudentFees,
       page: () => const OwnerStudentFeesScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.ownerStudentProfile,
+      page: () {
+        final args = Get.arguments;
+        OrganizationMemberModel? student;
+        String? orgId;
+        if (args is Map<String, dynamic>) {
+          student = args['student'] as OrganizationMemberModel?;
+          orgId = args['orgId']?.toString();
+        } else if (args is OrganizationMemberModel) {
+          student = args;
+        }
+        if (student == null) {
+          throw ArgumentError(
+            'OrganizationMemberModel is required for ownerStudentProfile',
+          );
+        }
+        return OwnerStudentProfileScreen(
+          student: student,
+          orgId: orgId ?? '',
+        );
+      },
+    ),
+    GetPage(
+      name: AppRoutes.ownerTeacherProfile,
+      page: () {
+        final args = Get.arguments;
+        OrganizationMemberModel? teacher;
+        String? orgId;
+        if (args is Map<String, dynamic>) {
+          teacher = args['teacher'] as OrganizationMemberModel?;
+          orgId = args['orgId']?.toString();
+        } else if (args is OrganizationMemberModel) {
+          teacher = args;
+        }
+        if (teacher == null) {
+          throw ArgumentError(
+            'OrganizationMemberModel is required for ownerTeacherProfile',
+          );
+        }
+        return OwnerTeacherProfileScreen(
+          teacher: teacher,
+          orgId: orgId ?? '',
+        );
+      },
     ),
     GetPage(
       name: AppRoutes.ownerTeacherSalaries,

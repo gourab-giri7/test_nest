@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test_nest/core/context/active_tenant_context.dart';
+import 'package:test_nest/core/services/batch_and_join_code_service.dart';
 import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/model/batch_student_model.dart';
 import 'package:test_nest/model/exam_model.dart';
@@ -70,6 +72,7 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
   List<TeacherAssignedStudent> _instituteStudents = [];
   List<ExamModel> _exams = [];
   List<NoticeModel> _notices = [];
+  Set<String> _readNoticeIds = {};
 
   String _studentSearchQuery = '';
   String _studentBatchFilter = 'all';
@@ -92,6 +95,30 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
   List<BatchModel> get batches => List.unmodifiable(_batches);
   List<ExamModel> get exams => List.unmodifiable(_exams);
   List<NoticeModel> get notices => List.unmodifiable(_notices);
+  int get unreadNoticeCount =>
+      _notices.where((n) => !_readNoticeIds.contains(n.id)).length;
+  bool get hasUnreadNotices => unreadNoticeCount > 0;
+
+  void _loadReadNotices(String uid) {
+    if (uid.isEmpty) return;
+    SharedPreferences.getInstance().then((prefs) {
+      final list = prefs.getStringList('read_notices_$uid') ?? [];
+      _readNoticeIds = list.toSet();
+      notifyListeners();
+    }).catchError((_) {});
+  }
+
+  void markAllNoticesAsRead() {
+    if (_notices.isEmpty) return;
+    _readNoticeIds.addAll(_notices.map((n) => n.id));
+    notifyListeners();
+    final uid = effectiveTeacherUid;
+    if (uid.isNotEmpty) {
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setStringList('read_notices_$uid', _readNoticeIds.toList());
+      }).catchError((_) {});
+    }
+  }
 
   String get studentSearchQuery => _studentSearchQuery;
   String get studentBatchFilter => _studentBatchFilter;
@@ -314,6 +341,7 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
 
     _isLoading = true;
     _errorMessage = null;
+    _loadReadNotices(currentTeacherUid);
     notifyListeners();
 
     try {
@@ -387,19 +415,23 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
             notifyListeners();
           }, onError: (_) {});
 
-      // 3. Stream notices for this institute
+      // 3. Stream notices for this institute (memory sorted to prevent index requirements)
       _noticeSub = _firestore
           .collection('organizations')
           .doc(currentOrgId)
           .collection('notices')
           .where('status', isEqualTo: 'published')
-          .orderBy('publishedAt', descending: true)
-          .limit(10)
           .snapshots()
           .listen((snapshot) {
-            _notices = snapshot.docs
+            final list = snapshot.docs
                 .map((d) => NoticeModel.fromMap(d.data(), d.id))
                 .toList();
+            list.sort((a, b) {
+              final dateA = a.publishedAt ?? a.createdAt;
+              final dateB = b.publishedAt ?? b.createdAt;
+              return dateB.compareTo(dateA);
+            });
+            _notices = list;
             notifyListeners();
           }, onError: (_) {});
       // 4. Stream institute-wide students (all active teachers can see all students in their organization)
@@ -485,6 +517,28 @@ class InstituteTeacherDashboardController extends ChangeNotifier {
     _updateBatchStudentSubscriptions(orgId, _batches);
     _isLoading = false;
     notifyListeners();
+
+    // Ensure joinCodes index is up-to-date for assigned batches
+    for (final b in _batches) {
+      if (b.isArchived) continue;
+      final code = b.activeJoinCode.isNotEmpty
+          ? b.activeJoinCode
+          : BatchAndJoinCodeService.generateJoiningCode();
+
+      final joinData = {
+        'code': code,
+        'teacher_id': b.teacherId.isNotEmpty ? b.teacherId : currentTeacherUid,
+        'teacher_name': orgName.isNotEmpty ? orgName : 'Teacher',
+        'batch_id': b.id,
+        'batch_name': b.name,
+        'org_id': orgId,
+        'is_active': true,
+        'created_at': FieldValue.serverTimestamp(),
+      };
+      _firestore.collection('joinCodes').doc(code).set(joinData, SetOptions(merge: true)).catchError((_) {});
+      _firestore.collection('joinCodes').doc(b.id).set(joinData, SetOptions(merge: true)).catchError((_) {});
+      _firestore.collection('joinCodes').doc(b.id.toLowerCase()).set(joinData, SetOptions(merge: true)).catchError((_) {});
+    }
   }
 
   void _cancelSubscriptions() {

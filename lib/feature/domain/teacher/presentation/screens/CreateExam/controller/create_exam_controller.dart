@@ -23,13 +23,38 @@ class CreateExamController extends ChangeNotifier {
   DateTime? pickedDate;
   List<String> classList = ['select batch'];
   String selectedbatch = 'select batch';
+  final Set<String> _selectedBatches = <String>{};
+  Set<String> get selectedBatches => Set.unmodifiable(_selectedBatches);
+
   List<StudentModel> _students = const [];
   final Set<String> _selectedStudentIds = <String>{};
   String _lastSyncedBatch = '';
 
-  List<StudentModel> get studentsForSelectedBatch => _students
-      .where((s) => StudentModel.isSameBatch(s.batch, selectedbatch))
-      .toList(growable: false);
+  bool studentMatchesBatch(StudentModel s, String batchName) {
+    if (StudentModel.isSameBatch(s.batch, batchName)) return true;
+    if (s.batchId != null && s.batchId!.trim() == batchName.trim()) return true;
+    return false;
+  }
+
+  bool isBatchSelected(String batchName) {
+    final clean = batchName.trim();
+    if (_selectedBatches.isNotEmpty) {
+      return _selectedBatches.contains(clean);
+    }
+    return studentMatchesBatch(StudentModel(name: '', batch: selectedbatch, id: '', password: ''), clean);
+  }
+
+  List<StudentModel> get studentsForSelectedBatch {
+    if (_selectedBatches.isNotEmpty) {
+      return _students.where((s) {
+        return _selectedBatches.any((b) => studentMatchesBatch(s, b));
+      }).toList(growable: false);
+    }
+    return _students
+        .where((s) => studentMatchesBatch(s, selectedbatch))
+        .toList(growable: false);
+  }
+
   Set<String> get selectedStudentIds => Set.unmodifiable(_selectedStudentIds);
   bool get allStudentsSelected =>
       studentsForSelectedBatch.isNotEmpty &&
@@ -41,9 +66,56 @@ class CreateExamController extends ChangeNotifier {
   Stream<QuerySnapshot<Map<String, dynamic>>> get studentsStream =>
       GetStudentData.getAllStudent();
 
+  void toggleBatch(String batchName) {
+    final clean = batchName.trim();
+    if (clean.isEmpty || clean == 'select batch') return;
+    if (_selectedBatches.contains(clean)) {
+      _selectedBatches.remove(clean);
+    } else {
+      _selectedBatches.add(clean);
+    }
+    if (_selectedBatches.isNotEmpty) {
+      selectedbatch = _selectedBatches.first;
+    }
+    _syncStudentsForActiveBatches();
+    notifyListeners();
+  }
+
+  void selectAllBatches() {
+    _selectedBatches.clear();
+    for (final b in classList) {
+      final clean = b.trim();
+      if (clean.isNotEmpty && clean != 'select batch') {
+        _selectedBatches.add(clean);
+      }
+    }
+    if (_selectedBatches.isNotEmpty) {
+      selectedbatch = _selectedBatches.first;
+    }
+    _syncStudentsForActiveBatches();
+    notifyListeners();
+  }
+
+  void deselectAllBatches() {
+    _selectedBatches.clear();
+    _selectedStudentIds.clear();
+    notifyListeners();
+  }
+
+  void _syncStudentsForActiveBatches() {
+    final ids = studentsForSelectedBatch
+        .map((s) => s.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    _selectedStudentIds
+      ..clear()
+      ..addAll(ids);
+  }
+
   void setStudentsFromSnapshot(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-  ) {
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs, {
+    List<String>? explicitBatches,
+  }) {
     final nextStudents = docs
         .map((d) => StudentModel.fromJson(d.data(), docId: d.id))
         .where((s) => s.id.trim().isNotEmpty && s.isActive)
@@ -51,12 +123,19 @@ class CreateExamController extends ChangeNotifier {
 
     _students = nextStudents;
 
-    // Aggregate available batches from teacherData + actual student docs in Firestore
+    // Aggregate available batches from explicit batches or teacherData + actual student docs
     final batchSet = <String>{};
-    if (teacherData != null) {
-      for (final b in teacherData!.batch) {
+    if (explicitBatches != null && explicitBatches.isNotEmpty) {
+      for (final b in explicitBatches) {
         final clean = b.trim();
         if (clean.isNotEmpty) batchSet.add(clean);
+      }
+    } else {
+      if (teacherData != null) {
+        for (final b in teacherData!.batch) {
+          final clean = b.trim();
+          if (clean.isNotEmpty) batchSet.add(clean);
+        }
       }
     }
     for (final s in nextStudents) {
@@ -134,6 +213,10 @@ class CreateExamController extends ChangeNotifier {
 
   void setBatch(String newBatch) {
     selectedbatch = newBatch;
+    _selectedBatches.clear();
+    if (newBatch != 'select batch' && newBatch.trim().isNotEmpty) {
+      _selectedBatches.add(newBatch.trim());
+    }
     _lastSyncedBatch = newBatch;
     final ids = studentsForSelectedBatch
         .map((s) => s.id.trim())
@@ -211,7 +294,12 @@ class CreateExamController extends ChangeNotifier {
     }
   }
 
-  void next(BuildContext context, QuestionController qc) {
+  void next(
+    BuildContext context,
+    QuestionController qc, {
+    String? explicitCreatorName,
+    String? explicitCreatorRole,
+  }) {
     if (!examKey.currentState!.validate()) return;
     if (pickedDate == null) {
       _error(context, 'Please select exam date.');
@@ -241,11 +329,17 @@ class CreateExamController extends ChangeNotifier {
       _error(context, 'End time must be after start time.');
       return;
     }
-    if (selectedbatch == 'select batch' || selectedbatch.trim().isEmpty) {
-      _error(context, 'Please select a valid batch.');
+    final effectiveBatches = _selectedBatches.isNotEmpty
+        ? _selectedBatches.toList()
+        : (selectedbatch != 'select batch' && selectedbatch.trim().isNotEmpty
+            ? [selectedbatch.trim()]
+            : <String>[]);
+
+    if (effectiveBatches.isEmpty) {
+      _error(context, 'Please select at least one batch.');
       return;
     }
-    // Only IDs belonging to the currently selected batch may be published.
+    // Only IDs belonging to the currently selected batches may be published.
     final validBatchIds = studentsForSelectedBatch
         .map((s) => s.id.trim())
         .where((id) => id.isNotEmpty)
@@ -254,17 +348,27 @@ class CreateExamController extends ChangeNotifier {
     if (_selectedStudentIds.isEmpty) {
       _error(
         context,
-        'Please select at least one student from the selected batch.',
+        'Please select at least one student from the selected batches.',
       );
       return;
     }
+
+    final creatorName = (explicitCreatorName != null && explicitCreatorName.trim().isNotEmpty)
+        ? explicitCreatorName.trim()
+        : (teacherData?.name.trim() ?? '');
+    final creatorRole = (explicitCreatorRole != null && explicitCreatorRole.trim().isNotEmpty)
+        ? explicitCreatorRole.trim()
+        : 'Teacher';
 
     examDetails = ExamDetailsModel(
       examName: examNameController.text.trim(),
       fullMarks: fullMarksController.text.trim(),
       examKey: examKeyController.text,
       instruction: instructionsController.text.trim(),
-      batch: selectedbatch,
+      batch: effectiveBatches.join(', '),
+      batches: effectiveBatches,
+      creatorName: creatorName,
+      creatorRole: creatorRole,
       examStart: examStart,
       examEnd: examEnd,
       assignedStudentIds: _selectedStudentIds.toList(growable: false),
@@ -284,6 +388,7 @@ class CreateExamController extends ChangeNotifier {
     examKeyController.clear();
     instructionsController.clear();
     pickedDate = null;
+    _selectedBatches.clear();
     _selectedStudentIds.clear();
     _students = const [];
     _lastSyncedBatch = '';

@@ -208,10 +208,32 @@ class _StudentHomeTab extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'Notices',
-            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF7C3AED)),
-            onPressed: () => controller.switchTab(3),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                tooltip: 'Notices',
+                icon: const Icon(Icons.notifications_outlined, color: Color(0xFF7C3AED)),
+                onPressed: () {
+                  controller.markAllNoticesAsRead();
+                  controller.switchTab(3);
+                },
+              ),
+              if (controller.hasUnreadNotices)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                  ),
+                ),
+            ],
           ),
           IconButton(
             tooltip: 'Profile',
@@ -516,6 +538,15 @@ class _StudentHomeTab extends StatelessWidget {
                     color: Color(0xFF3B82F6),
                   ),
                 ),
+                if (exam.teacherName.trim().isNotEmpty)
+                  Text(
+                    'Created by: ${exam.teacherName.trim()}${exam.createdByRole != null ? ' (${exam.createdByRole})' : ''}',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1D4ED8),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -567,6 +598,15 @@ class _StudentHomeTab extends StatelessWidget {
                     color: Color(0xFF64748B),
                   ),
                 ),
+                if (exam.teacherName.trim().isNotEmpty)
+                  Text(
+                    'Created by: ${exam.teacherName.trim()}${exam.createdByRole != null ? ' (${exam.createdByRole})' : ''}',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
               ],
             ),
           ),

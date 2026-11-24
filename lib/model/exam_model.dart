@@ -19,6 +19,8 @@ class ExamModel {
   final String teacherId;
   final String teacherName;
   final String? subject;
+  final List<String> batches;
+  final String? createdByRole;
 
   const ExamModel({
     required this.examId,
@@ -27,6 +29,7 @@ class ExamModel {
     required this.examKey,
     required this.instruction,
     required this.batch,
+    this.batches = const [],
     required this.examStart,
     required this.examEnd,
     this.createdAt,
@@ -36,6 +39,7 @@ class ExamModel {
     this.teacherId = '',
     this.teacherName = '',
     this.subject,
+    this.createdByRole,
   });
 
   factory ExamModel.fromJson(
@@ -108,6 +112,18 @@ class ExamModel {
       instruction: (details['instruction'] ?? json['instruction'] ?? '')
           .toString(),
       batch: (details['batch'] ?? json['batch'] ?? '').toString(),
+      batches: () {
+        final raw = json['batches'] ?? details['batches'];
+        if (raw is List) {
+          return raw.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+        }
+        final single = (details['batch'] ?? json['batch'] ?? '').toString().trim();
+        if (single.contains(',')) {
+          return single.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        }
+        return single.isNotEmpty ? [single] : const <String>[];
+      }(),
+      createdByRole: (json['created_by_role'] ?? details['created_by_role'] ?? json['creator_role'] ?? details['creator_role'])?.toString(),
       examStart: _toDateTime(details['exam_start'] ?? json['exam_start']),
       examEnd: _toDateTime(details['exam_end'] ?? json['exam_end']),
       createdAt: _toDateTime(
@@ -193,14 +209,18 @@ class ExamModel {
     'exam_id': examId,
     'teacher_id': teacherId,
     'teacher_name': teacherName,
+    if (createdByRole != null) 'created_by_role': createdByRole,
+    'batches': batches.isNotEmpty ? batches : (batch.isNotEmpty ? [batch] : const []),
     'exam_details': {
       'exam_name': examName,
       'full_marks': fullMarks,
       'exam_key': examKey,
       'instruction': instruction,
       'batch': batch,
+      'batches': batches.isNotEmpty ? batches : (batch.isNotEmpty ? [batch] : const []),
       'teacher_id': teacherId,
       'teacher_name': teacherName,
+      if (createdByRole != null) 'created_by_role': createdByRole,
       if (subject != null && subject!.isNotEmpty) 'subject': subject,
       'exam_start': examStart == null ? null : Timestamp.fromDate(examStart!),
       'exam_end': examEnd == null ? null : Timestamp.fromDate(examEnd!),
@@ -273,18 +293,25 @@ class ExamModel {
     // Check assignedBatchIds if provided (for institute students)
     if (assignedBatchIds != null && assignedBatchIds.isNotEmpty) {
       final cleanExamBatch = batch.trim().toLowerCase();
-      if (cleanExamBatch.isNotEmpty) {
-        return assignedBatchIds.any(
-          (bId) => bId.trim().toLowerCase() == cleanExamBatch,
-        );
+      if (cleanExamBatch.isNotEmpty &&
+          assignedBatchIds.any((bId) => bId.trim().toLowerCase() == cleanExamBatch)) {
+        return true;
+      }
+      if (batches.isNotEmpty) {
+        return assignedBatchIds.any((bId) =>
+            batches.any((b) => b.trim().toLowerCase() == bId.trim().toLowerCase()));
       }
     }
 
     // If assignedStudentIds is empty (batch-wide or legacy exam), check batch
-    if (studentBatch != null &&
-        studentBatch.trim().isNotEmpty &&
-        batch.trim().isNotEmpty) {
-      return studentBatch.trim().toLowerCase() == batch.trim().toLowerCase();
+    if (studentBatch != null && studentBatch.trim().isNotEmpty) {
+      if (batches.isNotEmpty &&
+          batches.any((b) => b.trim().toLowerCase() == studentBatch.trim().toLowerCase())) {
+        return true;
+      }
+      if (batch.trim().isNotEmpty) {
+        return studentBatch.trim().toLowerCase() == batch.trim().toLowerCase();
+      }
     }
 
     // Default to true if the exam is not restricted to specific IDs and no batch filter is specified
@@ -351,6 +378,8 @@ class ExamModel {
     List<String>? assignedStudentIds,
     String? teacherId,
     String? teacherName,
+    List<String>? batches,
+    String? createdByRole,
   }) {
     return ExamModel(
       examId: examId ?? this.examId,
@@ -359,6 +388,7 @@ class ExamModel {
       examKey: examKey ?? this.examKey,
       instruction: instruction ?? this.instruction,
       batch: batch ?? this.batch,
+      batches: batches ?? this.batches,
       examStart: examStart ?? this.examStart,
       examEnd: examEnd ?? this.examEnd,
       createdAt: createdAt ?? this.createdAt,
@@ -367,6 +397,8 @@ class ExamModel {
       assignedStudentIds: assignedStudentIds ?? this.assignedStudentIds,
       teacherId: teacherId ?? this.teacherId,
       teacherName: teacherName ?? this.teacherName,
+      subject: subject ?? this.subject,
+      createdByRole: createdByRole ?? this.createdByRole,
     );
   }
 }

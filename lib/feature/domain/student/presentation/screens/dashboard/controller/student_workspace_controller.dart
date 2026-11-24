@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test_nest/core/context/active_tenant_context.dart';
 import 'package:test_nest/feature/domain/student/data/models/student_data_model.dart';
 import 'package:test_nest/model/batch_model.dart';
@@ -75,6 +76,7 @@ class StudentWorkspaceController extends ChangeNotifier {
   List<StudentSubmissionResultItem> _results = [];
   List<Map<String, dynamic>> _attendanceRecords = [];
   List<NoticeModel> _notices = [];
+  Set<String> _readNoticeIds = {};
   FeeRecord? _feeRecord;
 
   String _examSearchQuery = '';
@@ -106,6 +108,31 @@ class StudentWorkspaceController extends ChangeNotifier {
   String get examFilter => _examFilter;
   String get resultSearchQuery => _resultSearchQuery;
   String get noticeSearchQuery => _noticeSearchQuery;
+
+  int get unreadNoticeCount =>
+      _notices.where((n) => !_readNoticeIds.contains(n.id)).length;
+  bool get hasUnreadNotices => unreadNoticeCount > 0;
+
+  void _loadReadNotices(String uid) {
+    if (uid.isEmpty) return;
+    SharedPreferences.getInstance().then((prefs) {
+      final list = prefs.getStringList('read_notices_$uid') ?? [];
+      _readNoticeIds = list.toSet();
+      notifyListeners();
+    }).catchError((_) {});
+  }
+
+  void markAllNoticesAsRead() {
+    if (_notices.isEmpty) return;
+    _readNoticeIds.addAll(_notices.map((n) => n.id));
+    notifyListeners();
+    final uid = studentUid.isNotEmpty ? studentUid : _resolveCurrentUid();
+    if (uid.isNotEmpty) {
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setStringList('read_notices_$uid', _readNoticeIds.toList());
+      }).catchError((_) {});
+    }
+  }
 
   String get orgId {
     if (tenantContext.isInstitute && tenantContext.activeOrgId.isNotEmpty) {
@@ -205,6 +232,9 @@ class StudentWorkspaceController extends ChangeNotifier {
   void switchTab(int index) {
     if (_currentTabIndex != index) {
       _currentTabIndex = index;
+      if (index == 3) {
+        markAllNoticesAsRead();
+      }
       notifyListeners();
     }
   }
@@ -263,6 +293,7 @@ class StudentWorkspaceController extends ChangeNotifier {
 
     _isLoading = true;
     _errorMessage = null;
+    _loadReadNotices(currentStudentUid);
     notifyListeners();
 
     try {
@@ -319,13 +350,12 @@ class StudentWorkspaceController extends ChangeNotifier {
             notifyListeners();
           }, onError: (_) {});
 
-      // 4. Notices stream for this organization
+      // 4. Notices stream for this organization (indexed in memory to prevent missing index errors)
       _noticeSub = _firestore
           .collection('organizations')
           .doc(currentOrgId)
           .collection('notices')
           .where('status', isEqualTo: 'published')
-          .orderBy('publishedAt', descending: true)
           .snapshots()
           .listen((snapshot) {
             final allNotices = snapshot.docs
@@ -333,7 +363,7 @@ class StudentWorkspaceController extends ChangeNotifier {
                 .toList();
 
             final enrolledBatchIds = _batches.map((b) => b.id).toSet();
-            _notices = allNotices.where((n) {
+            final filtered = allNotices.where((n) {
               if (n.audienceType == NoticeAudienceType.all) return true;
               if (n.audienceType == NoticeAudienceType.students) {
                 return n.targetStudentIds.isEmpty ||
@@ -347,6 +377,13 @@ class StudentWorkspaceController extends ChangeNotifier {
               return false;
             }).toList();
 
+            filtered.sort((a, b) {
+              final dateA = a.publishedAt ?? a.createdAt;
+              final dateB = b.publishedAt ?? b.createdAt;
+              return dateB.compareTo(dateA);
+            });
+
+            _notices = filtered;
             notifyListeners();
           }, onError: (_) {});
     } catch (e) {

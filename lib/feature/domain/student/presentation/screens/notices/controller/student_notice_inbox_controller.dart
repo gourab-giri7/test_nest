@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test_nest/core/services/notice_service.dart';
@@ -6,6 +7,7 @@ import 'package:test_nest/model/notice_model.dart';
 
 class StudentNoticeInboxController extends ChangeNotifier {
   final NoticeService _service;
+  StreamSubscription<List<NoticeModel>>? _noticeSubscription;
 
   StudentNoticeInboxController({NoticeService? service})
     : _service = service ?? NoticeService();
@@ -49,6 +51,45 @@ class StudentNoticeInboxController extends ChangeNotifier {
 
       return true;
     }).toList();
+  }
+
+  void bindNoticeStream({
+    required TenantPathResolver resolver,
+    required String studentUid,
+    required List<String> enrolledBatchIds,
+    String? fallbackTeacherId,
+  }) {
+    _studentUid = studentUid;
+    _noticeSubscription?.cancel();
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    SharedPreferences.getInstance().then((prefs) {
+      final readList = prefs.getStringList('read_notices_$studentUid') ?? [];
+      _readNoticeIds = readList.toSet();
+      notifyListeners();
+    });
+
+    _noticeSubscription = _service
+        .streamPublishedNoticesForStudent(
+          resolver: resolver,
+          studentUid: studentUid,
+          enrolledBatchIds: enrolledBatchIds,
+          fallbackTeacherId: fallbackTeacherId,
+        )
+        .listen(
+          (notices) {
+            _allNotices = notices;
+            _isLoading = false;
+            notifyListeners();
+          },
+          onError: (e) {
+            _errorMessage = 'Failed to stream notices: $e';
+            _isLoading = false;
+            notifyListeners();
+          },
+        );
   }
 
   Future<void> loadNotices({
@@ -123,5 +164,12 @@ class StudentNoticeInboxController extends ChangeNotifier {
   void setSearchQuery(String query) {
     _searchQuery = query;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _noticeSubscription?.cancel();
+    _noticeSubscription = null;
+    super.dispose();
   }
 }
