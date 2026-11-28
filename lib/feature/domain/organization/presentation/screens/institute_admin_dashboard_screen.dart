@@ -21,6 +21,26 @@ import 'package:test_nest/feature/domain/teacher/presentation/screens/batches/wi
 import 'package:test_nest/routes/app_routes.dart';
 import 'package:test_nest/main.dart';
 
+class _TabFilterNotifier extends ChangeNotifier {
+  String searchQuery = '';
+  String? selectedBatchFilter;
+
+  void setSearchQuery(String query) {
+    final trimmed = query.trim();
+    if (searchQuery == trimmed) return;
+    searchQuery = trimmed;
+    notifyListeners();
+  }
+
+  void setSelectedBatch(String? batchId) {
+    if (selectedBatchFilter == batchId) return;
+    selectedBatchFilter = batchId;
+    notifyListeners();
+  }
+
+  void refresh() => notifyListeners();
+}
+
 class InstituteAdminDashboardScreen extends StatelessWidget {
   const InstituteAdminDashboardScreen({super.key});
 
@@ -1060,91 +1080,102 @@ class _OwnerTeachersTabState extends State<_OwnerTeachersTab> {
   final OrganizationService _orgService = OrganizationService();
   final BatchAssignmentService _assignmentService = BatchAssignmentService();
   final TextEditingController _searchCtrl = TextEditingController();
-  String _searchQuery = '';
+  final _TabFilterNotifier _filterData = _TabFilterNotifier();
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _filterData.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _buildTeachersHeader(),
-        _buildSearchBar(),
-        Expanded(
-          child: StreamBuilder<List<OrganizationMemberModel>>(
-            stream: _orgService.streamOrganizationMembers(
-              widget.controller.orgId,
-            ),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final allMembers = snapshot.data ?? [];
-              final teachers = allMembers
-                  .where((m) => m.isTeacher || m.isAdmin)
-                  .where((m) {
-                    if (_searchQuery.isEmpty) return true;
-                    final q = _searchQuery.toLowerCase();
-                    return m.name.toLowerCase().contains(q) ||
-                        m.email.toLowerCase().contains(q);
-                  })
-                  .toList();
+    return ChangeNotifierProvider<_TabFilterNotifier>.value(
+      value: _filterData,
+      child: Column(
+        children: [
+          _buildTeachersHeader(),
+          _buildSearchBar(),
+          Expanded(
+            child: StreamBuilder<List<OrganizationMemberModel>>(
+              stream: _orgService.streamOrganizationMembers(
+                widget.controller.orgId,
+              ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final allMembers = snapshot.data ?? [];
+                return Consumer<_TabFilterNotifier>(
+                  builder: (_, filter, __) {
+                    final query = filter.searchQuery;
+                    final teachers = allMembers
+                        .where((m) => m.isTeacher || m.isAdmin)
+                        .where((m) {
+                          if (query.isEmpty) return true;
+                          final q = query.toLowerCase();
+                          return m.name.toLowerCase().contains(q) ||
+                              m.email.toLowerCase().contains(q);
+                        })
+                        .toList();
 
-              if (teachers.isEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.people_outline,
-                          size: 48,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _searchQuery.isEmpty
-                              ? 'No teachers added yet.'
-                              : 'No teachers match "$_searchQuery".',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                    if (teachers.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.people_outline,
+                                size: 48,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                query.isEmpty
+                                    ? 'No teachers added yet.'
+                                    : 'No teachers match "$query".',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                icon:
+                                    const Icon(Icons.person_add_alt_1, size: 16),
+                                label: const Text('Add Teacher'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: () =>
+                                    _showCreateTeacherDialog(context),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.person_add_alt_1, size: 16),
-                          label: const Text('Add Teacher'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                          ),
-                          onPressed: () => _showCreateTeacherDialog(context),
-                        ),
-                      ],
-                    ),
-                  ),
+                      );
+                    }
+
+                    return ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: teachers.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final teacher = teachers[index];
+                        return _buildTeacherCard(teacher);
+                      },
+                    );
+                  },
                 );
-              }
-
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: teachers.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final teacher = teachers[index];
-                  return _buildTeacherCard(teacher);
-                },
-              );
-            },
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1212,19 +1243,22 @@ class _OwnerTeachersTabState extends State<_OwnerTeachersTab> {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: TextField(
         controller: _searchCtrl,
-        onChanged: (v) => setState(() => _searchQuery = v.trim()),
+        onChanged: _filterData.setSearchQuery,
         decoration: InputDecoration(
           hintText: 'Search faculty by name or email...',
           prefixIcon: const Icon(Icons.search, size: 20),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, size: 18),
-                  onPressed: () {
-                    _searchCtrl.clear();
-                    setState(() => _searchQuery = '');
-                  },
-                )
-              : null,
+          suffixIcon: Selector<_TabFilterNotifier, bool>(
+            selector: (_, f) => f.searchQuery.isNotEmpty,
+            builder: (_, hasQuery, __) => hasQuery
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      _filterData.setSearchQuery('');
+                    },
+                  )
+                : const SizedBox.shrink(),
+          ),
           filled: true,
           fillColor: const Color(0xFFF1F5F9),
           contentPadding: const EdgeInsets.symmetric(vertical: 0),
@@ -1560,7 +1594,7 @@ class _OwnerTeachersTabState extends State<_OwnerTeachersTab> {
                                   teacher.assignedBatchIds.remove(b.id);
                                 }
                                 setSheetState(() {});
-                                setState(() {});
+                                _filterData.refresh();
                               },
                             );
                           },
@@ -2435,9 +2469,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
   final OrganizationService _orgService = OrganizationService();
   late TabController _subTabController;
   final TextEditingController _searchCtrl = TextEditingController();
-
-  String _searchQuery = '';
-  String? _selectedBatchFilter;
+  final _TabFilterNotifier _filterData = _TabFilterNotifier();
 
   @override
   void initState() {
@@ -2449,12 +2481,15 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
   void dispose() {
     _subTabController.dispose();
     _searchCtrl.dispose();
+    _filterData.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return ChangeNotifierProvider<_TabFilterNotifier>.value(
+      value: _filterData,
+      child: Column(
       children: [
         Container(
           color: Colors.white,
@@ -2504,6 +2539,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
           ),
         ),
       ],
+      ),
     );
   }
 
@@ -2523,63 +2559,68 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
                 return const Center(child: CircularProgressIndicator());
               }
               final allStudents = snapshot.data ?? [];
-              final filtered = allStudents.where((s) {
-                if (_selectedBatchFilter != null &&
-                    _selectedBatchFilter!.isNotEmpty) {
-                  if (!s.assignedBatchIds.contains(_selectedBatchFilter)) {
-                    return false;
+              return Consumer<_TabFilterNotifier>(
+                builder: (_, filter, __) {
+                  final batchFilter = filter.selectedBatchFilter;
+                  final query = filter.searchQuery;
+                  final filtered = allStudents.where((s) {
+                    if (batchFilter != null && batchFilter.isNotEmpty) {
+                      if (!s.assignedBatchIds.contains(batchFilter)) {
+                        return false;
+                      }
+                    }
+                    if (query.isEmpty) return true;
+                    final q = query.toLowerCase();
+                    return s.name.toLowerCase().contains(q) ||
+                        s.email.toLowerCase().contains(q);
+                  }).toList();
+
+                  if (filtered.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.school_outlined,
+                              size: 48,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              query.isEmpty
+                                  ? 'No students found in institute.'
+                                  : 'No students match your query.',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Students join via joining codes and are approved by you.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   }
-                }
-                if (_searchQuery.isEmpty) return true;
-                final q = _searchQuery.toLowerCase();
-                return s.name.toLowerCase().contains(q) ||
-                    s.email.toLowerCase().contains(q);
-              }).toList();
 
-              if (filtered.isEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.school_outlined,
-                          size: 48,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _searchQuery.isEmpty
-                              ? 'No students found in institute.'
-                              : 'No students match your query.',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Students join via joining codes and are approved by you.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF64748B),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: filtered.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final student = filtered[index];
-                  return _buildStudentCard(student);
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final student = filtered[index];
+                      return _buildStudentCard(student);
+                    },
+                  );
                 },
               );
             },
@@ -2599,7 +2640,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
         children: [
           TextField(
             controller: _searchCtrl,
-            onChanged: (v) => setState(() => _searchQuery = v.trim()),
+            onChanged: _filterData.setSearchQuery,
             decoration: InputDecoration(
               hintText: 'Search by student name or email...',
               prefixIcon: const Icon(Icons.search, size: 20),
@@ -2616,32 +2657,33 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
             const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  ChoiceChip(
-                    label: const Text('All Batches'),
-                    selected: _selectedBatchFilter == null,
-                    onSelected: (sel) {
-                      if (sel) setState(() => _selectedBatchFilter = null);
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  ...batches.map((b) {
-                    final isSel = _selectedBatchFilter == b.id;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        label: Text(b.name),
-                        selected: isSel,
-                        onSelected: (sel) {
-                          setState(() {
-                            _selectedBatchFilter = sel ? b.id : null;
-                          });
-                        },
-                      ),
-                    );
-                  }),
-                ],
+              child: Selector<_TabFilterNotifier, String?>(
+                selector: (_, f) => f.selectedBatchFilter,
+                builder: (_, selectedBatchFilter, __) => Row(
+                  children: [
+                    ChoiceChip(
+                      label: const Text('All Batches'),
+                      selected: selectedBatchFilter == null,
+                      onSelected: (sel) {
+                        if (sel) _filterData.setSelectedBatch(null);
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    ...batches.map((b) {
+                      final isSel = selectedBatchFilter == b.id;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text(b.name),
+                          selected: isSel,
+                          onSelected: (sel) {
+                            _filterData.setSelectedBatch(sel ? b.id : null);
+                          },
+                        ),
+                      );
+                    }),
+                  ],
+                ),
               ),
             ),
           ],
@@ -3153,7 +3195,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
                                       );
                                       student.assignedBatchIds.remove(b.id);
                                       setSheetState(() {});
-                                      setState(() {});
+                                      _filterData.refresh();
                                       CustomSnackbar.showSuccess(
                                         context: parentCtx,
                                         title: 'Removed from Batch',
@@ -3249,7 +3291,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
                             studentEmail: student.email,
                           );
                           student.assignedBatchIds.add(b.id);
-                          setState(() {});
+                          _filterData.refresh();
                           CustomSnackbar.showSuccess(
                             context: parentCtx,
                             title: 'Enrolled',
@@ -3362,7 +3404,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
                   );
                   student.assignedBatchIds.remove(fromBatchId);
                   student.assignedBatchIds.add(toBatchId);
-                  setState(() {});
+                  _filterData.refresh();
                   CustomSnackbar.showSuccess(
                     context: parentCtx,
                     title: 'Transferred',
@@ -3420,7 +3462,7 @@ class _OwnerStudentsTabState extends State<_OwnerStudentsTab>
                       studentUid: student.uid,
                     );
                     student.assignedBatchIds.remove(b.id);
-                    setState(() {});
+                    _filterData.refresh();
                     CustomSnackbar.showSuccess(
                       context: parentCtx,
                       title: 'Removed from Batch',
@@ -3789,86 +3831,98 @@ class _OwnerBatchesTab extends StatefulWidget {
 class _OwnerBatchesTabState extends State<_OwnerBatchesTab> {
   final OrganizationService _orgService = OrganizationService();
   final TextEditingController _searchCtrl = TextEditingController();
-  String _searchQuery = '';
+  final _TabFilterNotifier _filterData = _TabFilterNotifier();
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _filterData.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _buildBatchesHeader(),
-        _buildSearchBar(),
-        Expanded(
-          child: StreamBuilder<List<BatchModel>>(
-            stream: _orgService.streamInstituteBatches(widget.controller.orgId),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final batches = snapshot.data ?? [];
-              final filtered = batches.where((b) {
-                if (_searchQuery.isEmpty) return true;
-                final q = _searchQuery.toLowerCase();
-                return b.name.toLowerCase().contains(q) ||
-                    (b.subject != null && b.subject!.toLowerCase().contains(q));
-              }).toList();
+    return ChangeNotifierProvider<_TabFilterNotifier>.value(
+      value: _filterData,
+      child: Column(
+        children: [
+          _buildBatchesHeader(),
+          _buildSearchBar(),
+          Expanded(
+            child: StreamBuilder<List<BatchModel>>(
+              stream: _orgService.streamInstituteBatches(
+                widget.controller.orgId,
+              ),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final batches = snapshot.data ?? [];
+                return Consumer<_TabFilterNotifier>(
+                  builder: (_, filter, __) {
+                    final query = filter.searchQuery;
+                    final filtered = batches.where((b) {
+                      if (query.isEmpty) return true;
+                      final q = query.toLowerCase();
+                      return b.name.toLowerCase().contains(q) ||
+                          (b.subject != null &&
+                              b.subject!.toLowerCase().contains(q));
+                    }).toList();
 
-              if (filtered.isEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.class_outlined,
-                          size: 48,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _searchQuery.isEmpty
-                              ? 'No batches created yet.'
-                              : 'No batches match "$_searchQuery".',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                    if (filtered.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.class_outlined,
+                                size: 48,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                query.isEmpty
+                                    ? 'No batches created yet.'
+                                    : 'No batches match "$query".',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.add, size: 16),
+                                label: const Text('Create Batch'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: _showCreateBatchSheet,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Create Batch'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                          ),
-                          onPressed: _showCreateBatchSheet,
-                        ),
-                      ],
-                    ),
-                  ),
+                      );
+                    }
+
+                    return ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final b = filtered[index];
+                        return _buildBatchCard(b);
+                      },
+                    );
+                  },
                 );
-              }
-
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: filtered.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final b = filtered[index];
-                  return _buildBatchCard(b);
-                },
-              );
-            },
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -3909,7 +3963,7 @@ class _OwnerBatchesTabState extends State<_OwnerBatchesTab> {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: TextField(
         controller: _searchCtrl,
-        onChanged: (v) => setState(() => _searchQuery = v.trim()),
+        onChanged: _filterData.setSearchQuery,
         decoration: InputDecoration(
           hintText: 'Search batches by name or subject...',
           prefixIcon: const Icon(Icons.search, size: 20),
@@ -4710,14 +4764,16 @@ class _OwnerMoreTab extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: ListTile(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
           padding: const EdgeInsets.all(8),
@@ -4745,6 +4801,7 @@ class _OwnerMoreTab extends StatelessWidget {
           color: Color(0xFF94A3B8),
         ),
         onTap: onTap,
+        ),
       ),
     );
   }

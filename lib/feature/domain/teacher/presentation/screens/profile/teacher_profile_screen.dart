@@ -237,20 +237,22 @@ class TeacherProfileScreen extends StatelessWidget {
                       border: Border.all(color: AppColors.border),
                       boxShadow: AppShadows.card,
                     ),
-                    child: Column(
-                      children: [
-                        ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          leading: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primarySoft,
-                              borderRadius: BorderRadius.circular(10),
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: Column(
+                        children: [
+                          ListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Icon(
-                              Icons.info_outline_rounded,
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primarySoft,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.info_outline_rounded,
                               color: AppColors.primary,
                               size: 20,
                             ),
@@ -307,6 +309,7 @@ class TeacherProfileScreen extends StatelessWidget {
                           onTap: () => Get.toNamed(AppRoutes.privacyPolicy),
                         ),
                       ],
+                      ),
                     ),
                   ),
 

@@ -295,10 +295,31 @@ class TeacherSalaryService {
 
       if (monthSnap.exists && monthSnap.data() != null) {
         final existingRecord = TeacherSalaryModel.fromJson(monthSnap.data()!);
-        existingSalary = existingRecord.amount;
+        existingSalary = existingRecord.amount > 0
+            ? existingRecord.amount
+            : existingSalary;
         existingPaid = existingRecord.amountPaid;
-      } else if (existingSalary <= 0.0) {
-        existingSalary = amount; // Fallback to current disbursement if unset
+      }
+
+      if (existingSalary <= 0.0) {
+        final teacherSnap = await tx.get(_teacherDocRef(orgId, teacherUid));
+        if (teacherSnap.exists && teacherSnap.data() != null) {
+          final tData = teacherSnap.data()!;
+          final rawSalary =
+              tData['monthly_salary'] ??
+              tData['monthlySalary'] ??
+              tData['base_salary'] ??
+              0;
+          if (rawSalary is num) {
+            existingSalary = rawSalary.toDouble();
+          } else {
+            existingSalary = double.tryParse(rawSalary.toString()) ?? 0.0;
+          }
+        }
+      }
+
+      if (existingSalary <= 0.0) {
+        existingSalary = amount; // Fallback only if teacher has no base salary set
       }
 
       final newPaid = existingPaid + amount;

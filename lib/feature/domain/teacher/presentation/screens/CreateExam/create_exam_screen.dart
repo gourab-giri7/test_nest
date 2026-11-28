@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -328,8 +329,14 @@ class _CreateExamScreenState extends State<CreateExamScreen> {
         tenantCtx != null &&
         tenantCtx.isInstitute &&
         tenantCtx.activeOrgId.isNotEmpty;
+    final isInstituteTeacher =
+        isInstitute && tenantCtx.isTeacher && !tenantCtx.isAdmin;
     final orgId = tenantCtx?.activeOrgId ?? '';
     final teacherId = teacherData?.id.trim() ?? '';
+    final effectiveTeacherUid =
+        FirebaseAuth.instance.currentUser?.uid.trim().isNotEmpty == true
+            ? FirebaseAuth.instance.currentUser!.uid.trim()
+            : teacherId;
 
     final Stream<QuerySnapshot<Map<String, dynamic>>> batchStream = isInstitute
         ? FirebaseFirestore.instance
@@ -353,35 +360,79 @@ class _CreateExamScreenState extends State<CreateExamScreen> {
             .snapshots()
         : GetStudentData.getAllStudent();
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: batchStream,
-      builder: (context, batchSnap) {
-        final explicitBatches = (batchSnap.data?.docs ?? [])
-            .map((d) => (d.data()['name'] ?? '').toString().trim())
-            .where((name) => name.isNotEmpty)
-            .toList();
+    final Stream<DocumentSnapshot<Map<String, dynamic>>>? memberStream =
+        isInstituteTeacher && effectiveTeacherUid.isNotEmpty
+            ? FirebaseFirestore.instance
+                .collection('organizations')
+                .doc(orgId)
+                .collection('members')
+                .doc(effectiveTeacherUid)
+                .snapshots()
+            : null;
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: memberStream,
+      builder: (context, memberSnap) {
+        final rawMemberBatchIds = memberSnap.data?.data()?['assignedBatchIds'];
+        final memberAssignedBatchIds = <String>{
+          if (rawMemberBatchIds is List)
+            ...rawMemberBatchIds.map((e) => e.toString().trim()),
+        };
 
         return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: studentStream,
-          builder: (context, snap) {
-            if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-              return const Padding(
-                padding: EdgeInsets.all(20),
-                child: Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                ),
-              );
-            }
+          stream: batchStream,
+          builder: (context, batchSnap) {
+            final batchDocs = batchSnap.data?.docs ?? [];
+            final explicitBatches = batchDocs
+                .where((d) {
+                  final data = d.data();
+                  if (data['isArchived'] == true || data['is_archived'] == true) {
+                    return false;
+                  }
+                  if (!isInstituteTeacher) return true;
+                  final rawTeachers =
+                      data['assignedTeacherIds'] ?? data['assigned_teacher_ids'];
+                  final assignedTeachers = rawTeachers is List
+                      ? rawTeachers.map((e) => e.toString().trim()).toSet()
+                      : <String>{};
+                  final bTeacherId =
+                      (data['teacher_id'] ?? data['teacherId'] ?? '')
+                          .toString()
+                          .trim();
+                  return assignedTeachers.contains(effectiveTeacherUid) ||
+                      bTeacherId == effectiveTeacherUid ||
+                      memberAssignedBatchIds.contains(d.id);
+                })
+                .map((d) => (d.data()['name'] ?? '').toString().trim())
+                .where((name) => name.isNotEmpty)
+                .toList();
 
-            if (snap.hasError) {
-              return const Text(
-                'Unable to load students.',
-                style: TextStyle(color: Colors.red),
-              );
-            }
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: studentStream,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting &&
+                    !snap.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    ),
+                  );
+                }
 
-            final docs = snap.data?.docs ?? [];
-            c.setStudentsFromSnapshot(docs, explicitBatches: explicitBatches);
+                if (snap.hasError) {
+                  return const Text(
+                    'Unable to load students.',
+                    style: TextStyle(color: Colors.red),
+                  );
+                }
+
+                final docs = snap.data?.docs ?? [];
+                c.setStudentsFromSnapshot(
+                  docs,
+                  explicitBatches: explicitBatches,
+                  restrictToExplicitBatches: isInstituteTeacher,
+                );
 
             final batches = c.classList;
             final hasBatches =
@@ -631,6 +682,8 @@ class _CreateExamScreenState extends State<CreateExamScreen> {
               ],
             );
           },
+        );
+      },
         );
       },
     );

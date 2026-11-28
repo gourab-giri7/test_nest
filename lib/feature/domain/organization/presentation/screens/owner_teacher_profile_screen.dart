@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:test_nest/core/services/organization_service.dart';
 import 'package:test_nest/core/services/teacher_salary_service.dart';
 import 'package:test_nest/core/utils/custom_snackbar.dart';
@@ -11,6 +12,77 @@ import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/model/exam_model.dart';
 import 'package:test_nest/model/organization_model.dart';
 import 'package:test_nest/model/teacher_salary_model.dart';
+
+class _OwnerTeacherProfileData extends ChangeNotifier {
+  OrganizationMemberModel currentTeacher;
+  List<BatchModel> orgBatches = [];
+
+  bool isLoadingSalaries = false;
+  List<TeacherSalaryModel> monthlySalaryCards = [];
+  double configuredBaseSalary;
+  double totalSalaryPaid = 0.0;
+  double totalSalaryPending = 0.0;
+
+  bool isLoadingExams = false;
+  String? examError;
+  List<ExamModel> teacherExams = [];
+
+  _OwnerTeacherProfileData({
+    required this.currentTeacher,
+    required this.configuredBaseSalary,
+  });
+
+  void setOrgBatches(List<BatchModel> batches) {
+    orgBatches = batches;
+    notifyListeners();
+  }
+
+  void setLoadingSalaries(bool val) {
+    isLoadingSalaries = val;
+    notifyListeners();
+  }
+
+  void setSalaryData({
+    required List<TeacherSalaryModel> cards,
+    required double totalPaid,
+    required double totalPending,
+  }) {
+    monthlySalaryCards = cards;
+    totalSalaryPaid = totalPaid;
+    totalSalaryPending = totalPending;
+    isLoadingSalaries = false;
+    notifyListeners();
+  }
+
+  void setLoadingExams(bool val) {
+    isLoadingExams = val;
+    if (val) examError = null;
+    notifyListeners();
+  }
+
+  void setExamData(List<ExamModel> exams) {
+    teacherExams = exams;
+    isLoadingExams = false;
+    notifyListeners();
+  }
+
+  void setExamError(String err) {
+    examError = err;
+    isLoadingExams = false;
+    notifyListeners();
+  }
+
+  void updateBaseSalary(double newBase) {
+    configuredBaseSalary = newBase;
+    currentTeacher = currentTeacher.copyWith(monthlySalary: newBase);
+    notifyListeners();
+  }
+
+  void updateTeacher(OrganizationMemberModel updated) {
+    currentTeacher = updated;
+    notifyListeners();
+  }
+}
 
 class OwnerTeacherProfileScreen extends StatefulWidget {
   final OrganizationMemberModel teacher;
@@ -46,26 +118,26 @@ class _OwnerTeacherProfileScreenState extends State<OwnerTeacherProfileScreen>
     }
   }
 
-  late OrganizationMemberModel _currentTeacher;
-  List<BatchModel> _orgBatches = [];
+  late final _OwnerTeacherProfileData _data;
 
-  // Salary state
-  bool _isLoadingSalaries = false;
-  List<TeacherSalaryModel> _monthlySalaryCards = [];
-  double _configuredBaseSalary = 0.0;
-  double _totalSalaryPaid = 0.0;
-  double _totalSalaryPending = 0.0;
-
-  // Exams state
-  bool _isLoadingExams = false;
-  String? _examError;
-  List<ExamModel> _teacherExams = [];
+  OrganizationMemberModel get _currentTeacher => _data.currentTeacher;
+  List<BatchModel> get _orgBatches => _data.orgBatches;
+  bool get _isLoadingSalaries => _data.isLoadingSalaries;
+  List<TeacherSalaryModel> get _monthlySalaryCards => _data.monthlySalaryCards;
+  double get _configuredBaseSalary => _data.configuredBaseSalary;
+  double get _totalSalaryPaid => _data.totalSalaryPaid;
+  double get _totalSalaryPending => _data.totalSalaryPending;
+  bool get _isLoadingExams => _data.isLoadingExams;
+  String? get _examError => _data.examError;
+  List<ExamModel> get _teacherExams => _data.teacherExams;
 
   @override
   void initState() {
     super.initState();
-    _currentTeacher = widget.teacher;
-    _configuredBaseSalary = widget.teacher.monthlySalary ?? 0.0;
+    _data = _OwnerTeacherProfileData(
+      currentTeacher: widget.teacher,
+      configuredBaseSalary: widget.teacher.monthlySalary ?? 0.0,
+    );
     _tabController = TabController(length: 2, vsync: this);
 
     if (widget.autoLoad) {
@@ -76,6 +148,7 @@ class _OwnerTeacherProfileScreenState extends State<OwnerTeacherProfileScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _data.dispose();
     super.dispose();
   }
 
@@ -92,17 +165,17 @@ class _OwnerTeacherProfileScreenState extends State<OwnerTeacherProfileScreen>
           .collection('batches')
           .get();
       if (mounted) {
-        setState(() {
-          _orgBatches = snap.docs
+        _data.setOrgBatches(
+          snap.docs
               .map((d) => BatchModel.fromJson(d.data(), docId: d.id))
-              .toList();
-        });
+              .toList(),
+        );
       }
     } catch (_) {}
   }
 
   Future<void> _loadSalaryHistory() async {
-    setState(() => _isLoadingSalaries = true);
+    _data.setLoadingSalaries(true);
     try {
       final records = await _salaryService.fetchSalaryHistory(
         orgId: widget.orgId,
@@ -160,25 +233,21 @@ class _OwnerTeacherProfileScreenState extends State<OwnerTeacherProfileScreen>
       }
 
       if (mounted) {
-        setState(() {
-          _monthlySalaryCards = cards;
-          _totalSalaryPaid = totalPaid;
-          _totalSalaryPending = totalDue;
-          _isLoadingSalaries = false;
-        });
+        _data.setSalaryData(
+          cards: cards,
+          totalPaid: totalPaid,
+          totalPending: totalDue,
+        );
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoadingSalaries = false);
+        _data.setLoadingSalaries(false);
       }
     }
   }
 
   Future<void> _loadExamHistory() async {
-    setState(() {
-      _isLoadingExams = true;
-      _examError = null;
-    });
+    _data.setLoadingExams(true);
 
     try {
       final List<ExamModel> exams = [];
@@ -220,17 +289,11 @@ class _OwnerTeacherProfileScreenState extends State<OwnerTeacherProfileScreen>
       });
 
       if (mounted) {
-        setState(() {
-          _teacherExams = exams;
-          _isLoadingExams = false;
-        });
+        _data.setExamData(exams);
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _examError = 'Failed to load exam history: $e';
-          _isLoadingExams = false;
-        });
+        _data.setExamError('Failed to load exam history: $e');
       }
     }
   }
@@ -425,6 +488,11 @@ class _OwnerTeacherProfileScreenState extends State<OwnerTeacherProfileScreen>
                                 ? remarksController.text.trim()
                                 : null,
                             recordedBy: processedBy,
+                            baseSalary: monthModel.baseSalary > 0
+                                ? monthModel.baseSalary
+                                : (_configuredBaseSalary > 0
+                                    ? _configuredBaseSalary
+                                    : null),
                           );
 
                           CustomSnackbar.showSuccess(
@@ -512,12 +580,8 @@ class _OwnerTeacherProfileScreenState extends State<OwnerTeacherProfileScreen>
                     baseSalary: newBase,
                   );
 
-                  setState(() {
-                    _configuredBaseSalary = newBase;
-                    _currentTeacher = _currentTeacher.copyWith(
-                      monthlySalary: newBase,
-                    );
-                  });
+                  _data.updateBaseSalary(newBase);
+                  _loadSalaryHistory();
 
                   CustomSnackbar.showSuccess(
                     context: context,
@@ -603,11 +667,11 @@ class _OwnerTeacherProfileScreenState extends State<OwnerTeacherProfileScreen>
                         'assignedBatchIds': selectedBatchIds.toList(),
                       });
 
-                      setState(() {
-                        _currentTeacher = _currentTeacher.copyWith(
+                      _data.updateTeacher(
+                        _currentTeacher.copyWith(
                           assignedBatchIds: selectedBatchIds.toList(),
-                        );
-                      });
+                        ),
+                      );
 
                       CustomSnackbar.showSuccess(
                         context: context,
@@ -765,30 +829,40 @@ class _OwnerTeacherProfileScreenState extends State<OwnerTeacherProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final assignedBatches = _orgBatches
-        .where((b) => _currentTeacher.assignedBatchIds.contains(b.id))
-        .toList();
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              expandedHeight: 280,
-              pinned: true,
-              backgroundColor: const Color(0xFF1D4ED8),
-              foregroundColor: Colors.white,
-              title: Text(
-                _currentTeacher.name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+    return ChangeNotifierProvider<_OwnerTeacherProfileData>.value(
+      value: _data,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverAppBar(
+                expandedHeight: 280,
+                pinned: true,
+                backgroundColor: const Color(0xFF1D4ED8),
+                foregroundColor: Colors.white,
+                title: Selector<_OwnerTeacherProfileData, String>(
+                  selector: (_, d) => d.currentTeacher.name,
+                  builder: (_, name, __) => Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-              ),
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Consumer<_OwnerTeacherProfileData>(
+                    builder: (_, d, __) {
+                      final assignedBatches = _orgBatches
+                          .where(
+                            (b) => _currentTeacher.assignedBatchIds.contains(
+                              b.id,
+                            ),
+                          )
+                          .toList();
+                      return Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       colors: [Color(0xFF1D4ED8), Color(0xFF2563EB)],
@@ -928,7 +1002,9 @@ class _OwnerTeacherProfileScreenState extends State<OwnerTeacherProfileScreen>
                       ),
                     ),
                   ),
-                ),
+                );
+                    },
+                  ),
               ),
             ),
             SliverPersistentHeader(
@@ -962,10 +1038,15 @@ class _OwnerTeacherProfileScreenState extends State<OwnerTeacherProfileScreen>
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildSalaryTab(),
-            _buildExamsTab(),
+            Consumer<_OwnerTeacherProfileData>(
+              builder: (_, __, ___) => _buildSalaryTab(),
+            ),
+            Consumer<_OwnerTeacherProfileData>(
+              builder: (_, __, ___) => _buildExamsTab(),
+            ),
           ],
         ),
+      ),
       ),
     );
   }

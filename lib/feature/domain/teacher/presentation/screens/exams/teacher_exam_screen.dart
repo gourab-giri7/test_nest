@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -192,7 +193,13 @@ class TeacherExamsScreen extends StatelessWidget {
               final isInstitute = tenantCtx != null &&
                   tenantCtx.isInstitute &&
                   tenantCtx.activeOrgId.isNotEmpty;
+              final isInstituteTeacher =
+                  isInstitute && tenantCtx.isTeacher && !tenantCtx.isAdmin;
               final orgId = tenantCtx?.activeOrgId ?? '';
+              final effectiveTeacherUid =
+                  FirebaseAuth.instance.currentUser?.uid.trim().isNotEmpty == true
+                      ? FirebaseAuth.instance.currentUser!.uid.trim()
+                      : tData.id.trim();
 
               final resolvedStream = examStream ??
                   (isInstitute
@@ -208,43 +215,141 @@ class TeacherExamsScreen extends StatelessWidget {
                           .orderBy('exam_id', descending: true)
                           .snapshots());
 
-              return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: resolvedStream,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return const Center(
-                  child: Text('Something went wrong loading exams'),
-                );
-              }
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final exams = (snapshot.data?.docs ?? [])
-                  .map((d) => ExamModel.fromJson(d.data()))
-                  .toList(growable: false);
+              final Stream<QuerySnapshot<Map<String, dynamic>>>? batchesStream =
+                  isInstituteTeacher
+                      ? FirebaseFirestore.instance
+                          .collection('organizations')
+                          .doc(orgId)
+                          .collection('batches')
+                          .snapshots()
+                      : null;
 
-              final search = controller.search.toLowerCase();
-              final activeBatch = controller.selectedBatch;
+              final Stream<DocumentSnapshot<Map<String, dynamic>>>? memberStream =
+                  isInstituteTeacher && effectiveTeacherUid.isNotEmpty
+                      ? FirebaseFirestore.instance
+                          .collection('organizations')
+                          .doc(orgId)
+                          .collection('members')
+                          .doc(effectiveTeacherUid)
+                          .snapshots()
+                      : null;
 
-              final visibleExams = exams
-                  .where((exam) {
-                    final matchesSearch =
-                        search.isEmpty ||
-                        exam.examName.toLowerCase().contains(search) ||
-                        exam.examId.toLowerCase().contains(search);
+              return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: memberStream,
+                builder: (context, memberSnap) {
+                  final rawMemberBatchIds =
+                      memberSnap.data?.data()?['assignedBatchIds'];
+                  final memberAssignedBatchIds = <String>{
+                    if (rawMemberBatchIds is List)
+                      ...rawMemberBatchIds.map((e) => e.toString().trim()),
+                  };
 
-                    final matchesFilter =
-                        controller.selectedFilter == 'All' ||
-                        exam.status == controller.selectedFilter;
+                  return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: batchesStream,
+                    builder: (context, batchSnap) {
+                      final assignedBatchNames = <String>[];
+                      final assignedBatchKeys = <String>{};
+                      if (isInstituteTeacher) {
+                        for (final d in (batchSnap.data?.docs ?? const [])) {
+                          final data = d.data();
+                          if (data['isArchived'] == true ||
+                              data['is_archived'] == true) {
+                            continue;
+                          }
+                          final rawTeachers = data['assignedTeacherIds'] ??
+                              data['assigned_teacher_ids'];
+                          final assignedTeachers = rawTeachers is List
+                              ? rawTeachers
+                                  .map((e) => e.toString().trim())
+                                  .toSet()
+                              : <String>{};
+                          final bTeacherId =
+                              (data['teacher_id'] ?? data['teacherId'] ?? '')
+                                  .toString()
+                                  .trim();
+                          final isAssigned =
+                              assignedTeachers.contains(effectiveTeacherUid) ||
+                                  bTeacherId == effectiveTeacherUid ||
+                                  memberAssignedBatchIds.contains(d.id);
+                          if (isAssigned) {
+                            final bName = (data['name'] ?? '').toString().trim();
+                            if (bName.isNotEmpty) {
+                              assignedBatchNames.add(bName);
+                              assignedBatchKeys.add(bName.toLowerCase());
+                            }
+                            assignedBatchKeys.add(d.id.trim().toLowerCase());
+                          }
+                        }
+                      }
 
-                    final matchesBatch =
-                        activeBatch == 'All Batches' ||
-                        exam.batch.trim().toLowerCase() ==
-                            activeBatch.trim().toLowerCase();
+                      return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        stream: resolvedStream,
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return const Center(
+                              child: Text('Something went wrong loading exams'),
+                            );
+                          }
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          final allExams = (snapshot.data?.docs ?? [])
+                              .map((d) => ExamModel.fromJson(d.data()))
+                              .toList(growable: false);
 
-                    return matchesSearch && matchesFilter && matchesBatch;
-                  })
-                  .toList(growable: false);
+                          final exams = isInstituteTeacher
+                              ? allExams.where((exam) {
+                                  if (exam.teacherId.trim() ==
+                                      effectiveTeacherUid) {
+                                    return true;
+                                  }
+                                  if (assignedBatchKeys.contains(
+                                    exam.batch.trim().toLowerCase(),
+                                  )) {
+                                    return true;
+                                  }
+                                  return exam.batches.any(
+                                    (eb) => assignedBatchKeys.contains(
+                                      eb.trim().toLowerCase(),
+                                    ),
+                                  );
+                                }).toList(growable: false)
+                              : allExams;
+
+                          final search = controller.search.toLowerCase();
+                          final activeBatch = controller.selectedBatch;
+
+                          final visibleExams = exams
+                              .where((exam) {
+                                final matchesSearch =
+                                    search.isEmpty ||
+                                    exam.examName.toLowerCase().contains(
+                                      search,
+                                    ) ||
+                                    exam.examId.toLowerCase().contains(search);
+
+                                final matchesFilter =
+                                    controller.selectedFilter == 'All' ||
+                                    exam.status == controller.selectedFilter;
+
+                                final matchesBatch =
+                                    activeBatch == 'All Batches' ||
+                                    exam.batch.trim().toLowerCase() ==
+                                        activeBatch.trim().toLowerCase() ||
+                                    exam.batches.any(
+                                      (eb) =>
+                                          eb.trim().toLowerCase() ==
+                                          activeBatch.trim().toLowerCase(),
+                                    );
+
+                                return matchesSearch &&
+                                    matchesFilter &&
+                                    matchesBatch;
+                              })
+                              .toList(growable: false);
 
               final allSelected =
                   visibleExams.isNotEmpty &&
@@ -359,6 +464,12 @@ class TeacherExamsScreen extends StatelessWidget {
                               const SizedBox(height: 10),
                               _buildBatchFilter(
                                 () {
+                                  if (isInstituteTeacher) {
+                                    return assignedBatchNames
+                                        .where((b) => b.trim().isNotEmpty)
+                                        .toSet()
+                                        .toList();
+                                  }
                                   final bSet = <String>{...tData.batch};
                                   for (final e in exams) {
                                     if (e.batches.isNotEmpty) {
@@ -367,7 +478,9 @@ class TeacherExamsScreen extends StatelessWidget {
                                       bSet.add(e.batch.trim());
                                     }
                                   }
-                                  return bSet.where((b) => b.trim().isNotEmpty).toList();
+                                  return bSet
+                                      .where((b) => b.trim().isNotEmpty)
+                                      .toList();
                                 }(),
                                 activeBatch,
                                 controller,
@@ -385,6 +498,10 @@ class TeacherExamsScreen extends StatelessWidget {
                           ],
                         ),
                       );
+                    },
+                  );
+                },
+              );
                     },
                   );
                 },

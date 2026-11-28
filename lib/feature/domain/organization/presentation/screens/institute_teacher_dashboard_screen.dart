@@ -51,25 +51,34 @@ class InstituteTeacherDashboardScreen extends StatelessWidget {
                       foregroundColor: const Color(0xFF0F172A),
                       elevation: 0,
                       leading: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 18,
+                        ),
                         onPressed: () => controller.switchTab(0),
                       ),
                       title: Text(
                         controller.currentTabIndex == 1
                             ? 'My Assigned Batches'
                             : controller.currentTabIndex == 2
-                                ? 'Exams Management'
-                                : controller.currentTabIndex == 3
-                                    ? 'My Students'
-                                    : 'Teacher Settings & Profile',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                            ? 'Exams Management'
+                            : controller.currentTabIndex == 3
+                            ? 'My Students'
+                            : 'Teacher Settings & Profile',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                        ),
                       ),
                     ),
               body: SafeArea(
                 child: IndexedStack(
                   index: controller.currentTabIndex,
                   children: [
-                    _TeacherHomeTab(controller: controller, tenantCtx: tenantCtx),
+                    _TeacherHomeTab(
+                      controller: controller,
+                      tenantCtx: tenantCtx,
+                    ),
                     _TeacherBatchesTab(
                       controller: controller,
                       tenantCtx: tenantCtx,
@@ -82,7 +91,10 @@ class InstituteTeacherDashboardScreen extends StatelessWidget {
                       controller: controller,
                       tenantCtx: tenantCtx,
                     ),
-                    _TeacherMoreTab(controller: controller, tenantCtx: tenantCtx),
+                    _TeacherMoreTab(
+                      controller: controller,
+                      tenantCtx: tenantCtx,
+                    ),
                   ],
                 ),
               ),
@@ -219,7 +231,10 @@ class _TeacherHomeTab extends StatelessWidget {
             children: [
               IconButton(
                 tooltip: 'Notices',
-                icon: const Icon(Icons.notifications_outlined, color: Color(0xFF0D9488)),
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: Color(0xFF0D9488),
+                ),
                 onPressed: () {
                   controller.markAllNoticesAsRead();
                   Get.toNamed(AppRoutes.noticeList);
@@ -551,23 +566,7 @@ class _TeacherHomeTab extends StatelessWidget {
       return;
     }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return _CreateTeacherExamModal(
-          orgId: controller.orgId,
-          teacherUid: controller.effectiveTeacherUid,
-          assignedBatches: batches,
-          onExamCreated: () {
-            controller.initListeners();
-          },
-        );
-      },
-    );
+    Get.toNamed(AppRoutes.teacherCreateExam);
   }
 
   Widget _buildTodayScheduleSection(BuildContext context) {
@@ -1140,15 +1139,31 @@ class _TeacherExamsTab extends StatelessWidget {
                       color: Color(0xFF0F172A),
                     ),
                   ),
-                  ElevatedButton.icon(
-                    onPressed: () => _openCreateExamModal(context),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Create'),
-                    style: ElevatedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => Get.toNamed(AppRoutes.teacherExams),
+                        icon: const Icon(Icons.tune_rounded, size: 15),
+                        label: const Text('Manage'),
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () => _openCreateExamModal(context),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Create'),
+                        style: ElevatedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1257,64 +1272,95 @@ class _TeacherExamsTab extends StatelessWidget {
   }
 
   Widget _buildExamCard(BuildContext context, ExamModel exam) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  exam.examName,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
-                  ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () =>
+              Get.toNamed(AppRoutes.teacherExamDetails, arguments: exam),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        exam.examName,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    _buildStatusPill(exam.status),
+                  ],
                 ),
-              ),
-              _buildStatusPill(exam.status),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Batch: ${exam.batch}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF3B82F6),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${exam.fullMarks} Marks',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  'Batch: ${exam.batch}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF3B82F6),
-                  ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Schedule: ${exam.examStart != null ? DateFormat('yyyy-MM-dd HH:mm').format(exam.examStart!) : 'Not scheduled'}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                    const Text(
+                      'Manage >',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${exam.fullMarks} Marks',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Schedule: ${exam.examStart != null ? DateFormat('yyyy-MM-dd HH:mm').format(exam.examStart!) : 'Not scheduled'}',
-            style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1358,23 +1404,7 @@ class _TeacherExamsTab extends StatelessWidget {
       return;
     }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return _CreateTeacherExamModal(
-          orgId: controller.orgId,
-          teacherUid: controller.effectiveTeacherUid,
-          assignedBatches: batches,
-          onExamCreated: () {
-            controller.initListeners();
-          },
-        );
-      },
-    );
+    Get.toNamed(AppRoutes.teacherCreateExam);
   }
 }
 
@@ -1540,74 +1570,80 @@ class _TeacherStudentsTab extends StatelessWidget {
     BuildContext context,
     TeacherAssignedStudent student,
   ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-          child: Text(
-            student.studentName.isNotEmpty
-                ? student.studentName[0].toUpperCase()
-                : 'S',
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 4,
+          ),
+          leading: CircleAvatar(
+            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+            child: Text(
+              student.studentName.isNotEmpty
+                  ? student.studentName[0].toUpperCase()
+                  : 'S',
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          title: Text(
+            student.studentName,
             style: const TextStyle(
+              fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: AppColors.primary,
+              color: Color(0xFF0F172A),
             ),
           ),
-        ),
-        title: Text(
-          student.studentName,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              student.studentEmail,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 4,
-              children: student.batchNames
-                  .map(
-                    (bName) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        bName,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF475569),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                student.studentEmail,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 4,
+                children: student.batchNames
+                    .map(
+                      (bName) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          bName,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF475569),
+                          ),
                         ),
                       ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ],
+                    )
+                    .toList(),
+              ),
+            ],
+          ),
+          trailing: const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+          onTap: () {
+            _openStudentDetailsModal(context, student);
+          },
         ),
-        trailing: const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
-        onTap: () {
-          _openStudentDetailsModal(context, student);
-        },
       ),
     );
   }
@@ -1855,41 +1891,47 @@ class _TeacherMoreTab extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 4,
           ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 22),
           ),
+          title: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          subtitle: Text(
+            subtitle,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
+          trailing: const Icon(
+            Icons.arrow_forward_ios,
+            size: 14,
+            color: Color(0xFF94A3B8),
+          ),
+          onTap: onTap,
         ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          size: 14,
-          color: Color(0xFF94A3B8),
-        ),
-        onTap: onTap,
       ),
     );
   }
@@ -2111,33 +2153,36 @@ class TeacherBatchDetailScreen extends StatelessWidget {
                 itemCount: students.length,
                 itemBuilder: (context, i) {
                   final s = students[i];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Material(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: AppColors.primary.withValues(
-                          alpha: 0.1,
-                        ),
-                        child: Text(
-                          s.studentName.isNotEmpty
-                              ? s.studentName[0].toUpperCase()
-                              : 'S',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: AppColors.primary.withValues(
+                            alpha: 0.1,
+                          ),
+                          child: Text(
+                            s.studentName.isNotEmpty
+                                ? s.studentName[0].toUpperCase()
+                                : 'S',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
+                        title: Text(
+                          s.studentName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(s.studentEmail),
                       ),
-                      title: Text(
-                        s.studentName,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: Text(s.studentEmail),
                     ),
                   );
                 },
@@ -2548,32 +2593,55 @@ class _CreateTeacherExamModal extends StatefulWidget {
       _CreateTeacherExamModalState();
 }
 
+class _CreateTeacherExamState extends ChangeNotifier {
+  String selectedBatchId;
+  String selectedBatchName;
+  bool isSubmitting = false;
+
+  _CreateTeacherExamState({
+    required this.selectedBatchId,
+    required this.selectedBatchName,
+  });
+
+  void setBatch(String id, String name) {
+    selectedBatchId = id;
+    selectedBatchName = name;
+    notifyListeners();
+  }
+
+  void setSubmitting(bool val) {
+    isSubmitting = val;
+    notifyListeners();
+  }
+}
+
 class _CreateTeacherExamModalState extends State<_CreateTeacherExamModal> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _marksController = TextEditingController(text: '100');
-  late String _selectedBatchId;
-  late String _selectedBatchName;
-  bool _isSubmitting = false;
+  late final _CreateTeacherExamState _modalState;
 
   @override
   void initState() {
     super.initState();
-    _selectedBatchId = widget.assignedBatches.first.id;
-    _selectedBatchName = widget.assignedBatches.first.name;
+    _modalState = _CreateTeacherExamState(
+      selectedBatchId: widget.assignedBatches.first.id,
+      selectedBatchName: widget.assignedBatches.first.name,
+    );
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _marksController.dispose();
+    _modalState.dispose();
     super.dispose();
   }
 
   Future<void> _submitExam() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSubmitting = true);
+    _modalState.setSubmitting(true);
 
     try {
       final examId = 'exam_${DateTime.now().millisecondsSinceEpoch}';
@@ -2588,8 +2656,8 @@ class _CreateTeacherExamModalState extends State<_CreateTeacherExamModal> {
             'exam_id': examId,
             'exam_name': _nameController.text.trim(),
             'teacher_id': widget.teacherUid,
-            'batch': _selectedBatchName,
-            'assignedBatchIds': [_selectedBatchId],
+            'batch': _modalState.selectedBatchName,
+            'assignedBatchIds': [_modalState.selectedBatchId],
             'total_marks': totalMarks,
             'status': 'active',
             'is_active': true,
@@ -2608,13 +2676,13 @@ class _CreateTeacherExamModalState extends State<_CreateTeacherExamModal> {
           context: context,
           title: 'Exam Created',
           message:
-              'Exam "${_nameController.text.trim()}" created for $_selectedBatchName.',
+              'Exam "${_nameController.text.trim()}" created for ${_modalState.selectedBatchName}.',
         );
         widget.onExamCreated();
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isSubmitting = false);
+        _modalState.setSubmitting(false);
         CustomSnackbar.showError(
           context: context,
           title: 'Error',
@@ -2626,107 +2694,118 @@ class _CreateTeacherExamModalState extends State<_CreateTeacherExamModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Create Exam for Assigned Batch',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Exam Title *',
-                  hintText: 'e.g. Unit 3 Calculus Assessment',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Please enter exam title';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                value: _selectedBatchId,
-                decoration: const InputDecoration(
-                  labelText: 'Target Batch *',
-                  border: OutlineInputBorder(),
-                ),
-                items: widget.assignedBatches
-                    .map(
-                      (b) => DropdownMenuItem(value: b.id, child: Text(b.name)),
-                    )
-                    .toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _selectedBatchId = val;
-                      _selectedBatchName = widget.assignedBatches
-                          .firstWhere((b) => b.id == val)
-                          .name;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _marksController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Total Marks *',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (val) {
-                  if (val == null || int.tryParse(val.trim()) == null) {
-                    return 'Please enter valid marks';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submitExam,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+    return ChangeNotifierProvider<_CreateTeacherExamState>.value(
+      value: _modalState,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Create Exam for Assigned Batch',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
                   ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,       
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Create Exam',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Exam Title *',
+                    hintText: 'e.g. Unit 3 Calculus Assessment',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Please enter exam title';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 14),
+                Selector<_CreateTeacherExamState, String>(
+                  selector: (_, state) => state.selectedBatchId,
+                  builder: (_, selectedBatchId, __) =>
+                      DropdownButtonFormField<String>(
+                        value: selectedBatchId,
+                        decoration: const InputDecoration(
+                          labelText: 'Target Batch *',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: widget.assignedBatches
+                            .map(
+                              (b) => DropdownMenuItem(
+                                value: b.id,
+                                child: Text(b.name),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            final name = widget.assignedBatches
+                                .firstWhere((b) => b.id == val)
+                                .name;
+                            _modalState.setBatch(val, name);
+                          }
+                        },
+                      ),
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _marksController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Total Marks *',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (val) {
+                    if (val == null || int.tryParse(val.trim()) == null) {
+                      return 'Please enter valid marks';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                Selector<_CreateTeacherExamState, bool>(
+                  selector: (_, state) => state.isSubmitting,
+                  builder: (_, isSubmitting, __) => SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: isSubmitting ? null : _submitExam,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: isSubmitting
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Create Exam',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

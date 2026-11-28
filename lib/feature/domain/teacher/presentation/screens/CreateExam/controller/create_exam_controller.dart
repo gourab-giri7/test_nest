@@ -115,6 +115,7 @@ class CreateExamController extends ChangeNotifier {
   void setStudentsFromSnapshot(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs, {
     List<String>? explicitBatches,
+    bool restrictToExplicitBatches = false,
   }) {
     final nextStudents = docs
         .map((d) => StudentModel.fromJson(d.data(), docId: d.id))
@@ -125,7 +126,8 @@ class CreateExamController extends ChangeNotifier {
 
     // Aggregate available batches from explicit batches or teacherData + actual student docs
     final batchSet = <String>{};
-    if (explicitBatches != null && explicitBatches.isNotEmpty) {
+    if (explicitBatches != null &&
+        (explicitBatches.isNotEmpty || restrictToExplicitBatches)) {
       for (final b in explicitBatches) {
         final clean = b.trim();
         if (clean.isNotEmpty) batchSet.add(clean);
@@ -138,9 +140,11 @@ class CreateExamController extends ChangeNotifier {
         }
       }
     }
-    for (final s in nextStudents) {
-      if (s.batch.trim().isNotEmpty) {
-        batchSet.add(s.batch.trim());
+    if (!restrictToExplicitBatches) {
+      for (final s in nextStudents) {
+        if (s.batch.trim().isNotEmpty) {
+          batchSet.add(s.batch.trim());
+        }
       }
     }
 

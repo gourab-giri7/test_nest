@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:provider/provider.dart';
 import 'package:test_nest/core/services/batch_qr_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
+
+class _QrScannerState extends ChangeNotifier {
+  bool isTorchOn = false;
+
+  void toggleTorch() {
+    isTorchOn = !isTorchOn;
+    notifyListeners();
+  }
+}
 
 class StudentQrScannerScreen extends StatefulWidget {
   const StudentQrScannerScreen({super.key});
@@ -14,8 +24,8 @@ class StudentQrScannerScreen extends StatefulWidget {
 class _StudentQrScannerScreenState extends State<StudentQrScannerScreen>
     with WidgetsBindingObserver {
   late final MobileScannerController _scannerController;
+  final _QrScannerState _scannerState = _QrScannerState();
   bool _hasScanned = false;
-  bool _isTorchOn = false;
   bool _hasError = false;
   String _errorMessage = '';
 
@@ -46,6 +56,7 @@ class _StudentQrScannerScreenState extends State<StudentQrScannerScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scannerController.dispose();
+    _scannerState.dispose();
     super.dispose();
   }
 
@@ -101,16 +112,16 @@ class _StudentQrScannerScreenState extends State<StudentQrScannerScreen>
     try {
       await _scannerController.toggleTorch();
       if (mounted) {
-        setState(() {
-          _isTorchOn = !_isTorchOn;
-        });
+        _scannerState.toggleTorch();
       }
     } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ChangeNotifierProvider<_QrScannerState>.value(
+      value: _scannerState,
+      child: Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
@@ -160,21 +171,25 @@ class _StudentQrScannerScreenState extends State<StudentQrScannerScreen>
                   ),
 
                   // Torch button
-                  IconButton(
-                    style: IconButton.styleFrom(
-                      backgroundColor: _isTorchOn
-                          ? Colors.amber.withOpacity(0.8)
-                          : Colors.black.withOpacity(0.5),
-                      foregroundColor: _isTorchOn ? Colors.black : Colors.white,
+                  Selector<_QrScannerState, bool>(
+                    selector: (_, state) => state.isTorchOn,
+                    builder: (_, isTorchOn, __) => IconButton(
+                      style: IconButton.styleFrom(
+                        backgroundColor: isTorchOn
+                            ? Colors.amber.withOpacity(0.8)
+                            : Colors.black.withOpacity(0.5),
+                        foregroundColor:
+                            isTorchOn ? Colors.black : Colors.white,
+                      ),
+                      icon: Icon(
+                        isTorchOn
+                            ? Icons.flash_on_rounded
+                            : Icons.flash_off_rounded,
+                        size: 20,
+                      ),
+                      tooltip: 'Toggle Flashlight',
+                      onPressed: _toggleTorch,
                     ),
-                    icon: Icon(
-                      _isTorchOn
-                          ? Icons.flash_on_rounded
-                          : Icons.flash_off_rounded,
-                      size: 20,
-                    ),
-                    tooltip: 'Toggle Flashlight',
-                    onPressed: _toggleTorch,
                   ),
                 ],
               ),
@@ -254,6 +269,7 @@ class _StudentQrScannerScreenState extends State<StudentQrScannerScreen>
             ),
           ),
         ],
+      ),
       ),
     );
   }

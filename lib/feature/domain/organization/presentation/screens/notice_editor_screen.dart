@@ -333,11 +333,13 @@ class _NoticeEditorScreenState extends State<NoticeEditorScreen> {
         border: Border.all(color: AppColors.border),
         boxShadow: AppShadows.card,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Target Audience',
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Target Audience',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
@@ -402,6 +404,7 @@ class _NoticeEditorScreenState extends State<NoticeEditorScreen> {
           if (controller.audienceType == NoticeAudienceType.students)
             _buildStudentSelector(controller),
         ],
+        ),
       ),
     );
   }

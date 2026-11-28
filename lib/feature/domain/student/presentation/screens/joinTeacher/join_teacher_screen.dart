@@ -56,9 +56,7 @@ class _JoinTeacherScreenState extends State<JoinTeacherScreen> {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text?.trim() ?? '';
     if (text.isNotEmpty) {
-      setState(() {
-        _codeController.text = text;
-      });
+      _codeController.text = text;
       if (mounted) {
         customSnackbar(
           context: context,

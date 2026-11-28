@@ -20,18 +20,55 @@ class AttendanceOverviewScreen extends StatefulWidget {
       _AttendanceOverviewScreenState();
 }
 
+class _AttendanceOverviewData extends ChangeNotifier {
+  bool isLoading = true;
+  String? errorMessage;
+  List<BatchModel> batches = [];
+  Map<String, List<AttendanceRecordModel>> todayRecordsByBatch = {};
+
+  void setLoading() {
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+  }
+
+  void setData(
+    List<BatchModel> newBatches,
+    Map<String, List<AttendanceRecordModel>> newRecords,
+  ) {
+    batches = newBatches;
+    todayRecordsByBatch = newRecords;
+    isLoading = false;
+    notifyListeners();
+  }
+
+  void setError(String msg) {
+    errorMessage = msg;
+    isLoading = false;
+    notifyListeners();
+  }
+}
+
 class _AttendanceOverviewScreenState extends State<AttendanceOverviewScreen> {
   final AttendanceService _service = AttendanceService();
-  bool _isLoading = true;
-  String? _errorMessage;
+  final _AttendanceOverviewData _data = _AttendanceOverviewData();
 
-  List<BatchModel> _batches = [];
-  Map<String, List<AttendanceRecordModel>> _todayRecordsByBatch = {};
+  bool get _isLoading => _data.isLoading;
+  String? get _errorMessage => _data.errorMessage;
+  List<BatchModel> get _batches => _data.batches;
+  Map<String, List<AttendanceRecordModel>> get _todayRecordsByBatch =>
+      _data.todayRecordsByBatch;
 
   @override
   void initState() {
     super.initState();
     _loadOverview();
+  }
+
+  @override
+  void dispose() {
+    _data.dispose();
+    super.dispose();
   }
 
   TenantPathResolver _getResolver() {
@@ -43,10 +80,7 @@ class _AttendanceOverviewScreenState extends State<AttendanceOverviewScreen> {
   }
 
   Future<void> _loadOverview() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    _data.setLoading();
 
     try {
       final resolver = _getResolver();
@@ -85,38 +119,34 @@ class _AttendanceOverviewScreenState extends State<AttendanceOverviewScreen> {
       }
 
       if (mounted) {
-        setState(() {
-          _batches = batches;
-          _todayRecordsByBatch = todayRecords;
-          _isLoading = false;
-        });
+        _data.setData(batches, todayRecords);
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = 'Failed to load attendance overview: $e';
-          _isLoading = false;
-        });
+        _data.setError('Failed to load attendance overview: $e');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text(
-          'Attendance Overview',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+    return ChangeNotifierProvider<_AttendanceOverviewData>.value(
+      value: _data,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text(
+            'Attendance Overview',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.text,
         ),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.text,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
+        body: Consumer<_AttendanceOverviewData>(
+          builder: (_, data, __) => data.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : data.errorMessage != null
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
@@ -176,6 +206,8 @@ class _AttendanceOverviewScreenState extends State<AttendanceOverviewScreen> {
                 ),
               ),
             ),
+        ),
+      ),
     );
   }
 

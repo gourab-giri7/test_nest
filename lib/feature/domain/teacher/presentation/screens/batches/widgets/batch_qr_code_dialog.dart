@@ -1,10 +1,35 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:test_nest/core/services/batch_and_join_code_service.dart';
 import 'package:test_nest/core/services/batch_qr_service.dart';
 import 'package:test_nest/model/batch_model.dart';
+
+class _BatchQrCodeState extends ChangeNotifier {
+  bool isSharingQr = false;
+  String currentCode;
+  bool isGeneratingCode = false;
+
+  _BatchQrCodeState(this.currentCode);
+
+  void setGenerating(bool val) {
+    isGeneratingCode = val;
+    notifyListeners();
+  }
+
+  void setCodeGenerated(String newCode) {
+    currentCode = newCode;
+    isGeneratingCode = false;
+    notifyListeners();
+  }
+
+  void setSharing(bool val) {
+    isSharingQr = val;
+    notifyListeners();
+  }
+}
 
 class BatchQrCodeDialog extends StatefulWidget {
   final BatchModel batch;
@@ -25,21 +50,25 @@ class BatchQrCodeDialog extends StatefulWidget {
 
 class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
   final GlobalKey _repaintBoundaryKey = GlobalKey();
-  bool _isSharingQr = false;
-  late String _currentCode;
-  bool _isGeneratingCode = false;
+  late final _BatchQrCodeState _qrState;
 
   @override
   void initState() {
     super.initState();
-    _currentCode = widget.batch.activeJoinCode.trim();
-    if (_currentCode.isEmpty) {
+    _qrState = _BatchQrCodeState(widget.batch.activeJoinCode.trim());
+    if (_qrState.currentCode.isEmpty) {
       _autoGenerateCode();
     }
   }
 
+  @override
+  void dispose() {
+    _qrState.dispose();
+    super.dispose();
+  }
+
   Future<void> _autoGenerateCode() async {
-    setState(() => _isGeneratingCode = true);
+    _qrState.setGenerating(true);
     try {
       final newCode = BatchAndJoinCodeService.generateJoiningCode();
       final batchId = widget.batch.id.trim();
@@ -83,23 +112,21 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
       } catch (_) {}
 
       if (mounted) {
-        setState(() {
-          _currentCode = newCode;
-          _isGeneratingCode = false;
-        });
+        _qrState.setCodeGenerated(newCode);
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _isGeneratingCode = false);
+        _qrState.setGenerating(false);
       }
     }
   }
 
   Future<void> _handleShareQr() async {
-    if (_isSharingQr) return;
-    setState(() => _isSharingQr = true);
+    if (_qrState.isSharingQr) return;
+    _qrState.setSharing(true);
     try {
-      final effectiveBatch = widget.batch.copyWith(activeJoinCode: _currentCode);
+      final effectiveBatch =
+          widget.batch.copyWith(activeJoinCode: _qrState.currentCode);
       await BatchQrService.shareQrCodeImage(
         context: context,
         batch: effectiveBatch,
@@ -107,7 +134,7 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
       );
     } finally {
       if (mounted) {
-        setState(() => _isSharingQr = false);
+        _qrState.setSharing(false);
       }
     }
   }
@@ -115,10 +142,10 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
   @override
   Widget build(BuildContext context) {
     final batch = widget.batch;
-    final joinCode = _currentCode;
-    final hasActiveCode = joinCode.isNotEmpty;
 
-    return Dialog(
+    return ChangeNotifierProvider<_BatchQrCodeState>.value(
+      value: _qrState,
+      child: Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       elevation: 16,
       backgroundColor: Colors.white,
@@ -218,8 +245,12 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
               // Body Content
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                child: hasActiveCode
-                    ? Column(
+                child: Selector<_BatchQrCodeState, String>(
+                  selector: (_, state) => state.currentCode,
+                  builder: (_, joinCode, __) {
+                    final hasActiveCode = joinCode.isNotEmpty;
+                    return hasActiveCode
+                        ? Column(
                         children: [
                           // Scannable QR Code wrapped in RepaintBoundary for high-res capture
                           RepaintBoundary(
@@ -455,29 +486,37 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                                 ),
                                 elevation: 0,
                               ),
-                              icon: _isSharingQr
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
+                              icon: Selector<_BatchQrCodeState, bool>(
+                                selector: (_, state) => state.isSharingQr,
+                                builder: (_, isSharingQr, __) => isSharingQr
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.qr_code_scanner_rounded,
+                                        size: 18,
                                       ),
-                                    )
-                                  : const Icon(
-                                      Icons.qr_code_scanner_rounded,
-                                      size: 18,
-                                    ),
-                              label: Text(
-                                _isSharingQr
-                                    ? 'Generating QR...'
-                                    : 'Share QR Image',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
+                              ),
+                              label: Selector<_BatchQrCodeState, bool>(
+                                selector: (_, state) => state.isSharingQr,
+                                builder: (_, isSharingQr, __) => Text(
+                                  isSharingQr
+                                      ? 'Generating QR...'
+                                      : 'Share QR Image',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                              onPressed: _isSharingQr ? null : _handleShareQr,
+                              onPressed: _qrState.isSharingQr
+                                  ? null
+                                  : _handleShareQr,
                             ),
                           ),
 
@@ -543,11 +582,14 @@ class _BatchQrCodeDialogState extends State<BatchQrCodeDialog> {
                             ),
                           ),
                         ],
-                      ),
+                      );
+                  },
+                ),
               ),
             ],
           ),
         ),
+      ),
       ),
     );
   }

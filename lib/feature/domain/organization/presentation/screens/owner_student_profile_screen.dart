@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:test_nest/core/services/fee_service.dart';
 import 'package:test_nest/core/services/organization_service.dart';
 import 'package:test_nest/core/utils/custom_snackbar.dart';
@@ -22,6 +23,86 @@ import 'package:test_nest/model/organization_model.dart';
 // Tab 1: Fees History (Previous months & current month with Paid/Pending status & Collect action)
 // Tab 2: Exam History (Recent given exams, tap to inspect all questions, right/wrong answers & marks)
 // =============================================================================
+
+class _OwnerStudentProfileData extends ChangeNotifier {
+  OrganizationMemberModel currentStudent;
+  List<BatchModel> orgBatches = [];
+
+  bool isLoadingFees = false;
+  List<FeeRecord> monthlyFeeCards = [];
+  double expectedMonthlyFee = 0.0;
+  double totalFeesCollected = 0.0;
+  double totalFeesDue = 0.0;
+
+  bool isLoadingExams = false;
+  String? examError;
+  List<StudentExamSubmissionSummary> examHistory = [];
+
+  _OwnerStudentProfileData({required this.currentStudent});
+
+  void computeExpectedMonthlyFee() {
+    double total = 0.0;
+    final assigned = Set<String>.from(
+      currentStudent.assignedBatchIds.map((b) => b.trim().toLowerCase()),
+    );
+    for (final b in orgBatches) {
+      final matchesId = assigned.contains(b.id.trim().toLowerCase());
+      final matchesName = assigned.contains(b.name.trim().toLowerCase());
+      if (matchesId || matchesName) {
+        if (b.monthlyFee > 0) {
+          total += b.monthlyFee;
+        }
+      }
+    }
+    expectedMonthlyFee = total > 0 ? total : 0.0;
+  }
+
+  void setBatches(List<BatchModel> batches) {
+    orgBatches = batches;
+    computeExpectedMonthlyFee();
+    notifyListeners();
+  }
+
+  void setLoadingFees(bool val) {
+    isLoadingFees = val;
+    notifyListeners();
+  }
+
+  void setFeeData({
+    required List<FeeRecord> cards,
+    required double totalCollected,
+    required double totalDue,
+  }) {
+    monthlyFeeCards = cards;
+    totalFeesCollected = totalCollected;
+    totalFeesDue = totalDue;
+    isLoadingFees = false;
+    notifyListeners();
+  }
+
+  void setLoadingExams(bool val) {
+    isLoadingExams = val;
+    if (val) examError = null;
+    notifyListeners();
+  }
+
+  void setExamData(List<StudentExamSubmissionSummary> summaries) {
+    examHistory = summaries;
+    isLoadingExams = false;
+    notifyListeners();
+  }
+
+  void setExamError(String err) {
+    examError = err;
+    isLoadingExams = false;
+    notifyListeners();
+  }
+
+  void notifyBatchesChanged() {
+    computeExpectedMonthlyFee();
+    notifyListeners();
+  }
+}
 
 class OwnerStudentProfileScreen extends StatefulWidget {
   final OrganizationMemberModel student;
@@ -56,25 +137,23 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
     }
   }
 
-  late OrganizationMemberModel _currentStudent;
-  List<BatchModel> _orgBatches = [];
+  late final _OwnerStudentProfileData _data;
 
-  // Fees state
-  bool _isLoadingFees = false;
-  List<FeeRecord> _monthlyFeeCards = [];
-  double _expectedMonthlyFee = 0.0;
-  double _totalFeesCollected = 0.0;
-  double _totalFeesDue = 0.0;
-
-  // Exams state
-  bool _isLoadingExams = false;
-  String? _examError;
-  List<StudentExamSubmissionSummary> _examHistory = [];
+  OrganizationMemberModel get _currentStudent => _data.currentStudent;
+  List<BatchModel> get _orgBatches => _data.orgBatches;
+  bool get _isLoadingFees => _data.isLoadingFees;
+  List<FeeRecord> get _monthlyFeeCards => _data.monthlyFeeCards;
+  double get _expectedMonthlyFee => _data.expectedMonthlyFee;
+  double get _totalFeesCollected => _data.totalFeesCollected;
+  double get _totalFeesDue => _data.totalFeesDue;
+  bool get _isLoadingExams => _data.isLoadingExams;
+  String? get _examError => _data.examError;
+  List<StudentExamSubmissionSummary> get _examHistory => _data.examHistory;
 
   @override
   void initState() {
     super.initState();
-    _currentStudent = widget.student;
+    _data = _OwnerStudentProfileData(currentStudent: widget.student);
     _tabController = TabController(length: 2, vsync: this);
 
     if (widget.autoLoad) {
@@ -85,6 +164,7 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _data.dispose();
     super.dispose();
   }
 
@@ -105,31 +185,11 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
           .toList();
 
       if (mounted) {
-        setState(() {
-          _orgBatches = batches;
-          _computeExpectedMonthlyFee();
-        });
+        _data.setBatches(batches);
       }
     } catch (e) {
       log('Error loading institute batches: $e');
     }
-  }
-
-  void _computeExpectedMonthlyFee() {
-    double total = 0.0;
-    final assigned = Set<String>.from(
-      _currentStudent.assignedBatchIds.map((b) => b.trim().toLowerCase()),
-    );
-    for (final b in _orgBatches) {
-      final matchesId = assigned.contains(b.id.trim().toLowerCase());
-      final matchesName = assigned.contains(b.name.trim().toLowerCase());
-      if (matchesId || matchesName) {
-        if (b.monthlyFee > 0) {
-          total += b.monthlyFee;
-        }
-      }
-    }
-    _expectedMonthlyFee = total > 0 ? total : 0.0;
   }
 
   // ---------------------------------------------------------------------------
@@ -138,7 +198,7 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
 
   Future<void> _loadFeeHistory() async {
     if (!mounted) return;
-    setState(() => _isLoadingFees = true);
+    _data.setLoadingFees(true);
 
     try {
       final recordedList = await FeeService.getStudentFeeHistory(
@@ -204,16 +264,15 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
       generatedMonths.sort((a, b) => b.billingMonth.compareTo(a.billingMonth));
 
       if (mounted) {
-        setState(() {
-          _monthlyFeeCards = generatedMonths;
-          _totalFeesCollected = totalCollected;
-          _totalFeesDue = totalDue;
-          _isLoadingFees = false;
-        });
+        _data.setFeeData(
+          cards: generatedMonths,
+          totalCollected: totalCollected,
+          totalDue: totalDue,
+        );
       }
     } catch (e) {
       log('Error loading student fee history: $e');
-      if (mounted) setState(() => _isLoadingFees = false);
+      if (mounted) _data.setLoadingFees(false);
     }
   }
 
@@ -223,10 +282,7 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
 
   Future<void> _loadExamHistory() async {
     if (!mounted) return;
-    setState(() {
-      _isLoadingExams = true;
-      _examError = null;
-    });
+    _data.setLoadingExams(true);
 
     try {
       final List<StudentExamSubmissionSummary> summaries = [];
@@ -395,18 +451,12 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
       });
 
       if (mounted) {
-        setState(() {
-          _examHistory = summaries;
-          _isLoadingExams = false;
-        });
+        _data.setExamData(summaries);
       }
     } catch (e) {
       log('Error loading student exams: $e');
       if (mounted) {
-        setState(() {
-          _examError = 'Failed to load exam history: $e';
-          _isLoadingExams = false;
-        });
+        _data.setExamError('Failed to load exam history: $e');
       }
     }
   }
@@ -657,11 +707,9 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final assignedBatchObjects = _orgBatches
-        .where((b) => _currentStudent.assignedBatchIds.contains(b.id))
-        .toList();
-
-    return Scaffold(
+    return ChangeNotifierProvider<_OwnerStudentProfileData>.value(
+      value: _data,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text(
@@ -731,7 +779,16 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverToBoxAdapter(
-              child: _buildStudentHeader(assignedBatchObjects),
+              child: Consumer<_OwnerStudentProfileData>(
+                builder: (_, d, __) {
+                  final assignedBatchObjects = d.orgBatches
+                      .where(
+                        (b) => d.currentStudent.assignedBatchIds.contains(b.id),
+                      )
+                      .toList();
+                  return _buildStudentHeader(assignedBatchObjects);
+                },
+              ),
             ),
             SliverPersistentHeader(
               pinned: true,
@@ -745,13 +802,19 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
                   labelStyle:
                       const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   tabs: [
-                    Tab(
-                      icon: const Icon(Icons.receipt_long_rounded, size: 20),
-                      text: 'Fees History (${_monthlyFeeCards.length})',
+                    Selector<_OwnerStudentProfileData, int>(
+                      selector: (_, d) => d.monthlyFeeCards.length,
+                      builder: (_, count, __) => Tab(
+                        icon: const Icon(Icons.receipt_long_rounded, size: 20),
+                        text: 'Fees History ($count)',
+                      ),
                     ),
-                    Tab(
-                      icon: const Icon(Icons.analytics_outlined, size: 20),
-                      text: 'Exam History (${_examHistory.length})',
+                    Selector<_OwnerStudentProfileData, int>(
+                      selector: (_, d) => d.examHistory.length,
+                      builder: (_, count, __) => Tab(
+                        icon: const Icon(Icons.analytics_outlined, size: 20),
+                        text: 'Exam History ($count)',
+                      ),
                     ),
                   ],
                 ),
@@ -762,10 +825,15 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildFeesTab(),
-            _buildExamsTab(),
+            Consumer<_OwnerStudentProfileData>(
+              builder: (_, __, ___) => _buildFeesTab(),
+            ),
+            Consumer<_OwnerStudentProfileData>(
+              builder: (_, __, ___) => _buildExamsTab(),
+            ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1716,10 +1784,8 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
                       studentName: _currentStudent.name,
                       studentEmail: _currentStudent.email,
                     );
-                    setState(() {
-                      _currentStudent.assignedBatchIds.add(b.id);
-                      _computeExpectedMonthlyFee();
-                    });
+                    _currentStudent.assignedBatchIds.add(b.id);
+                    _data.notifyBatchesChanged();
                     CustomSnackbar.showSuccess(
                       context: context,
                       title: 'Enrolled',
@@ -1816,11 +1882,9 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
                     studentName: _currentStudent.name,
                     studentEmail: _currentStudent.email,
                   );
-                  setState(() {
-                    _currentStudent.assignedBatchIds.remove(fromBatchId);
-                    _currentStudent.assignedBatchIds.add(toBatchId);
-                    _computeExpectedMonthlyFee();
-                  });
+                  _currentStudent.assignedBatchIds.remove(fromBatchId);
+                  _currentStudent.assignedBatchIds.add(toBatchId);
+                  _data.notifyBatchesChanged();
                   CustomSnackbar.showSuccess(
                     context: context,
                     title: 'Transferred',
@@ -1866,10 +1930,8 @@ class _OwnerStudentProfileScreenState extends State<OwnerStudentProfileScreen>
                     batchId: b.id,
                     studentUid: _currentStudent.uid,
                   );
-                  setState(() {
-                    _currentStudent.assignedBatchIds.remove(b.id);
-                    _computeExpectedMonthlyFee();
-                  });
+                  _currentStudent.assignedBatchIds.remove(b.id);
+                  _data.notifyBatchesChanged();
                   CustomSnackbar.showSuccess(
                     context: context,
                     title: 'Removed',

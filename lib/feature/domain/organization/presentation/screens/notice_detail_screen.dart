@@ -23,15 +23,40 @@ class NoticeDetailScreen extends StatefulWidget {
   State<NoticeDetailScreen> createState() => _NoticeDetailScreenState();
 }
 
+class _NoticeDetailData extends ChangeNotifier {
+  NoticeModel currentNotice;
+  bool isLoading = false;
+
+  _NoticeDetailData(this.currentNotice);
+
+  void setLoading(bool val) {
+    isLoading = val;
+    notifyListeners();
+  }
+
+  void setNotice(NoticeModel notice) {
+    currentNotice = notice;
+    isLoading = false;
+    notifyListeners();
+  }
+}
+
 class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
   final NoticeService _service = NoticeService();
-  late NoticeModel _currentNotice;
-  bool _isLoading = false;
+  late final _NoticeDetailData _data;
+
+  NoticeModel get _currentNotice => _data.currentNotice;
 
   @override
   void initState() {
     super.initState();
-    _currentNotice = widget.notice;
+    _data = _NoticeDetailData(widget.notice);
+  }
+
+  @override
+  void dispose() {
+    _data.dispose();
+    super.dispose();
   }
 
   TenantPathResolver _getResolver() {
@@ -67,74 +92,80 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     final updaterUid = user?.uid ?? '';
     final updaterName = user?.displayName ?? 'Staff';
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text(
-          'Notice Details',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.text,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Edit Notice',
-            onPressed: () {
-              Get.toNamed(
-                AppRoutes.noticeEditor,
-                arguments: _currentNotice,
-              )?.then((val) {
-                if (val is NoticeModel) {
-                  setState(() => _currentNotice = val);
-                }
-              });
-            },
+    return ChangeNotifierProvider<_NoticeDetailData>.value(
+      value: _data,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text(
+            'Notice Details',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
           ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (val) async {
-              if (val == 'publish') {
-                setState(() => _isLoading = true);
-                try {
-                  final updated = await _service.publishNotice(
-                    resolver: _getResolver(),
-                    notice: _currentNotice,
-                    updaterUid: updaterUid,
-                    updaterName: updaterName,
-                    fallbackTeacherId: widget.fallbackTeacherId,
-                  );
-                  setState(() => _currentNotice = updated);
-                } catch (_) {}
-                setState(() => _isLoading = false);
-              } else if (val == 'unpublish') {
-                setState(() => _isLoading = true);
-                try {
-                  final updated = await _service.unpublishNotice(
-                    resolver: _getResolver(),
-                    notice: _currentNotice,
-                    updaterUid: updaterUid,
-                    updaterName: updaterName,
-                    fallbackTeacherId: widget.fallbackTeacherId,
-                  );
-                  setState(() => _currentNotice = updated);
-                } catch (_) {}
-                setState(() => _isLoading = false);
-              } else if (val == 'archive') {
-                setState(() => _isLoading = true);
-                try {
-                  final updated = await _service.archiveNotice(
-                    resolver: _getResolver(),
-                    notice: _currentNotice,
-                    updaterUid: updaterUid,
-                    updaterName: updaterName,
-                    fallbackTeacherId: widget.fallbackTeacherId,
-                  );
-                  setState(() => _currentNotice = updated);
-                } catch (_) {}
-                setState(() => _isLoading = false);
-              } else if (val == 'delete') {
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.text,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit Notice',
+              onPressed: () {
+                Get.toNamed(
+                  AppRoutes.noticeEditor,
+                  arguments: _currentNotice,
+                )?.then((val) {
+                  if (val is NoticeModel) {
+                    _data.setNotice(val);
+                  }
+                });
+              },
+            ),
+            Consumer<_NoticeDetailData>(
+              builder: (_, data, __) => PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (val) async {
+                  if (val == 'publish') {
+                    _data.setLoading(true);
+                    try {
+                      final updated = await _service.publishNotice(
+                        resolver: _getResolver(),
+                        notice: _currentNotice,
+                        updaterUid: updaterUid,
+                        updaterName: updaterName,
+                        fallbackTeacherId: widget.fallbackTeacherId,
+                      );
+                      _data.setNotice(updated);
+                    } catch (_) {
+                      _data.setLoading(false);
+                    }
+                  } else if (val == 'unpublish') {
+                    _data.setLoading(true);
+                    try {
+                      final updated = await _service.unpublishNotice(
+                        resolver: _getResolver(),
+                        notice: _currentNotice,
+                        updaterUid: updaterUid,
+                        updaterName: updaterName,
+                        fallbackTeacherId: widget.fallbackTeacherId,
+                      );
+                      _data.setNotice(updated);
+                    } catch (_) {
+                      _data.setLoading(false);
+                    }
+                  } else if (val == 'archive') {
+                    _data.setLoading(true);
+                    try {
+                      final updated = await _service.archiveNotice(
+                        resolver: _getResolver(),
+                        notice: _currentNotice,
+                        updaterUid: updaterUid,
+                        updaterName: updaterName,
+                        fallbackTeacherId: widget.fallbackTeacherId,
+                      );
+                      _data.setNotice(updated);
+                    } catch (_) {
+                      _data.setLoading(false);
+                    }
+                  } else if (val == 'delete') {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
@@ -193,12 +224,14 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+              ),
+            ),
+          ],
+        ),
+        body: Consumer<_NoticeDetailData>(
+          builder: (_, data, __) => data.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -303,6 +336,8 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                 ],
               ),
             ),
+        ),
+      ),
     );
   }
 

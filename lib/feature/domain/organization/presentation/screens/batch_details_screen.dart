@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 import 'package:test_nest/core/services/batch_assignment_service.dart';
 import 'package:test_nest/core/services/organization_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
@@ -25,13 +26,26 @@ class BatchDetailsScreen extends StatefulWidget {
   State<BatchDetailsScreen> createState() => _BatchDetailsScreenState();
 }
 
+class _BatchDetailsData extends ChangeNotifier {
+  BatchModel currentBatch;
+
+  _BatchDetailsData(this.currentBatch);
+
+  void updateBatch(BatchModel batch) {
+    currentBatch = batch;
+    notifyListeners();
+  }
+}
+
 class _BatchDetailsScreenState extends State<BatchDetailsScreen>
     with SingleTickerProviderStateMixin {
   final OrganizationService _orgService = OrganizationService();
   final BatchAssignmentService _assignmentService = BatchAssignmentService();
 
   late TabController _tabController;
-  late BatchModel _currentBatch;
+  late final _BatchDetailsData _data;
+
+  BatchModel get _currentBatch => _data.currentBatch;
 
   static const Color _ink = Color(0xFF0F172A);
   static const Color _muted = Color(0xFF64748B);
@@ -41,44 +55,52 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen>
   @override
   void initState() {
     super.initState();
-    _currentBatch = widget.batch;
+    _data = _BatchDetailsData(widget.batch);
     _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _data.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          _currentBatch.name,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+    return ChangeNotifierProvider<_BatchDetailsData>.value(
+      value: _data,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Selector<_BatchDetailsData, String>(
+            selector: (_, d) => d.currentBatch.name,
+            builder: (_, name, __) => Text(
+              name,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+            ),
+          ),
+          backgroundColor: _surface,
+          foregroundColor: _ink,
+          elevation: 0,
+          actions: [
+            IconButton(
+              tooltip: 'Edit Batch',
+              icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+              onPressed: _showEditBatchDialog,
+            ),
+            IconButton(
+              tooltip: 'Delete Batch',
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+              onPressed: _confirmDeleteBatch,
+            ),
+          ],
         ),
-        backgroundColor: _surface,
-        foregroundColor: _ink,
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Edit Batch',
-            icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
-            onPressed: _showEditBatchDialog,
-          ),
-          IconButton(
-            tooltip: 'Delete Batch',
-            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-            onPressed: _confirmDeleteBatch,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildBatchInfoCard(),
+        body: Column(
+          children: [
+            Consumer<_BatchDetailsData>(
+              builder: (_, __, ___) => _buildBatchInfoCard(),
+            ),
           Container(
             color: _surface,
             child: TabBar(
@@ -102,13 +124,18 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildAssignedTeachersTab(),
-                _buildEnrolledStudentsTab(),
+                Consumer<_BatchDetailsData>(
+                  builder: (_, __, ___) => _buildAssignedTeachersTab(),
+                ),
+                Consumer<_BatchDetailsData>(
+                  builder: (_, __, ___) => _buildEnrolledStudentsTab(),
+                ),
               ],
             ),
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -742,13 +769,13 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen>
         batchId: _currentBatch.id,
         teacherUid: teacher.uid,
       );
-      setState(() {
-        final currentList = List<String>.from(_currentBatch.assignedTeacherIds);
-        if (!currentList.contains(teacher.uid)) {
-          currentList.add(teacher.uid);
-        }
-        _currentBatch = _currentBatch.copyWith(assignedTeacherIds: currentList);
-      });
+      final currentList = List<String>.from(_currentBatch.assignedTeacherIds);
+      if (!currentList.contains(teacher.uid)) {
+        currentList.add(teacher.uid);
+      }
+      _data.updateBatch(
+        _currentBatch.copyWith(assignedTeacherIds: currentList),
+      );
       CustomSnackbar.showSuccess(
         context: context,
         title: 'Teacher Assigned',
@@ -787,15 +814,13 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen>
                   batchId: _currentBatch.id,
                   teacherUid: teacher.uid,
                 );
-                setState(() {
-                  final currentList = List<String>.from(
-                    _currentBatch.assignedTeacherIds,
-                  );
-                  currentList.remove(teacher.uid);
-                  _currentBatch = _currentBatch.copyWith(
-                    assignedTeacherIds: currentList,
-                  );
-                });
+                final currentList = List<String>.from(
+                  _currentBatch.assignedTeacherIds,
+                );
+                currentList.remove(teacher.uid);
+                _data.updateBatch(
+                  _currentBatch.copyWith(assignedTeacherIds: currentList),
+                );
                 CustomSnackbar.showSuccess(
                   context: context,
                   title: 'Removed',
@@ -916,11 +941,9 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen>
         studentName: student.name,
         studentEmail: student.email,
       );
-      setState(() {
-        _currentBatch = _currentBatch.copyWith(
-          studentCount: _currentBatch.studentCount + 1,
-        );
-      });
+      _data.updateBatch(
+        _currentBatch.copyWith(studentCount: _currentBatch.studentCount + 1),
+      );
       CustomSnackbar.showSuccess(
         context: context,
         title: 'Student Enrolled',
@@ -959,14 +982,14 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen>
                   batchId: _currentBatch.id,
                   studentUid: student.studentUid,
                 );
-                setState(() {
-                  _currentBatch = _currentBatch.copyWith(
+                _data.updateBatch(
+                  _currentBatch.copyWith(
                     studentCount: (_currentBatch.studentCount - 1).clamp(
                       0,
                       9999,
                     ),
-                  );
-                });
+                  ),
+                );
                 CustomSnackbar.showSuccess(
                   context: context,
                   title: 'Student Removed',
@@ -1068,11 +1091,11 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen>
         studentEmail: student.studentEmail,
         studentPhone: student.studentPhone ?? '',
       );
-      setState(() {
-        _currentBatch = _currentBatch.copyWith(
+      _data.updateBatch(
+        _currentBatch.copyWith(
           studentCount: (_currentBatch.studentCount - 1).clamp(0, 9999),
-        );
-      });
+        ),
+      );
       CustomSnackbar.showSuccess(
         context: context,
         title: 'Transferred',
@@ -1184,15 +1207,15 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen>
                     monthlyFee: newFee,
                     feeTrackingEnabled: feeEnabled,
                   );
-                  setState(() {
-                    _currentBatch = _currentBatch.copyWith(
+                  _data.updateBatch(
+                    _currentBatch.copyWith(
                       name: newName,
                       subject: subjectCtrl.text.trim(),
                       schedule: scheduleCtrl.text.trim(),
                       description: descCtrl.text.trim(),
                       monthlyFee: newFee,
-                    );
-                  });
+                    ),
+                  );
                   CustomSnackbar.showSuccess(
                     context: context,
                     title: 'Batch Updated',

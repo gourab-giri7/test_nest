@@ -1,8 +1,56 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:test_nest/core/services/batch_assignment_service.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:test_nest/model/batch_model.dart';
 import 'package:test_nest/model/organization_model.dart';
+
+class _BatchTeacherAssignmentData extends ChangeNotifier {
+  BatchModel currentBatch;
+  List<OrganizationMemberModel> allMembers = [];
+  bool isLoading = true;
+  String searchQuery = '';
+
+  _BatchTeacherAssignmentData(this.currentBatch);
+
+  List<OrganizationMemberModel> get assigned => allMembers
+      .where((m) => currentBatch.assignedTeacherIds.contains(m.uid))
+      .toList();
+
+  List<OrganizationMemberModel> get unassigned => allMembers
+      .where((m) => !currentBatch.assignedTeacherIds.contains(m.uid))
+      .where((m) {
+        final q = searchQuery.toLowerCase();
+        return m.name.toLowerCase().contains(q) ||
+            m.email.toLowerCase().contains(q);
+      })
+      .toList();
+
+  void setLoading(bool val) {
+    isLoading = val;
+    notifyListeners();
+  }
+
+  void setData({
+    BatchModel? batch,
+    List<OrganizationMemberModel>? members,
+  }) {
+    if (batch != null) currentBatch = batch;
+    if (members != null) allMembers = members;
+    isLoading = false;
+    notifyListeners();
+  }
+
+  void updateBatch(BatchModel batch) {
+    currentBatch = batch;
+    notifyListeners();
+  }
+
+  void setSearchQuery(String query) {
+    searchQuery = query;
+    notifyListeners();
+  }
+}
 
 class BatchTeacherAssignmentScreen extends StatefulWidget {
   final String orgId;
@@ -23,51 +71,42 @@ class _BatchTeacherAssignmentScreenState
     extends State<BatchTeacherAssignmentScreen> {
   final BatchAssignmentService _assignmentService = BatchAssignmentService();
   final TextEditingController _searchController = TextEditingController();
+  late final _BatchTeacherAssignmentData _data;
 
-  late BatchModel _currentBatch;
-  List<OrganizationMemberModel> _allMembers = [];
-  bool _isLoading = true;
-  String _searchQuery = '';
+  BatchModel get _currentBatch => _data.currentBatch;
 
   @override
   void initState() {
     super.initState();
-    _currentBatch = widget.batch;
+    _data = _BatchTeacherAssignmentData(widget.batch);
     _loadData();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _data.dispose();
     super.dispose();
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    _data.setLoading(true);
     try {
       final updatedBatch = await _assignmentService.getBatch(
         widget.orgId,
         _currentBatch.id,
       );
-      if (updatedBatch != null) {
-        _currentBatch = updatedBatch;
-      }
 
       final membersStream = _assignmentService.streamOrganizationTeachers(
         widget.orgId,
       );
       final members = await membersStream.first;
       if (mounted) {
-        setState(() {
-          _allMembers = members;
-          _isLoading = false;
-        });
+        _data.setData(batch: updatedBatch, members: members);
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        _data.setLoading(false);
       }
     }
   }
@@ -82,9 +121,7 @@ class _BatchTeacherAssignmentScreenState
 
       final updatedIds = List<String>.from(_currentBatch.assignedTeacherIds)
         ..add(member.uid);
-      setState(() {
-        _currentBatch = _currentBatch.copyWith(assignedTeacherIds: updatedIds);
-      });
+      _data.updateBatch(_currentBatch.copyWith(assignedTeacherIds: updatedIds));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -143,11 +180,9 @@ class _BatchTeacherAssignmentScreenState
 
         final updatedIds = List<String>.from(_currentBatch.assignedTeacherIds)
           ..remove(member.uid);
-        setState(() {
-          _currentBatch = _currentBatch.copyWith(
-            assignedTeacherIds: updatedIds,
-          );
-        });
+        _data.updateBatch(
+          _currentBatch.copyWith(assignedTeacherIds: updatedIds),
+        );
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -174,39 +209,34 @@ class _BatchTeacherAssignmentScreenState
 
   @override
   Widget build(BuildContext context) {
-    final assigned = _allMembers
-        .where((m) => _currentBatch.assignedTeacherIds.contains(m.uid))
-        .toList();
-
-    final unassigned = _allMembers
-        .where((m) => !_currentBatch.assignedTeacherIds.contains(m.uid))
-        .where((m) {
-          final q = _searchQuery.toLowerCase();
-          return m.name.toLowerCase().contains(q) ||
-              m.email.toLowerCase().contains(q);
-        })
-        .toList();
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          'Assign Teachers: ${_currentBatch.name}',
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+    return ChangeNotifierProvider<_BatchTeacherAssignmentData>.value(
+      value: _data,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Selector<_BatchTeacherAssignmentData, String>(
+            selector: (_, d) => d.currentBatch.name,
+            builder: (_, name, __) => Text(
+              'Assign Teachers: $name',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+            ),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF0F172A),
         ),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0F172A),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // Batch Information Card
-                  Card(
+        body: Selector<_BatchTeacherAssignmentData, bool>(
+          selector: (_, d) => d.isLoading,
+          builder: (_, isLoading, __) => isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // Batch Information Card
+                      Consumer<_BatchTeacherAssignmentData>(
+                        builder: (_, d, __) => Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -267,27 +297,34 @@ class _BatchTeacherAssignmentScreenState
                       ),
                     ),
                   ),
+                ),
                   const SizedBox(height: 20),
 
                   // Section 1: Assigned Teachers
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.supervised_user_circle,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Assigned Teachers (${assigned.length})',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                    ],
-                  ),
+                  Consumer<_BatchTeacherAssignmentData>(
+                    builder: (_, d, __) {
+                      final assigned = d.assigned;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.supervised_user_circle,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Assigned Teachers (${assigned.length})',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
                   const SizedBox(height: 10),
 
                   if (assigned.isEmpty)
@@ -365,6 +402,10 @@ class _BatchTeacherAssignmentScreenState
                         ),
                       );
                     }),
+                        ],
+                      );
+                    },
+                  ),
 
                   const SizedBox(height: 24),
 
@@ -377,12 +418,15 @@ class _BatchTeacherAssignmentScreenState
                         size: 20,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Available Institute Teachers (${unassigned.length})',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
+                      Selector<_BatchTeacherAssignmentData, int>(
+                        selector: (_, d) => d.unassigned.length,
+                        builder: (_, count, __) => Text(
+                          'Available Institute Teachers ($count)',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
                         ),
                       ),
                     ],
@@ -410,26 +454,28 @@ class _BatchTeacherAssignmentScreenState
                         borderSide: BorderSide(color: Colors.grey.shade300),
                       ),
                     ),
-                    onChanged: (val) {
-                      setState(() => _searchQuery = val);
-                    },
+                    onChanged: (val) => _data.setSearchQuery(val),
                   ),
                   const SizedBox(height: 10),
 
-                  if (unassigned.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Center(
-                        child: Text(
-                          _searchQuery.isEmpty
-                              ? 'All institute teachers are already assigned to this batch.'
-                              : 'No matching teachers found.',
-                          style: TextStyle(color: Colors.grey.shade600),
-                        ),
-                      ),
-                    )
-                  else
-                    ...unassigned.map((teacher) {
+                  Consumer<_BatchTeacherAssignmentData>(
+                    builder: (_, d, __) {
+                      final unassigned = d.unassigned;
+                      if (unassigned.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Center(
+                            child: Text(
+                              d.searchQuery.isEmpty
+                                  ? 'All institute teachers are already assigned to this batch.'
+                                  : 'No matching teachers found.',
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                          ),
+                        );
+                      }
+                      return Column(
+                        children: unassigned.map((teacher) {
                       return Card(
                         elevation: 0,
                         margin: const EdgeInsets.only(bottom: 8),
@@ -477,10 +523,15 @@ class _BatchTeacherAssignmentScreenState
                           ),
                         ),
                       );
-                    }),
+                    }).toList(),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
+        ),
+      ),
     );
   }
 }

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
+import 'package:test_nest/core/context/active_tenant_context.dart';
 import 'package:test_nest/core/utils/theme/theme.dart';
 import 'package:intl/intl.dart';
 import 'package:test_nest/feature/domain/teacher/data/models/student_model.dart';
@@ -35,23 +37,50 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final teacherId = teacherData?.id.trim();
-    if (teacherId == null || teacherId.isEmpty) {
+    ActiveTenantContext? tenantCtx;
+    try {
+      tenantCtx = context.watch<ActiveTenantContext>();
+    } catch (_) {}
+
+    final orgId = (widget.exam.orgId != null && widget.exam.orgId!.isNotEmpty)
+        ? widget.exam.orgId!
+        : (tenantCtx?.activeOrgId ?? '');
+    final isInstitute =
+        (tenantCtx?.isInstitute == true ||
+            (widget.exam.orgId != null && widget.exam.orgId!.isNotEmpty)) &&
+        orgId.isNotEmpty;
+
+    final effectiveTeacherId = widget.exam.teacherId.trim().isNotEmpty
+        ? widget.exam.teacherId.trim()
+        : (teacherData?.id.trim() ?? '');
+
+    if (!isInstitute && effectiveTeacherId.isEmpty) {
       return const Scaffold(
         body: Center(child: Text('Teacher session not found')),
       );
     }
 
-    final examRef = FirebaseFirestore.instance
-        .collection('user')
-        .doc(teacherId)
-        .collection('exams')
-        .doc(widget.exam.examId);
+    final examRef = isInstitute
+        ? FirebaseFirestore.instance
+            .collection('organizations')
+            .doc(orgId)
+            .collection('exams')
+            .doc(widget.exam.examId)
+        : FirebaseFirestore.instance
+            .collection('user')
+            .doc(effectiveTeacherId)
+            .collection('exams')
+            .doc(widget.exam.examId);
 
-    final studentsRef = FirebaseFirestore.instance
-        .collection('user')
-        .doc(teacherId)
-        .collection('students');
+    final studentsRef = isInstitute
+        ? FirebaseFirestore.instance
+            .collection('organizations')
+            .doc(orgId)
+            .collection('students')
+        : FirebaseFirestore.instance
+            .collection('user')
+            .doc(effectiveTeacherId)
+            .collection('students');
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -348,6 +377,20 @@ class _TeacherExamDetailsScreenState extends State<TeacherExamDetailsScreen>
                   try {
                     await ref.update(updatePayload);
                   } catch (_) {}
+
+                  final examTeacherId = e.teacherId.trim().isNotEmpty
+                      ? e.teacherId.trim()
+                      : (teacherData?.id.trim() ?? '');
+                  if (examTeacherId.isNotEmpty) {
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('user')
+                          .doc(examTeacherId)
+                          .collection('exams')
+                          .doc(e.examId)
+                          .update(updatePayload);
+                    } catch (_) {}
+                  }
 
                   final effectiveOrgId = e.orgId ?? widget.exam.orgId;
 
